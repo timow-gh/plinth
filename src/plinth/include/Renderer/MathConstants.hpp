@@ -1,0 +1,16 @@
+#ifndef RENDERER_MATHCONSTANTS_HPP
+#define RENDERER_MATHCONSTANTS_HPP
+
+namespace renderer {
+
+constexpr double PI = 3.1415926535897932384626433832795028841971693993751058209749445923;
+constexpr double PI_2 = 6.2831853071795864769252867665590057683943387987502116419498891846;
+constexpr double PI_HALF = 1.5707963267948966192313216916397514420985846996875529104874722961;
+
+constexpr float PI_F{static_cast<float>(PI)};
+constexpr float PI_2_F{static_cast<float>(PI_2)};
+constexpr float PI_HALF_F{static_cast<float>(PI_HALF)};
+
+} // namespace renderer
+
+#endif // RENDERER_MATHCONSTANTS_HPP

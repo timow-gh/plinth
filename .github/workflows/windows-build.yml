@@ -1,0 +1,85 @@
+name: Windows Build
+
+on:
+  push:
+    branches: [main, 'develop-**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  windows-build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        build_type: [debug, release]
+        exclude:
+          # For develop-* branches, run only msvc+debug
+          - build_type: ${{ startsWith(github.ref, 'refs/heads/develop-') && 'release' || '_no_match_' }}
+    name: Build - msvc - ${{ matrix.build_type }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set VCPKG_ROOT
+        run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
+        shell: pwsh
+      
+      - name: Setup MSVC
+        uses: microsoft/setup-msbuild@v2
+      
+      - name: Configure
+        run: |
+          cmake --preset conf-msvc-${{ matrix.build_type }} -DBUILD_SHARED_LIBS=ON
+        shell: pwsh
+      
+      - name: Build
+        run: |
+          cmake --build --preset build-msvc-${{ matrix.build_type }}
+        shell: pwsh
+      
+      - name: Install Mesa3D (software OpenGL for headless tests)
+        # windows-latest runners have no GPU. The system opengl32.dll in
+        # System32 only implements OpenGL 1.1, so glfwCreateWindow fails when
+        # asked for a 3.3 Core Profile context.
+        #
+        # Mesa3D ships a drop-in opengl32.dll backed by LLVMpipe (a CPU
+        # software renderer that supports OpenGL 4.5).  opengl32.dll is NOT a
+        # Windows KnownDLL, so it is resolved via the normal DLL search order:
+        # the executable's own directory is searched before System32.  Copying
+        # Mesa's opengl32.dll alongside each test .exe is therefore enough to
+        # make Windows load Mesa instead of the system stub, giving GLFW a
+        # working OpenGL 3.3 Core Profile context on the CPU.
+        run: |
+          $MesaVersion = "24.3.4"
+          $MesaAsset = "mesa3d-${MesaVersion}-release-msvc.7z"
+          $MesaUrl = "https://github.com/pal1000/mesa-dist-win/releases/download/${MesaVersion}/${MesaAsset}"
+          Invoke-WebRequest -Uri $MesaUrl -OutFile $MesaAsset
+          7z x $MesaAsset -oMesa -y
+          # Copy ALL Mesa x64 DLLs next to every test executable.
+          # Mesa 21+ splits the driver: opengl32.dll is only an ICD loader;
+          # the actual LLVMpipe implementation lives in libgallium_wgl.dll
+          # (and related DLLs).  All of them must be co-located with the
+          # executable for Mesa to initialise successfully.
+          Get-ChildItem -Path "out/build/conf-msvc-${{ matrix.build_type }}" `
+            -Filter "*.exe" -Recurse |
+            Select-Object -ExpandProperty DirectoryName -Unique |
+            ForEach-Object { Copy-Item "Mesa\x64\*.dll" "$_\" -Force }
+        shell: pwsh
+      
+      - name: Test
+        run: |
+          ctest --preset test-msvc-${{ matrix.build_type }}
+        shell: pwsh
+  
+  windows-build-summary:
+    runs-on: ubuntu-latest
+    needs: windows-build
+    if: always()
+    steps:
+      - name: Check build status
+        run: |
+          if [ "${{ needs.windows-build.result }}" != "success" ]; then
+            echo "Windows build failed"
+            exit 1
+          fi
+          echo "All Windows builds passed"

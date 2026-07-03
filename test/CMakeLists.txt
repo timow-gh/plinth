@@ -1,0 +1,2 @@
+add_subdirectory(TestInstall)
+add_subdirectory(TestRenderer)

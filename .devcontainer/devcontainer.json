@@ -1,0 +1,35 @@
+{
+    "name": "geoqik",
+    "build": {
+        "context": "../docker",
+        "dockerfile": "../docker/Dockerfile"
+    },
+
+    // Persist vcpkg binary cache and CPM source cache across rebuilds
+    "mounts": [
+        "source=geoqik-vcpkg-binary-cache,target=/cache/vcpkg-binary,type=volume",
+        "source=geoqik-cpm-source-cache,target=/cache/cpm,type=volume"
+    ],
+
+    // VS Code extensions installed inside the container
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cmake-tools",
+                "ms-vscode.cpptools",
+                "ms-vscode.cpptools-extension-pack",
+                "llvm-vs-code-extensions.vscode-clangd"
+            ],
+            "settings": {
+                "cmake.cmakePath": "cmake",
+                "cmake.generator": "Ninja",
+                "C_Cpp.intelliSenseEngine": "disabled",
+                "clangd.path": "clangd-20"
+            }
+        }
+    },
+
+    "remoteUser": "root",
+    "workspaceFolder": "/workspace",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind"
+}

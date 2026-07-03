@@ -1,0 +1,2 @@
+# Suppress known false positives inside Mesa's libgallium (llvmpipe software renderer).
+race:libgallium

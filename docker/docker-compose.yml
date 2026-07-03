@@ -1,0 +1,52 @@
+services:
+  # ── GCC 14 build ──────────────────────────────────────────────────────────
+  gcc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: geoqik-build-env
+    volumes:
+      # Source code
+      - ..:/workspace
+      # Persist vcpkg compiled binaries across runs
+      - vcpkg-binary-cache:/cache/vcpkg-binary
+      # Persist CPM-downloaded sources across runs
+      - cpm-source-cache:/cache/cpm
+    working_dir: /workspace
+    # Example: cmake --workflow --preset workflow-test-gcc-debug
+    command: >
+      bash -c "cmake --workflow --preset workflow-test-gcc-debug"
+
+  # ── Clang 20 build ────────────────────────────────────────────────────────
+  clang:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: geoqik-build-env
+    volumes:
+      - ..:/workspace
+      - vcpkg-binary-cache:/cache/vcpkg-binary
+      - cpm-source-cache:/cache/cpm
+    working_dir: /workspace
+    # Example: cmake --workflow --preset workflow-test-clang-debug
+    command: >
+      bash -c "cmake --workflow --preset workflow-test-clang-debug"
+
+  # ── Interactive shell ──────────────────────────────────────────────────────
+  shell:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: geoqik-build-env
+    volumes:
+      - ..:/workspace
+      - vcpkg-binary-cache:/cache/vcpkg-binary
+      - cpm-source-cache:/cache/cpm
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    entrypoint: /bin/bash
+
+volumes:
+  vcpkg-binary-cache:
+  cpm-source-cache:

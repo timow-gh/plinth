@@ -1,0 +1,32 @@
+#ifndef OPENGL_BUFFERACCESSPATTERN_HPP
+#define OPENGL_BUFFERACCESSPATTERN_HPP
+
+#include "OpenGL/OpenGL.hpp"
+
+namespace opengl {
+
+enum class BufferAccessPattern {
+    READ_ONLY = GL_READ_ONLY,
+    WRITE_ONLY = GL_WRITE_ONLY,
+    READ_WRITE = GL_READ_WRITE,
+    BUFFER_ACCESS = GL_BUFFER_ACCESS,
+    BUFFER_MAPPED = GL_BUFFER_MAPPED,
+    BUFFER_MAP_POINTER = GL_BUFFER_MAP_POINTER,
+    STREAM_DRAW = GL_STREAM_DRAW,
+    STREAM_READ = GL_STREAM_READ,
+    STREAM_COPY = GL_STREAM_COPY,
+    STATIC_DRAW = GL_STATIC_DRAW,
+    STATIC_READ = GL_STATIC_READ,
+    STATIC_COPY = GL_STATIC_COPY,
+    DYNAMIC_DRAW = GL_DYNAMIC_DRAW,
+    DYNAMIC_READ = GL_DYNAMIC_READ,
+    DYNAMIC_COPY = GL_DYNAMIC_COPY
+};
+
+constexpr auto get_enum_value(BufferAccessPattern accessPattern) {
+    return static_cast<unsigned int>(accessPattern);
+}
+
+} // namespace opengl
+
+#endif // OPENGL_BUFFERACCESSPATTERN_HPP

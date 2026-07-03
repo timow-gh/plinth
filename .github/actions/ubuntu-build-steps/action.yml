@@ -1,0 +1,73 @@
+name: 'Ubuntu CMake Workflow'
+description: 'Run a CMake workflow preset for Ubuntu builds'
+inputs:
+  cmake_workflow:
+    description: 'The cmake workflow to use.'
+    required: true
+  install_tools:
+    description: 'Additional tools to install (space-separated list: lcov, clang-tidy, cppcheck)'
+    required: false
+    default: ''
+  build_native_args:
+    description: 'Additional native build-tool arguments passed after cmake --build --'
+    required: false
+    default: ''
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set VCPKG_ROOT
+      run: echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> $GITHUB_ENV
+      shell: bash
+    
+    - name: Install build tools
+      run: |
+        sudo apt-get update
+        # gcc-14/g++-14 and clang-20/clang++-20: compilers used by the presets.
+        # libclang-rt-20-dev: clang sanitizer runtime (ASan/TSan/UBSan)
+        # ninja-build: fast build backend used by the CMake presets
+        # uuid-dev: required by the stduuid dependency
+        # libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev: X11 headers needed to build GLFW
+        # libgl-dev: OpenGL headers; the system Mesa (llvmpipe) provides the runtime
+        # xvfb: X Virtual Framebuffer — GitHub Actions runners have no display server.
+        #   GeoQik uses GLFW which calls XOpenDisplay() at glfwInit() time; without a
+        #   display that call fails and every test that opens a window aborts immediately.
+        #   xvfb-run (see Test step) starts a temporary in-process display so glfwInit()
+        #   and glfwCreateWindow() succeed against the system Mesa/llvmpipe renderer.
+        sudo apt-get install -y gcc-14 g++-14 clang-20 libclang-rt-20-dev ninja-build uuid-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev xvfb ${{ inputs.install_tools }}
+      shell: bash
+    
+    - name: Extract preset names
+      id: preset
+      run: |
+        WORKFLOW_NAME="${{ inputs.cmake_workflow }}"
+        # Extract compiler and build type from workflow name
+        # workflow-test-gcc-release -> conf-gcc-release
+        BASE_NAME="${WORKFLOW_NAME#workflow-test-}"
+        echo "configure=conf-${BASE_NAME}" >> $GITHUB_OUTPUT
+        echo "build=build-${BASE_NAME}" >> $GITHUB_OUTPUT
+        echo "test=test-${BASE_NAME}" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Configure
+      run: |
+        cmake --preset ${{ steps.preset.outputs.configure }} -DBUILD_SHARED_LIBS=ON
+      shell: bash
+    
+    - name: Build
+      run: |
+        if [ -n "${{ inputs.build_native_args }}" ]; then
+          cmake --build --preset ${{ steps.preset.outputs.build }} -- ${{ inputs.build_native_args }}
+        else
+          cmake --build --preset ${{ steps.preset.outputs.build }}
+        fi
+      shell: bash
+    
+    - name: Test
+      run: |
+        # xvfb-run starts a throwaway X server for the duration of ctest so that
+        # GLFW can open an OpenGL window (rendered in software by Mesa/llvmpipe).
+        # --auto-servernum selects a free display number automatically, which avoids
+        # conflicts when multiple matrix jobs run on the same host.
+        xvfb-run --auto-servernum ctest --preset ${{ steps.preset.outputs.test }}
+      shell: bash

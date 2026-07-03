@@ -10,7 +10,7 @@
 #include "OpenGL/VertexArray.hpp"
 #include "OpenGL/VertexBuffer.hpp"
 #include "OpenGL/opengl_export.h"
-#include <Renderer/Warnings.hpp>
+#include <plinth/Warnings.hpp>
 #include <cstdint>
 #include <linal/hmat.hpp>
 #include <span>

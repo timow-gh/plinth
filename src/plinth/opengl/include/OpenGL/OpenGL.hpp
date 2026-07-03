@@ -2,7 +2,7 @@
 #define OPENGL_OPENGL_HPP
 
 #include <OpenGL/opengl_export.h>
-#include <Renderer/DLLWarnings.hpp>
+#include <plinth/DLLWarnings.hpp>
 #include <glad/glad.h>
 #include <string_view>
 

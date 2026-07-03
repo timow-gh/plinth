@@ -5,7 +5,7 @@
 #include "OpenGL/Location.hpp"
 #include "OpenGL/Programs/ProgramId.hpp"
 #include "OpenGL/opengl_export.h"
-#include <Renderer/DLLWarnings.hpp>
+#include <plinth/DLLWarnings.hpp>
 #include <string_view>
 
 namespace opengl {

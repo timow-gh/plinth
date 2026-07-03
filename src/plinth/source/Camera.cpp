@@ -1,6 +1,6 @@
-#include <Renderer/Assert.hpp>
-#include <Renderer/Camera.hpp>
-#include <Renderer/PickRay.hpp>
+#include <plinth/Assert.hpp>
+#include <plinth/Camera.hpp>
+#include <plinth/PickRay.hpp>
 #include <cmath>
 #include <glm/ext/vector_double3.hpp>
 #include <glm/geometric.hpp>

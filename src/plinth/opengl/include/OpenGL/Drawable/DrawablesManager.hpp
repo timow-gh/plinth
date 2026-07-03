@@ -13,7 +13,6 @@
 #include <linal/vec.hpp>
 #include <numeric>
 #include <optional>
-#include <stdexcept>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -165,27 +164,27 @@ class DrawablesManager {
         m_lineDrawables.emplace_back(DrawableEntry<opengl::LineDrawable>{id, std::move(drawable)});
         return id;
     }
-    DrawableId add_point_drawable(std::span<const float> vertices,
-                                  std::span<const float> colors,
-                                  std::span<const std::uint32_t> indices,
-                                  float pointSize,
-                                  opengl::BufferAccessPattern accessPattern) {
+    std::optional<DrawableId> add_point_drawable(std::span<const float> vertices,
+                                                 std::span<const float> colors,
+                                                 std::span<const std::uint32_t> indices,
+                                                 float pointSize,
+                                                 opengl::BufferAccessPattern accessPattern) {
         auto drawable =
             opengl::make_point_drawable(get_point_program(), vertices, 3, colors, 4, indices, pointSize, accessPattern);
         if (!drawable.has_value()) {
-            throw std::runtime_error("Failed to create point drawable");
+            return std::nullopt;
         }
 
         return add_point_drawable(std::move(drawable.value()));
     }
 
-    DrawableId add_line_drawable(std::span<const float> vertices,
-                                 std::span<const std::uint32_t> indices,
-                                 std::span<const float> colors,
-                                 opengl::LineType lineType,
-                                 float lineWidth,
-                                 float pointSize,
-                                 opengl::BufferAccessPattern accessPattern) {
+    std::optional<DrawableId> add_line_drawable(std::span<const float> vertices,
+                                                std::span<const std::uint32_t> indices,
+                                                std::span<const float> colors,
+                                                opengl::LineType lineType,
+                                                float lineWidth,
+                                                float pointSize,
+                                                opengl::BufferAccessPattern accessPattern) {
         auto drawable = opengl::make_line_drawable(get_line_program(),
                                                    vertices,
                                                    3,
@@ -197,19 +196,19 @@ class DrawablesManager {
                                                    pointSize,
                                                    accessPattern);
         if (!drawable.has_value()) {
-            throw std::runtime_error("Failed to create line drawable");
+            return std::nullopt;
         }
 
         return add_line_drawable(std::move(drawable.value()));
     }
 
-    DrawableId add_mesh_drawable(std::span<const float> vertices,
-                                 std::int32_t vertexDimension,
-                                 std::span<const float> normals,
-                                 std::span<const float> colors,
-                                 std::int32_t colorDimension,
-                                 std::span<const std::uint32_t> triangleIndices,
-                                 opengl::BufferAccessPattern accessPattern) {
+    std::optional<DrawableId> add_mesh_drawable(std::span<const float> vertices,
+                                                std::int32_t vertexDimension,
+                                                std::span<const float> normals,
+                                                std::span<const float> colors,
+                                                std::int32_t colorDimension,
+                                                std::span<const std::uint32_t> triangleIndices,
+                                                opengl::BufferAccessPattern accessPattern) {
         auto drawable = opengl::make_mesh_soup(get_mesh_program(),
                                                vertices,
                                                vertexDimension,
@@ -219,7 +218,7 @@ class DrawablesManager {
                                                triangleIndices,
                                                accessPattern);
         if (!drawable.has_value()) {
-            throw std::runtime_error("Failed to create mesh drawable");
+            return std::nullopt;
         }
 
         const DrawableId id = next_drawable_id();
@@ -245,10 +244,10 @@ class DrawablesManager {
 
     void remove_mesh_drawable_cull_mode(DrawableId id) { m_meshCullModes.erase(id); }
 
-    DrawableId add_mesh_segment_drawable(std::span<const float> positions,
-                                         std::span<const std::uint32_t> indices,
-                                         std::span<const float> color,
-                                         float lineWidth) {
+    std::optional<DrawableId> add_mesh_segment_drawable(std::span<const float> positions,
+                                                        std::span<const std::uint32_t> indices,
+                                                        std::span<const float> color,
+                                                        float lineWidth) {
         // Expand single RGBA color to per-vertex colors.
         const std::size_t vertexCount = positions.size() / 3;
         std::vector<float> expandedColors;
@@ -272,7 +271,7 @@ class DrawablesManager {
                                                    1.0f,
                                                    opengl::BufferAccessPattern::STATIC_DRAW);
         if (!drawable.has_value()) {
-            throw std::runtime_error("Failed to create mesh segment overlay drawable");
+            return std::nullopt;
         }
 
         const DrawableId id = next_drawable_id();
@@ -282,7 +281,7 @@ class DrawablesManager {
 
     bool remove_mesh_segment_drawable(DrawableId id) { return remove_drawable_by_id(m_meshSegmentDrawables, id); }
 
-    DrawableId
+    std::optional<DrawableId>
     add_mesh_vertex_drawable(std::span<const float> positions, std::span<const float> color, float pointSize) {
         const std::size_t vertexCount = positions.size() / 3;
 
@@ -309,7 +308,7 @@ class DrawablesManager {
                                                     pointSize,
                                                     opengl::BufferAccessPattern::STATIC_DRAW);
         if (!drawable.has_value()) {
-            throw std::runtime_error("Failed to create mesh vertex overlay drawable");
+            return std::nullopt;
         }
 
         const DrawableId id = next_drawable_id();

@@ -1,5 +1,5 @@
 #include "GeoQikTestMatchers.hpp"
-#include <Renderer/Camera.hpp>
+#include <plinth/Camera.hpp>
 #include <cmath>
 #include <gtest/gtest.h>
 

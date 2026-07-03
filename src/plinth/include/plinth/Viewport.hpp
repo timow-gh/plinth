@@ -1,7 +1,7 @@
 #ifndef RENDERER_VIEWPORT_HPP
 #define RENDERER_VIEWPORT_HPP
 
-#include <Renderer/Assert.hpp>
+#include <plinth/Assert.hpp>
 #include <cstdint>
 
 namespace renderer {

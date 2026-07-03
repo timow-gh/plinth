@@ -1,5 +1,5 @@
 #include "OpenGL/Uniform.hpp"
-#include <Renderer/Assert.hpp>
+#include <plinth/Assert.hpp>
 #include <cstdlib>
 #include <print>
 

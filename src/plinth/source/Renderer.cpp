@@ -1,4 +1,4 @@
-#include <Renderer/Renderer.hpp>
+#include <plinth/Renderer.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -191,7 +191,10 @@ DrawableHandle Renderer::add_point_drawable(std::span<const float> vertices,
                                             float pointSize,
                                             opengl::BufferAccessPattern accessPattern) {
     const auto id = m_drawablesManager.add_point_drawable(vertices, colors, indices, pointSize, accessPattern);
-    return DrawableHandle{DrawableKind::point, id};
+    if (!id.has_value()) {
+        return DrawableHandle{};
+    }
+    return DrawableHandle{DrawableKind::point, *id};
 }
 
 DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
@@ -203,7 +206,10 @@ DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
                                            opengl::BufferAccessPattern accessPattern) {
     const auto id =
         m_drawablesManager.add_line_drawable(vertices, indices, colors, lineType, lineWidth, pointSize, accessPattern);
-    return DrawableHandle{DrawableKind::line, id};
+    if (!id.has_value()) {
+        return DrawableHandle{};
+    }
+    return DrawableHandle{DrawableKind::line, *id};
 }
 
 DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
@@ -213,7 +219,10 @@ DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
                                            opengl::BufferAccessPattern accessPattern) {
     const auto id =
         m_drawablesManager.add_mesh_drawable(vertices, 3, normals, colors, 4, triangleIndices, accessPattern);
-    return DrawableHandle{DrawableKind::mesh, id};
+    if (!id.has_value()) {
+        return DrawableHandle{};
+    }
+    return DrawableHandle{DrawableKind::mesh, *id};
 }
 
 DrawableHandle Renderer::add_mesh_segment_drawable(std::span<const float> positions,
@@ -221,13 +230,19 @@ DrawableHandle Renderer::add_mesh_segment_drawable(std::span<const float> positi
                                                    std::span<const float> color,
                                                    float lineWidth) {
     const auto id = m_drawablesManager.add_mesh_segment_drawable(positions, indices, color, lineWidth);
-    return DrawableHandle{DrawableKind::meshSegment, id};
+    if (!id.has_value()) {
+        return DrawableHandle{};
+    }
+    return DrawableHandle{DrawableKind::meshSegment, *id};
 }
 
 DrawableHandle
 Renderer::add_mesh_vertex_drawable(std::span<const float> positions, std::span<const float> color, float pointSize) {
     const auto id = m_drawablesManager.add_mesh_vertex_drawable(positions, color, pointSize);
-    return DrawableHandle{DrawableKind::meshVertex, id};
+    if (!id.has_value()) {
+        return DrawableHandle{};
+    }
+    return DrawableHandle{DrawableKind::meshVertex, *id};
 }
 
 void Renderer::set_mesh_drawable_cull_mode(DrawableHandle handle, opengl::MeshCullFaceMode mode) {

@@ -1,4 +1,4 @@
-#include <Renderer/CameraAutoFit.hpp>
+#include <plinth/CameraAutoFit.hpp>
 #include <array>
 #include <cstdint>
 #include <gtest/gtest.h>

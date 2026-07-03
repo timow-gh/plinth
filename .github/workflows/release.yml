@@ -75,7 +75,7 @@ jobs:
           tag_version="${{ steps.get_version.outputs.version }}"
           cmake_version="$(
             awk '
-              /^[[:space:]]*project[[:space:]]*\([[:space:]]*geoqik/ { in_project = 1 }
+              /^[[:space:]]*project[[:space:]]*\([[:space:]]*plinth/ { in_project = 1 }
               in_project && /VERSION/ {
                 for (i = 1; i <= NF; i++) {
                   if ($i == "VERSION") {
@@ -89,7 +89,7 @@ jobs:
           )"
 
           if [ -z "$cmake_version" ]; then
-            echo "Could not find project(geoqik VERSION ...) in CMakeLists.txt" >&2
+            echo "Could not find project(plinth VERSION ...) in CMakeLists.txt" >&2
             exit 1
           fi
 

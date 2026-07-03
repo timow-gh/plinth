@@ -1,5 +1,6 @@
-#include <Renderer/CameraInteractor.hpp>
+#include <plinth/CameraInteractor.hpp>
 #include <gtest/gtest.h>
+#include <cmath>
 
 namespace {
 
@@ -143,6 +144,25 @@ TEST(CameraInteractorTest, MiddleMouseDragPansCamera) {
     EXPECT_TRUE(interactor.get_was_blocking());
     EXPECT_NE(interactor.get_position(), initialPosition);
     EXPECT_NE(interactor.get_target(), initialTarget);
+}
+
+TEST(CameraInteractorTest, PanAsFirstCursorEventDoesNotMoveOrCorruptCamera) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    const linal::double3 initialPosition = interactor.get_position();
+
+    interactor.on_mouse_button(GLFW_MOUSE_BUTTON_MIDDLE, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_cursor_position(460.0, 300.0);
+
+    EXPECT_EQ(interactor.get_position(), initialPosition);
+    EXPECT_TRUE(std::isfinite(interactor.get_position()[0]));
+    EXPECT_TRUE(std::isfinite(interactor.get_position()[1]));
+    EXPECT_TRUE(std::isfinite(interactor.get_position()[2]));
+
+    interactor.on_cursor_position(520.0, 300.0);
+
+    EXPECT_NE(interactor.get_position(), initialPosition);
 }
 
 TEST(CameraInteractorTest, MiddleMouseDragPansOrthographicCamera) {

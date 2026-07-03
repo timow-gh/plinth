@@ -1,5 +1,5 @@
-#include <Renderer/Assert.hpp>
-#include <Renderer/GlfwWindow.hpp>
+#include <plinth/Assert.hpp>
+#include <plinth/GlfwWindow.hpp>
 #include <print>
 
 namespace renderer {

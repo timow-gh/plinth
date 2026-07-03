@@ -1,12 +1,13 @@
 param([string]$InstallPath)
 
-$target = Join-Path $InstallPath '\bin'
+$target = Join-Path $InstallPath 'bin'
 $machine = [EnvironmentVariableTarget]::Machine
 $pathVal = [Environment]::GetEnvironmentVariable('Path', $machine)
 
-if ($pathVal -notlike "*$target*") {
+$entries = $pathVal -split ';' | Where-Object { $_ -ne '' } | ForEach-Object { $_.TrimEnd('\') }
+if ($entries -notcontains $target.TrimEnd('\')) {
 [Environment]::SetEnvironmentVariable(
-    'Path', "$pathVal;$target", $machine)
+    'Path', ($pathVal.TrimEnd(';') + ';' + $target), $machine)
 
 # Broadcast WM_SETTINGCHANGE so the new PATH is picked up
 Add-Type -Name Win32 -Namespace Native -MemberDefinition @'

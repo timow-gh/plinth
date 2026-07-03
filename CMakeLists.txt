@@ -105,9 +105,9 @@ if (${PROJECT_NAME}_INSTALL)
     set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
     set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
     set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
-    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "C++ Project Template providing runtime and development components.")
-    set(CPACK_PACKAGE_VENDOR "Project Vendor") # Please update with actual vendor
-    set(CPACK_PACKAGE_CONTACT "contact@example.com") # Please update with actual contact
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "plinth: a C++ OpenGL rendering library (GLFW/glad/imgui).")
+    set(CPACK_PACKAGE_VENDOR "plinth project")
+    set(CPACK_PACKAGE_CONTACT "plinth project")
     set(CPACK_PACKAGE_FILENAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}-${CMAKE_SYSTEM_NAME}")
     # Removed global CPACK_RESOURCE_FILE_LICENSE, will be set per generator if needed or NSIS specific one.
 
@@ -142,10 +142,6 @@ if (${PROJECT_NAME}_INSTALL)
             set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_BINARY_DIR}/License")
             message(STATUS "NSIS: CPACK_RESOURCE_FILE_LICENSE is set to: ${CPACK_RESOURCE_FILE_LICENSE}")
 
-            set(CPACK_NSIS_INSTALLER_ICON_NAME "${CMAKE_CURRENT_SOURCE_DIR}/assets/icon.ico")
-            set(CPACK_NSIS_INSTALLER_MUI_ICON_NAME "${CMAKE_CURRENT_SOURCE_DIR}/assets/icon.ico")       
-            set(CPACK_NSIS_MUI_FINISHPAGE_RUN "bin\\\\example_executable.exe") 
-            set(CPACK_NSIS_CREATE_ICONS_EXTRA "CreateShortCut '$INSTDIR\\\\bin\\\\example_executable.exe' '$SMPROGRAMS\\\\${CPACK_PACKAGE_NAME}.lnk'")
             set(CPACK_NSIS_DISPLAY_NAME "${CPACK_PACKAGE_NAME} version ${CPACK_PACKAGE_VERSION}")
             set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64") # Or "$PROGRAMFILES" for 32-bit default
             set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)                
@@ -180,10 +176,7 @@ if (${PROJECT_NAME}_INSTALL)
             "SW_HIDE \\\" \\n")
             set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "${_REMOVE_FROM_PATH_CMD}")
 
-            set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
             set(CPACK_NSIS_CONTACT "${CPACK_PACKAGE_CONTACT}")
-            set(CPACK_NSIS_HELP_LINK "https://example.com")
-            set(CPACK_NSIS_URL_INFO_ABOUT "https://example.com")
         endif()
     endif()
 

@@ -1,5 +1,5 @@
 #include "OpenGL/VertexArray.hpp"
-#include <Renderer/Assert.hpp>
+#include <plinth/Assert.hpp>
 #include <utility>
 
 namespace opengl {

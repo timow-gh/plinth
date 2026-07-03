@@ -1,7 +1,7 @@
 #ifndef RENDERER_CAMERAAUTOFIT_HPP
 #define RENDERER_CAMERAAUTOFIT_HPP
 
-#include <Renderer/CameraProjectionType.hpp>
+#include <plinth/CameraProjectionType.hpp>
 #include <chrono>
 #include <linal/linal.hpp>
 #include <span>

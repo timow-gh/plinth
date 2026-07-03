@@ -1,4 +1,4 @@
-#include <Renderer/InputState.hpp>
+#include <plinth/InputState.hpp>
 #include <unordered_map>
 
 namespace renderer {

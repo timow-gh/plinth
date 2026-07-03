@@ -1,15 +1,16 @@
 #ifndef RENDERER_CAMERAINTERACTOR_HPP
 #define RENDERER_CAMERAINTERACTOR_HPP
 
-#include <Renderer/Camera.hpp>
-#include <Renderer/CameraAutoFit.hpp>
-#include <Renderer/CameraProjectionType.hpp>
-#include <Renderer/InputState.hpp>
-#include <Renderer/PickRay.hpp>
-#include <Renderer/Plane.hpp>
-#include <Renderer/RayPlaneIntersection.hpp>
-#include <Renderer/Warnings.hpp>
+#include <plinth/Camera.hpp>
+#include <plinth/CameraAutoFit.hpp>
+#include <plinth/CameraProjectionType.hpp>
+#include <plinth/InputState.hpp>
+#include <plinth/PickRay.hpp>
+#include <plinth/Plane.hpp>
+#include <plinth/RayPlaneIntersection.hpp>
+#include <plinth/Warnings.hpp>
 #include <algorithm>
+#include <cmath>
 RENDERER_DISABLE_ALL_WARNINGS
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/ext/quaternion_double.hpp>
@@ -228,8 +229,7 @@ class CameraInteractor : private CameraSettings {
     void on_cursor_position(double xpos, double ypos) {
         ypos = m_camera.get_viewport().get_height() - ypos;
 
-        if (m_prevXPos == std::numeric_limits<double>::quiet_NaN() ||
-            m_prevYPos == std::numeric_limits<double>::quiet_NaN()) {
+        if (std::isnan(m_prevXPos) || std::isnan(m_prevYPos)) {
             m_prevXPos = xpos;
             m_prevYPos = ypos;
             return;

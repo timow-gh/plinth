@@ -1,5 +1,5 @@
 #include <GLFW/glfw3.h>
-#include <Renderer/InputCaptureState.hpp>
+#include <plinth/InputCaptureState.hpp>
 #include <gtest/gtest.h>
 
 using namespace renderer;

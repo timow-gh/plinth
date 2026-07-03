@@ -1,4 +1,4 @@
-#include <Renderer/CameraAutoFit.hpp>
+#include <plinth/CameraAutoFit.hpp>
 #include <algorithm>
 #include <cmath>
 #include <limits>

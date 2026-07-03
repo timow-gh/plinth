@@ -1,6 +1,6 @@
 #include "OpenGL/VertexBuffer.hpp"
 #include "OpenGL/UpdateBuffer.hpp"
-#include <Renderer/Assert.hpp>
+#include <plinth/Assert.hpp>
 #include <utility>
 
 namespace opengl {

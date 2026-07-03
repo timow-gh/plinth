@@ -19,12 +19,12 @@ if (MSVC)
 endif()
 
 # Find the installed package
-find_package(geoqik CONFIG REQUIRED)
+find_package(plinth CONFIG REQUIRED)
 
 set(TARGET_NAME use_installdir)
 # Use the installed package
 add_executable(${TARGET_NAME} main.cpp)
-target_link_libraries(${TARGET_NAME} PRIVATE geoqik::geoqik)
+target_link_libraries(${TARGET_NAME} PRIVATE plinth::plinth)
 
 set_target_properties(${TARGET_NAME}
         PROPERTIES
@@ -72,8 +72,4 @@ else()
     install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
-add_executable(use_installdir_client client_main.cpp)
-target_compile_features(use_installdir_client PRIVATE cxx_std_23)
-target_link_libraries(use_installdir_client PRIVATE geoqik::client)
 
-install(TARGETS use_installdir_client RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

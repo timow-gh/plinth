@@ -1,8 +1,7 @@
 #ifndef BUFFER_HPP
 #define BUFFER_HPP
 
-#include <Renderer/Assert.hpp>
-#include <concepts>
+#include <plinth/Assert.hpp>
 #include <cstring>
 #include <memory>
 #include <span>
@@ -10,7 +9,8 @@
 
 namespace geoqik {
 
-template <std::copy_constructible T>
+template <typename T>
+    requires std::is_trivially_copyable_v<T>
 class Buffer {
   public:
     using value_type = T;
@@ -91,13 +91,13 @@ class Buffer {
 
     [[nodiscard]]
     reference operator[](size_type index) {
-        RENDERER_ASSERT(index <= m_pos);
+        RENDERER_ASSERT(index < m_pos);
         return m_data[index];
     }
 
     [[nodiscard]]
     const_reference operator[](size_type index) const {
-        RENDERER_ASSERT(index <= m_pos);
+        RENDERER_ASSERT(index < m_pos);
         return m_data[index];
     }
 

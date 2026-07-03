@@ -5,7 +5,7 @@
 #include "OpenGL/BufferId.hpp"
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/opengl_export.h"
-#include <Renderer/Warnings.hpp>
+#include <plinth/Warnings.hpp>
 #include <cstdint>
 #include <optional>
 #include <span>

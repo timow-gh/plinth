@@ -1,7 +1,7 @@
 #include "OpenGL/Programs/LineProgram.hpp"
 #include "OpenGL/Programs/CreateProgram.hpp"
 #include "OpenGL/ShaderSources.hpp"
-#include <Renderer/Assert.hpp>
+#include <plinth/Assert.hpp>
 #include <print>
 #include <string>
 #include <utility>

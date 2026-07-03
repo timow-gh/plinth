@@ -5,11 +5,11 @@
 #include <OpenGL/Drawable/DrawablesManager.hpp>
 #include <OpenGL/FrameState.hpp>
 #include <OpenGL/LineType.hpp>
-#include <Renderer/CameraInteractor.hpp>
-#include <Renderer/GlfwWindow.hpp>
-#include <Renderer/ImGuiOverlay.hpp>
-#include <Renderer/InputState.hpp>
-#include <Renderer/WindowSettings.hpp>
+#include <plinth/CameraInteractor.hpp>
+#include <plinth/GlfwWindow.hpp>
+#include <plinth/ImGuiOverlay.hpp>
+#include <plinth/InputState.hpp>
+#include <plinth/WindowSettings.hpp>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -75,6 +75,8 @@ class Renderer {
     to_scene_framebuffer_coordinates(const SceneViewport& sceneViewport, double xpos, double ypos);
 
     // --- Geometry ---
+    // All add_*_drawable functions return an invalid handle (is_valid() == false) if drawable
+    // creation fails; they do not throw.
     DrawableHandle
     add_point_drawable(std::span<const float> vertices,
                        std::span<const float> colors,

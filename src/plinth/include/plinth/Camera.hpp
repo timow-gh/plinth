@@ -1,10 +1,10 @@
 #ifndef RENDERER_CAMERA_HPP
 #define RENDERER_CAMERA_HPP
 
-#include <Renderer/Assert.hpp>
-#include <Renderer/CameraProjectionType.hpp>
-#include <Renderer/PickRay.hpp>
-#include <Renderer/Viewport.hpp>
+#include <plinth/Assert.hpp>
+#include <plinth/CameraProjectionType.hpp>
+#include <plinth/PickRay.hpp>
+#include <plinth/Viewport.hpp>
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>

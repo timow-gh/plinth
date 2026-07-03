@@ -1,7 +1,7 @@
 #ifndef RENDERER_INPUTCAPTURESTATE_HPP
 #define RENDERER_INPUTCAPTURESTATE_HPP
 
-#include <Renderer/InputState.hpp>
+#include <plinth/InputState.hpp>
 #include <cstdint>
 
 namespace renderer {

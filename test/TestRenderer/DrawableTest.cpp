@@ -149,8 +149,8 @@ opengl::MeshDrawable make_mesh_drawable_with_alpha(opengl::MeshProgram& program,
     return std::move(drawable.value());
 }
 
-opengl::DrawablesManager::DrawableId add_mesh_drawable_with_alpha(opengl::DrawablesManager& manager,
-                                                                  const std::vector<float>& colors) {
+opengl::DrawablesManager::DrawableId
+add_mesh_drawable_with_alpha(opengl::DrawablesManager& manager, const std::vector<float>& colors) {
     const std::vector<float> vertices = {
         0.0F,
         0.0F,
@@ -175,8 +175,10 @@ opengl::DrawablesManager::DrawableId add_mesh_drawable_with_alpha(opengl::Drawab
     };
     const std::vector<std::uint32_t> indices = {0U, 1U, 2U};
 
-    return manager
-        .add_mesh_drawable(vertices, 3, normals, colors, 4, indices, opengl::BufferAccessPattern::STATIC_DRAW);
+    const auto id =
+        manager.add_mesh_drawable(vertices, 3, normals, colors, 4, indices, opengl::BufferAccessPattern::STATIC_DRAW);
+    EXPECT_TRUE(id.has_value());
+    return *id;
 }
 
 } // namespace
@@ -510,24 +512,27 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerUpdatesClearsAndDrawsTransparentPoint
         1.0F,
     };
     const std::vector<std::uint32_t> pointIndices = {0U, 1U, 2U};
-    const opengl::DrawablesManager::DrawableId firstPointId =
-        manager.add_point_drawable(pointVertices,
-                                   pointColors,
-                                   pointIndices,
-                                   3.0F,
-                                   opengl::BufferAccessPattern::STATIC_DRAW);
-    const opengl::DrawablesManager::DrawableId removedPointId =
-        manager.add_point_drawable(pointVertices,
-                                   pointColors,
-                                   pointIndices,
-                                   3.0F,
-                                   opengl::BufferAccessPattern::STATIC_DRAW);
-    const opengl::DrawablesManager::DrawableId lastPointId =
-        manager.add_point_drawable(pointVertices,
-                                   pointColors,
-                                   pointIndices,
-                                   3.0F,
-                                   opengl::BufferAccessPattern::STATIC_DRAW);
+    const auto firstPointIdOpt = manager.add_point_drawable(pointVertices,
+                                                            pointColors,
+                                                            pointIndices,
+                                                            3.0F,
+                                                            opengl::BufferAccessPattern::STATIC_DRAW);
+    ASSERT_TRUE(firstPointIdOpt.has_value());
+    const opengl::DrawablesManager::DrawableId firstPointId = *firstPointIdOpt;
+    const auto removedPointIdOpt = manager.add_point_drawable(pointVertices,
+                                                               pointColors,
+                                                               pointIndices,
+                                                               3.0F,
+                                                               opengl::BufferAccessPattern::STATIC_DRAW);
+    ASSERT_TRUE(removedPointIdOpt.has_value());
+    const opengl::DrawablesManager::DrawableId removedPointId = *removedPointIdOpt;
+    const auto lastPointIdOpt = manager.add_point_drawable(pointVertices,
+                                                           pointColors,
+                                                           pointIndices,
+                                                           3.0F,
+                                                           opengl::BufferAccessPattern::STATIC_DRAW);
+    ASSERT_TRUE(lastPointIdOpt.has_value());
+    const opengl::DrawablesManager::DrawableId lastPointId = *lastPointIdOpt;
     EXPECT_TRUE(manager.remove_point_drawable(removedPointId));
     EXPECT_FALSE(manager.remove_point_drawable(removedPointId));
     EXPECT_FALSE(manager.remove_point_drawable(0U));
@@ -566,22 +571,24 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerUpdatesClearsAndDrawsTransparentPoint
         0.5F,
     };
     const std::vector<std::uint32_t> lineIndices = {0U, 1U, 2U, 3U};
-    const opengl::DrawablesManager::DrawableId removedLineId =
-        manager.add_line_drawable(lineVertices,
-                                  lineIndices,
-                                  lineColors,
-                                  opengl::LineType::lines(),
-                                  2.0F,
-                                  1.0F,
-                                  opengl::BufferAccessPattern::STATIC_DRAW);
-    const opengl::DrawablesManager::DrawableId lastLineId =
-        manager.add_line_drawable(lineVertices,
-                                  lineIndices,
-                                  lineColors,
-                                  opengl::LineType::lines(),
-                                  2.0F,
-                                  1.0F,
-                                  opengl::BufferAccessPattern::STATIC_DRAW);
+    const auto removedLineIdOpt = manager.add_line_drawable(lineVertices,
+                                                            lineIndices,
+                                                            lineColors,
+                                                            opengl::LineType::lines(),
+                                                            2.0F,
+                                                            1.0F,
+                                                            opengl::BufferAccessPattern::STATIC_DRAW);
+    ASSERT_TRUE(removedLineIdOpt.has_value());
+    const opengl::DrawablesManager::DrawableId removedLineId = *removedLineIdOpt;
+    const auto lastLineIdOpt = manager.add_line_drawable(lineVertices,
+                                                         lineIndices,
+                                                         lineColors,
+                                                         opengl::LineType::lines(),
+                                                         2.0F,
+                                                         1.0F,
+                                                         opengl::BufferAccessPattern::STATIC_DRAW);
+    ASSERT_TRUE(lastLineIdOpt.has_value());
+    const opengl::DrawablesManager::DrawableId lastLineId = *lastLineIdOpt;
     EXPECT_TRUE(manager.remove_line_drawable(removedLineId));
     EXPECT_FALSE(manager.remove_line_drawable(removedLineId));
     EXPECT_TRUE(manager.has_line_drawables());

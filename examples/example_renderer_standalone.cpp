@@ -1,6 +1,6 @@
 #include <OpenGL/LineType.hpp>
-#include <Renderer/Renderer.hpp>
-#include <Renderer/WindowSettings.hpp>
+#include <plinth/Renderer.hpp>
+#include <plinth/WindowSettings.hpp>
 #include <array>
 #include <cstdint>
 
@@ -20,7 +20,7 @@ main()
     settings.width = defaultWindowWidth;
     settings.height = defaultWindowHeight;
 
-    auto renderer = plinth::plinth::create(settings);
+    auto renderer = renderer::Renderer::create(settings);
     if (!renderer) {
         return 1;
     }
@@ -44,7 +44,7 @@ main()
     renderer->add_line_drawable(lineVertices, lineIndices, lineColors, opengl::LineType::lines(), standaloneLineWidth);
 
     while (!renderer->should_close()) {
-        plinth::plinth::poll_events();
+        renderer::Renderer::poll_events();
         if (renderer->is_escape_pressed()) {
             break;
         }

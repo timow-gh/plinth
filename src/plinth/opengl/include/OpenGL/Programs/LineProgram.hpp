@@ -6,7 +6,7 @@
 #include "OpenGL/Programs/ProgramId.hpp"
 #include "OpenGL/Uniform.hpp"
 #include "OpenGL/opengl_export.h"
-#include <Renderer/Assert.hpp>
+#include <plinth/Assert.hpp>
 
 namespace opengl {
 

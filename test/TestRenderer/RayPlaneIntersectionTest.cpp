@@ -1,4 +1,4 @@
-#include <Renderer/RayPlaneIntersection.hpp>
+#include <plinth/RayPlaneIntersection.hpp>
 #include <gtest/gtest.h>
 
 namespace {

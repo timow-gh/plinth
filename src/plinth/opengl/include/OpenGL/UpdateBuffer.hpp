@@ -2,7 +2,7 @@
 #define OPENGL_UPDATEBUFFER_HPP
 
 #include "OpenGL/BufferAccessPattern.hpp"
-#include <Renderer/Assert.hpp>
+#include <plinth/Assert.hpp>
 #include <cstddef>
 #include <limits>
 #include <span>

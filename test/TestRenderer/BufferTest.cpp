@@ -25,33 +25,13 @@ TEST_F(BufferTest, PushBackElements_NonMove) {
 }
 
 struct UserType {
-    std::unique_ptr<int> data;
-    UserType()
-        : data(std::make_unique<int>(0)) {}
-    UserType(int value)
-        : data(std::make_unique<int>(value)) {}
-    UserType(const UserType& other)
-        : data(std::make_unique<int>(*other.data)) {}
-    UserType(UserType&& other) noexcept
-        : data(std::move(other.data)) {}
-    UserType& operator=(const UserType& other) {
-        if (this != &other) {
-            data = std::make_unique<int>(*other.data);
-        }
-        return *this;
-    }
-    UserType& operator=(UserType&& other) noexcept {
-        if (this != &other) {
-            data = std::move(other.data);
-        }
-        return *this;
-    }
-    bool operator==(const UserType& other) const { return *data == *other.data; }
+    int value{0};
+    bool operator==(const UserType&) const = default;
 };
 
 TEST_F(BufferTest, PushBackElements_Move) {
     geoqik::Buffer<UserType> buffer(5);
-    buffer.emplace_back(UserType(1));
+    buffer.emplace_back(UserType{1});
 
     EXPECT_EQ(buffer.size(), 1);
     EXPECT_EQ(buffer.capacity(), 5);
@@ -107,14 +87,14 @@ TEST_F(BufferTest, data) {
 }
 
 TEST_F(BufferTest, begin_end) {
-    geoqik::Buffer<std::string> buffer(5);
+    geoqik::Buffer<const char*> buffer(5);
     buffer.push_back("Hello");
     buffer.push_back("World");
 
     auto it = buffer.begin();
-    EXPECT_EQ(*it, "Hello");
+    EXPECT_STREQ(*it, "Hello");
     ++it;
-    EXPECT_EQ(*it, "World");
+    EXPECT_STREQ(*it, "World");
     ++it;
     EXPECT_EQ(it, buffer.end());
 }
@@ -190,6 +170,20 @@ TEST_F(BufferTest, pop_back) {
     buffer.pop_back();
     buffer.pop_back();
     EXPECT_TRUE(buffer.is_empty());
+}
+
+TEST_F(BufferTest, remove_shifts_elements_left) {
+    geoqik::Buffer<int> buffer(5);
+    buffer.push_back(1);
+    buffer.push_back(2);
+    buffer.push_back(3);
+    buffer.push_back(4);
+
+    buffer.remove(1, 2); // remove elements at index 1,2 (values 2,3)
+
+    EXPECT_EQ(buffer.size(), 2);
+    EXPECT_EQ(buffer[0], 1);
+    EXPECT_EQ(buffer[1], 4);
 }
 
 TEST_F(BufferTest, reset) {

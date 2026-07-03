@@ -1,8 +1,8 @@
 #ifndef RENDERER_INPUTSTATE_HPP
 #define RENDERER_INPUTSTATE_HPP
 
-#include <Renderer/Assert.hpp>
-#include <Renderer/RendererGlfw.hpp>
+#include <plinth/Assert.hpp>
+#include <plinth/RendererGlfw.hpp>
 #include <compare>
 #include <cstdint>
 #include <functional>

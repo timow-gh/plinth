@@ -1,8 +1,8 @@
 #ifndef RENDERER_RAYPLANEINTERSECTION_HPP
 #define RENDERER_RAYPLANEINTERSECTION_HPP
 
-#include <Renderer/Assert.hpp>
-#include <Renderer/Plane.hpp>
+#include <plinth/Assert.hpp>
+#include <plinth/Plane.hpp>
 #include <linal/linal.hpp>
 
 namespace renderer {

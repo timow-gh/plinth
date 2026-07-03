@@ -1,9 +1,9 @@
 #ifndef RENDERER_IMGUIOVERLAY_HPP
 #define RENDERER_IMGUIOVERLAY_HPP
 
-#include <Renderer/CameraProjectionType.hpp>
-#include <Renderer/InputCaptureState.hpp>
-#include <Renderer/InputState.hpp>
+#include <plinth/CameraProjectionType.hpp>
+#include <plinth/InputCaptureState.hpp>
+#include <plinth/InputState.hpp>
 #include <cstdint>
 #include <functional>
 #include <vector>

@@ -1,4 +1,4 @@
-set(test_target "geoqik")
+set(test_target "plinth")
 set(${test_target}_TEST_INSTALL_DIR "${CMAKE_CURRENT_BINARY_DIR}/${test_target}_install_dir")
 set(${test_target}_TEST_SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/${test_target}_use_install_test")
 set(${test_target}_TEMPLATE_PROJECT_DIR_NAME "${test_target}_install_test_template")

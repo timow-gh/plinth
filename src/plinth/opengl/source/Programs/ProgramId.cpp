@@ -1,6 +1,6 @@
 #include "OpenGL/Programs/ProgramId.hpp"
 #include "ProgramOpenGL.hpp"
-#include <Renderer/Assert.hpp>
+#include <plinth/Assert.hpp>
 #include <utility>
 
 namespace opengl {

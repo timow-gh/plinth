@@ -4,7 +4,7 @@
 #include "OpenGL/Attribute.hpp"
 #include "OpenGL/Programs/ProgramId.hpp"
 #include "OpenGL/Uniform.hpp"
-#include <Renderer/Assert.hpp>
+#include <plinth/Assert.hpp>
 
 namespace opengl {
 

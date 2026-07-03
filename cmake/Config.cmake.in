@@ -9,6 +9,9 @@ set(CMAKE_MAP_IMPORTED_CONFIG_RELEASE Release RelWithDebInfo MinSizeRel Debug ""
 
 # Find dependencies
 include(CMakeFindDependencyMacro)
+find_dependency(glad CONFIG)
+find_dependency(glfw3 3.3)
+find_dependency(imgui CONFIG)
 
 # Include the targets file
 include("${CMAKE_CURRENT_LIST_DIR}/@project_name@Targets.cmake")

@@ -1,6 +1,6 @@
-#include <Renderer/Assert.hpp>
-#include <Renderer/ImGuiOverlay.hpp>
-#include <Renderer/Warnings.hpp>
+#include <plinth/Assert.hpp>
+#include <plinth/ImGuiOverlay.hpp>
+#include <plinth/Warnings.hpp>
 #include <algorithm>
 #include <array>
 #include <utility>

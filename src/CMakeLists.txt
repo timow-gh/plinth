@@ -3,17 +3,17 @@ set(project_export_set_name "${PROJECT_NAME}TargetsExportSet")
 add_subdirectory(plinth)
 
 if (${PROJECT_NAME}_INSTALL)
-    install(DIRECTORY "include/plinth" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    install(DIRECTORY "plinth/include/plinth" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
             COMPONENT dev)
 
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/export_header_includes/plinth/${GENERATED_TARGET_EXPORTS_FILE_NAME}"
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/plinth/export_header_includes/plinth/plinth_export.h"
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/plinth"
             COMPONENT dev)
 
         # Use a single install command. Multiple install commands can lead to issues with CMake's install script generation. It may only 
         # use the last install command.
     install(TARGETS
-            ${TARGET_NAME} plinth_opengl
+            plinth_plinth plinth_opengl
             EXPORT ${project_export_set_name}
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
             COMPONENT runtime

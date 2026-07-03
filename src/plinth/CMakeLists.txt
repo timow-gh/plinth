@@ -1,24 +1,24 @@
 set(plinth_HEADER_FILES
-        include/Renderer/Assert.hpp
-        include/Renderer/Warnings.hpp
-        include/Renderer/DLLWarnings.hpp
-        include/Renderer/RendererGlfw.hpp
-        include/Renderer/WindowSettings.hpp
-        include/Renderer/InputState.hpp
-        include/Renderer/InputCaptureState.hpp
-        include/Renderer/GlfwWindow.hpp
-        include/Renderer/CameraProjectionType.hpp
-        include/Renderer/MathConstants.hpp
-        include/Renderer/PickRay.hpp
-        include/Renderer/Plane.hpp
-        include/Renderer/Color.hpp
-        include/Renderer/Viewport.hpp
-        include/Renderer/Camera.hpp
-        include/Renderer/CameraAutoFit.hpp
-        include/Renderer/RayPlaneIntersection.hpp
-        include/Renderer/CameraInteractor.hpp
-        include/Renderer/ImGuiOverlay.hpp
-        include/Renderer/Renderer.hpp
+        include/plinth/Assert.hpp
+        include/plinth/Warnings.hpp
+        include/plinth/DLLWarnings.hpp
+        include/plinth/RendererGlfw.hpp
+        include/plinth/WindowSettings.hpp
+        include/plinth/InputState.hpp
+        include/plinth/InputCaptureState.hpp
+        include/plinth/GlfwWindow.hpp
+        include/plinth/CameraProjectionType.hpp
+        include/plinth/MathConstants.hpp
+        include/plinth/PickRay.hpp
+        include/plinth/Plane.hpp
+        include/plinth/Color.hpp
+        include/plinth/Viewport.hpp
+        include/plinth/Camera.hpp
+        include/plinth/CameraAutoFit.hpp
+        include/plinth/RayPlaneIntersection.hpp
+        include/plinth/CameraInteractor.hpp
+        include/plinth/ImGuiOverlay.hpp
+        include/plinth/Renderer.hpp
 )
 
 set(plinth_SOURCE_FILES
@@ -30,12 +30,13 @@ set(plinth_SOURCE_FILES
         source/Renderer.cpp
 )
 
-set(TARGET_NAME renderer_renderer)
+set(TARGET_NAME plinth_plinth)
 add_library(${TARGET_NAME} STATIC ${plinth_SOURCE_FILES} ${plinth_HEADER_FILES})
 set_target_properties(${TARGET_NAME}
         PROPERTIES
         LINKER_LANGUAGE CXX
-        POSITION_INDEPENDENT_CODE ON)
+        POSITION_INDEPENDENT_CODE ON
+        EXPORT_NAME plinth)
 
 include(GenerateExportHeader)
 set(EXPORT_HEADER_BASE_NAME "plinth")

@@ -1,8 +1,8 @@
 #ifndef RENDERER_GLFWWINDOW_HPP
 #define RENDERER_GLFWWINDOW_HPP
 
-#include <Renderer/InputState.hpp>
-#include <Renderer/WindowSettings.hpp>
+#include <plinth/InputState.hpp>
+#include <plinth/WindowSettings.hpp>
 #include <optional>
 #include <utility>
 

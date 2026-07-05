@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21) # CMakePresets are supported since version 3.21
+cmake_minimum_required(VERSION 3.26) # 3.26+ required for cmake -E copy -t (no-op on empty file list)
 
 project(use_installdir_proj
         VERSION 0.1.0
@@ -36,9 +36,13 @@ set_target_properties(${TARGET_NAME}
 
 if (BUILD_SHARED_LIBS)
     if (MSVC)
-        # Copy DLLs to build directory for development
+        # Copy DLLs to build directory for development.
+        # cmake -E copy -t <dest> <files...> is a no-op when <files...> is
+        # empty (CMake 3.26+), so this is safe when TARGET_RUNTIME_DLLS is
+        # empty (e.g. when the installed plinth library is static).
         add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:${TARGET_NAME}> $<TARGET_FILE_DIR:${TARGET_NAME}>
+                COMMAND ${CMAKE_COMMAND} -E copy -t $<TARGET_FILE_DIR:${TARGET_NAME}>
+                        $<TARGET_RUNTIME_DLLS:${TARGET_NAME}>
                 COMMAND_EXPAND_LISTS
         )
 

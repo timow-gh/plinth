@@ -1,10 +1,10 @@
-#include <plinth/Assert.hpp>
-#include <plinth/Camera.hpp>
-#include <plinth/PickRay.hpp>
 #include <cmath>
 #include <glm/ext/vector_double3.hpp>
 #include <glm/geometric.hpp>
 #include <glm/trigonometric.hpp>
+#include <plinth/Assert.hpp>
+#include <plinth/Camera.hpp>
+#include <plinth/PickRay.hpp>
 
 namespace renderer {
 

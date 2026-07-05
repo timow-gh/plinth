@@ -1,6 +1,6 @@
 #include "OpenGL/IndexBuffer.hpp"
-#include <plinth/Assert.hpp>
 #include <cstdint>
+#include <plinth/Assert.hpp>
 #include <utility>
 
 namespace opengl {

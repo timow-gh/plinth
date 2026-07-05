@@ -1,7 +1,7 @@
 #ifndef RENDERER_WINDOWSETTINGS_HPP
 #define RENDERER_WINDOWSETTINGS_HPP
 
-#include "plinth/Plinth_export.h"
+#include "plinth/plinth_export.h"
 #include <cstdint>
 #include <string>
 

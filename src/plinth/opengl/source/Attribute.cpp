@@ -1,6 +1,6 @@
 #include "OpenGL/Attribute.hpp"
-#include <plinth/Assert.hpp>
 #include <cstdlib>
+#include <plinth/Assert.hpp>
 #include <print>
 
 namespace opengl {

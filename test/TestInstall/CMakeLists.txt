@@ -14,6 +14,16 @@ else ()
     message(AUTHOR_WARNING "Unsupported compiler")
 endif ()
 
+# Normalize to an explicit ON/OFF so the inner configure's --preset default
+# (which sets BUILD_SHARED_LIBS=ON) is always overridden by the outer build's
+# actual setting, even when the outer build leaves BUILD_SHARED_LIBS unset
+# (empty string).
+if (BUILD_SHARED_LIBS)
+    set(_plinth_test_install_bsl ON)
+else ()
+    set(_plinth_test_install_bsl OFF)
+endif ()
+
 add_custom_target(test_geoqik_install
         ${CMAKE_COMMAND} --install ${PROJECT_BINARY_DIR} --config ${CMAKE_BUILD_TYPE} --prefix ${${test_target}_TEST_INSTALL_DIR}
 
@@ -26,7 +36,7 @@ add_custom_target(test_geoqik_install
         -S ${${test_target}_TEST_SOURCE_DIR}
         --preset "${PRESET}"
         # Test with the same BUILD_SHARED_LIBS value as the main project
-        -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}
+        -DBUILD_SHARED_LIBS=${_plinth_test_install_bsl}
         -DCMAKE_PREFIX_PATH=${${test_target}_TEST_INSTALL_DIR}
 
         COMMAND ${CMAKE_COMMAND}

@@ -1,7 +1,7 @@
-#include <plinth/Renderer.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <plinth/Renderer.hpp>
 
 namespace renderer {
 
@@ -82,14 +82,13 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
     }
 
     // Use raw new because the constructor is private and Renderer is non-movable.
-    auto* raw = new Renderer(std::move(window.value()),
-                             std::move(drawablesManager.value()),
-                             std::move(camera),
-                             std::move(imgui));
-    std::unique_ptr<Renderer> renderer(raw);
+    std::unique_ptr<Renderer> renderer(new Renderer(std::move(window.value()),
+                                                    std::move(drawablesManager.value()),
+                                                    std::move(camera),
+                                                    std::move(imgui)));
 
-    raw->update_scene_viewport();
-    raw->wire_callbacks();
+    renderer->update_scene_viewport();
+    renderer->wire_callbacks();
 
     return renderer;
 }

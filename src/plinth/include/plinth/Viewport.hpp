@@ -22,7 +22,7 @@ class Viewport {
         , m_position_y(positionY)
         , m_width(width)
         , m_height(height) {
-        RENDERER_ASSERT(width > 0.0 && height > 0.0);
+        RENDERER_ASSERT(width > 0 && height > 0);
     }
 
     [[nodiscard]]
@@ -45,13 +45,17 @@ class Viewport {
     // clang-format off
   void set_position_x(value_type positionX) { m_position_x = positionX; }
   void set_position_y(value_type positionY) { m_position_y = positionY; }
-  void set_width(value_type width) { RENDERER_ASSERT(m_width > 0); m_width = width; }
-  void set_height(value_type height) { RENDERER_ASSERT(m_height > 0); m_height = height; }
+  void set_width(value_type width) { RENDERER_ASSERT(width > 0); m_width = width; }
+  void set_height(value_type height) { RENDERER_ASSERT(height > 0); m_height = height; }
     // clang-format on
 
     [[nodiscard]]
     double get_aspect_ratio() const {
-        return static_cast<double>(m_width) / m_height;
+        RENDERER_ASSERT(m_height > 0);
+        if (m_height == 0) {
+            return 1.0;
+        }
+        return static_cast<double>(m_width) / static_cast<double>(m_height);
     }
 };
 

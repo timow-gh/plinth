@@ -310,7 +310,7 @@
       "description": "Do not register the installed package smoke test",
       "hidden": true,
       "cacheVariables": {
-        "geoqik_INSTALL_SMOKE_TEST": "OFF"
+        "plinth_INSTALL_SMOKE_TEST": "OFF"
       }
     },
     {

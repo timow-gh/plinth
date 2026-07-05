@@ -19,7 +19,7 @@
 
 namespace opengl {
 
-// Mirrors geoqik::MeshCullMode from the geoqik layer.
+// Mirrors the renderer-layer mesh cull mode.
 enum class MeshCullFaceMode {
     back,  // GL_BACK  (default)
     front, // GL_FRONT

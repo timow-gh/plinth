@@ -32,7 +32,7 @@ class OpenGLDrawableTest : public ::testing::Test {
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-        m_window = glfwCreateWindow(64, 64, "GeoQik drawable test", nullptr, nullptr);
+        m_window = glfwCreateWindow(64, 64, "plinth drawable test", nullptr, nullptr);
         ASSERT_NE(nullptr, m_window);
         glfwMakeContextCurrent(m_window);
         ASSERT_NE(0, gladLoadGLLoader(load_glfw_proc));

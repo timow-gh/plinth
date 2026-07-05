@@ -5,7 +5,7 @@
 class BufferTest : public ::testing::Test {};
 
 TEST_F(BufferTest, CreateEmptyBuffer) {
-    geoqik::Buffer<float> buffer(10);
+    opengl::Buffer<float> buffer(10);
     EXPECT_EQ(buffer.size(), 0);
     EXPECT_EQ(buffer.capacity(), 10);
     EXPECT_EQ(buffer.free_capacity(), 10);
@@ -14,7 +14,7 @@ TEST_F(BufferTest, CreateEmptyBuffer) {
 }
 
 TEST_F(BufferTest, PushBackElements_NonMove) {
-    geoqik::Buffer<int> buffer(5);
+    opengl::Buffer<int> buffer(5);
     buffer.push_back(1);
 
     EXPECT_EQ(buffer.size(), 1);
@@ -30,7 +30,7 @@ struct UserType {
 };
 
 TEST_F(BufferTest, PushBackElements_Move) {
-    geoqik::Buffer<UserType> buffer(5);
+    opengl::Buffer<UserType> buffer(5);
     buffer.emplace_back(UserType{1});
 
     EXPECT_EQ(buffer.size(), 1);
@@ -41,12 +41,12 @@ TEST_F(BufferTest, PushBackElements_Move) {
 }
 
 TEST_F(BufferTest, CreateFromBuffer) {
-    geoqik::Buffer<int> original(5);
+    opengl::Buffer<int> original(5);
     for (int i = 0; i < 5; ++i) {
         original.push_back(i);
     }
 
-    auto newBuffer = geoqik::Buffer<int>::create_from(original, 3);
+    auto newBuffer = opengl::Buffer<int>::create_from(original, 3);
 
     EXPECT_EQ(newBuffer.size(), 5);
     EXPECT_EQ(newBuffer.capacity(), 8); // original capacity + additional size
@@ -60,7 +60,7 @@ TEST_F(BufferTest, CreateFromBuffer) {
 }
 
 TEST_F(BufferTest, get_as_span) {
-    geoqik::Buffer<float> buffer(5);
+    opengl::Buffer<float> buffer(5);
     buffer.push_back(1.0f);
     buffer.push_back(2.0f);
 
@@ -77,7 +77,7 @@ TEST_F(BufferTest, get_as_span) {
 }
 
 TEST_F(BufferTest, data) {
-    geoqik::Buffer<float> buffer(5);
+    opengl::Buffer<float> buffer(5);
     buffer.push_back(1.0f);
     buffer.push_back(2.0f);
 
@@ -87,7 +87,7 @@ TEST_F(BufferTest, data) {
 }
 
 TEST_F(BufferTest, begin_end) {
-    geoqik::Buffer<const char*> buffer(5);
+    opengl::Buffer<const char*> buffer(5);
     buffer.push_back("Hello");
     buffer.push_back("World");
 
@@ -100,7 +100,7 @@ TEST_F(BufferTest, begin_end) {
 }
 
 TEST_F(BufferTest, operator_brackets) {
-    geoqik::Buffer<double> buffer(5);
+    opengl::Buffer<double> buffer(5);
     buffer.push_back(1.1);
     buffer.push_back(2.2);
     buffer.push_back(3.3);
@@ -111,7 +111,7 @@ TEST_F(BufferTest, operator_brackets) {
 }
 
 TEST_F(BufferTest, size_capacity_free_capacity) {
-    geoqik::Buffer<char> buffer(10);
+    opengl::Buffer<char> buffer(10);
     EXPECT_EQ(buffer.size(), 0);
     EXPECT_EQ(buffer.capacity(), 10);
     EXPECT_EQ(buffer.free_capacity(), 10);
@@ -130,7 +130,7 @@ TEST_F(BufferTest, size_capacity_free_capacity) {
 }
 
 TEST_F(BufferTest, is_full_is_empty) {
-    geoqik::Buffer<char> buffer(3);
+    opengl::Buffer<char> buffer(3);
     EXPECT_TRUE(buffer.is_empty());
     EXPECT_FALSE(buffer.is_full());
 
@@ -148,14 +148,14 @@ TEST_F(BufferTest, is_full_is_empty) {
 }
 
 TEST_F(BufferTest, has_space_for) {
-    geoqik::Buffer<int> buffer(5);
+    opengl::Buffer<int> buffer(5);
     EXPECT_TRUE(buffer.has_space_for(3));
     EXPECT_TRUE(buffer.has_space_for(5));
     EXPECT_FALSE(buffer.has_space_for(6)); // More than free capacity
 }
 
 TEST_F(BufferTest, pop_back) {
-    geoqik::Buffer<int> buffer(5);
+    opengl::Buffer<int> buffer(5);
     buffer.push_back(1);
     buffer.push_back(2);
     buffer.push_back(3);
@@ -173,7 +173,7 @@ TEST_F(BufferTest, pop_back) {
 }
 
 TEST_F(BufferTest, remove_shifts_elements_left) {
-    geoqik::Buffer<int> buffer(5);
+    opengl::Buffer<int> buffer(5);
     buffer.push_back(1);
     buffer.push_back(2);
     buffer.push_back(3);
@@ -187,7 +187,7 @@ TEST_F(BufferTest, remove_shifts_elements_left) {
 }
 
 TEST_F(BufferTest, reset) {
-    geoqik::Buffer<float> buffer(5);
+    opengl::Buffer<float> buffer(5);
     buffer.push_back(1.0f);
     buffer.push_back(2.0f);
 

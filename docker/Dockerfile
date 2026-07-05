@@ -1,4 +1,4 @@
-# Build environment for geoqik with GCC 14 and Clang 20
+# Build environment for plinth with GCC 14 and Clang 20
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive

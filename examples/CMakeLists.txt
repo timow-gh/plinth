@@ -1,4 +1,4 @@
-function(add_geoqik_example target)
+function(add_plinth_example target)
     set(options CLIENT NO_TIDY)
     set(oneValueArgs)
     set(multiValueArgs LIBRARIES)
@@ -48,10 +48,10 @@ function(add_geoqik_example target)
         VERBATIM)
 endfunction()
 
-set(geoqik_examples
+set(plinth_examples
     example_renderer_standalone
 )
 
-foreach(example IN LISTS geoqik_examples)
-    add_geoqik_example(${example} LIBRARIES plinth::plinth)
+foreach(example IN LISTS plinth_examples)
+    add_plinth_example(${example} LIBRARIES plinth::plinth)
 endforeach()

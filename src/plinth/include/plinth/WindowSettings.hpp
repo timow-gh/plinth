@@ -14,7 +14,7 @@ namespace renderer {
 #endif
 
 struct PLINTH_EXPORT WindowSettings {
-    const char* title = "GeoQik Viewer"; ///< Title of the window.
+    const char* title = "plinth Viewer"; ///< Title of the window.
     std::uint32_t width = 1280;          ///< Width of the window.
     std::uint32_t height = 720;          ///< Height of the window.
 

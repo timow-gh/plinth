@@ -2,6 +2,7 @@
 #include "OpenGL/Programs/CreateProgram.hpp"
 #include "OpenGL/ShaderSources.hpp"
 #include <plinth/Assert.hpp>
+#include <print>
 #include <utility>
 
 namespace opengl {
@@ -25,6 +26,11 @@ MeshProgram make_mesh_program() {
     ProgramCreationResult programCreation =
         create_program(mesh_vertex_shader_source().data(), mesh_fragment_shader_source().data());
     if (!programCreation.has_value()) {
+        std::print(stderr,
+                   "Error category: '{}';Error code: '{}'; Error message: '{}'\n",
+                   programCreation.error().category().name(),
+                   programCreation.error().value(),
+                   programCreation.error().message());
         RENDERER_ASSERT(false);
         return {};
     }

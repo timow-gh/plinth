@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cstdint>
 #include <plinth/Renderer.hpp>
+#include <print>
 
 namespace renderer {
 
@@ -60,6 +61,7 @@ Renderer::to_scene_framebuffer_coordinates(const SceneViewport& sceneViewport, d
 std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
     auto window = GlfwWindow::create(settings);
     if (!window.has_value()) {
+        std::print(stderr, "Error: Renderer::create failed - window creation failed (see above)\n");
         return nullptr;
     }
 
@@ -78,6 +80,8 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 
     auto drawablesManager = opengl::DrawablesManager::create();
     if (!drawablesManager.has_value()) {
+        std::print(stderr,
+                   "Error: Renderer::create failed - GL program/drawables-manager creation failed (see above)\n");
         return nullptr;
     }
 

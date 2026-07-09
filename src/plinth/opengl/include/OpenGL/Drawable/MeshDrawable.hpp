@@ -10,7 +10,9 @@
 #include <plinth/Warnings.hpp>
 #include <cstdint>
 #include <linal/hmat.hpp>
+#include <linal/vec.hpp>
 #include <span>
+#include <vector>
 RENDERER_DISABLE_ALL_WARNINGS
 
 namespace opengl {
@@ -25,6 +27,8 @@ class OPENGL_EXPORT MeshDrawable {
     std::int32_t m_vertexDimension{0};
     std::int32_t m_colorDimension{0};
     DrawableTransparencyInfo m_transparencyInfo;
+    std::vector<linal::float3> m_vertexPositions;
+    mutable std::vector<float> m_vertexPositionsFlatCache;
 
   public:
     MeshDrawable(MeshProgram& program,
@@ -35,7 +39,8 @@ class OPENGL_EXPORT MeshDrawable {
                  IndexBuffer triangleIndicesBuffer,
                  DrawableTransparencyInfo transparencyInfo = {},
                  std::int32_t vertexDimension = 3,
-                 std::int32_t colorDimension = 4);
+                 std::int32_t colorDimension = 4,
+                 std::vector<linal::float3> vertexPositions = {});
 
     MeshDrawable(const MeshDrawable&) = delete;
     MeshDrawable& operator=(const MeshDrawable&) = delete;
@@ -69,6 +74,22 @@ class OPENGL_EXPORT MeshDrawable {
     [[nodiscard]]
     double distance_squared_to(const linal::double3& viewPosition) const noexcept {
         return m_transparencyInfo.distance_squared_to(viewPosition);
+    }
+
+    // World-space xyz-triplet vertex positions, for scene-bounds computation (e.g. camera auto-fit).
+    // Flattens element-by-element rather than reinterpreting m_vertexPositions' memory directly -
+    // linal::float3 is not guaranteed to be a tightly-packed 3-float struct (its policy-mixin base
+    // classes can add padding/alignment), so a raw reinterpret_cast is not safe here.
+    [[nodiscard]]
+    std::span<const float> get_vertex_positions() const noexcept {
+        m_vertexPositionsFlatCache.clear();
+        m_vertexPositionsFlatCache.reserve(m_vertexPositions.size() * 3U);
+        for (const auto& p: m_vertexPositions) {
+            m_vertexPositionsFlatCache.push_back(p[0]);
+            m_vertexPositionsFlatCache.push_back(p[1]);
+            m_vertexPositionsFlatCache.push_back(p[2]);
+        }
+        return m_vertexPositionsFlatCache;
     }
 };
 

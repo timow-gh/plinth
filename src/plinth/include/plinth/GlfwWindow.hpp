@@ -49,6 +49,8 @@ class GlfwWindow {
     [[nodiscard]]
     bool is_escape_pressed() const;
     [[nodiscard]]
+    bool is_key_pressed(Key key) const;
+    [[nodiscard]]
     std::pair<int, int> get_window_size() const;
     [[nodiscard]]
     std::pair<int, int> get_framebuffer_size() const;

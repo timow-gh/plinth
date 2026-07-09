@@ -238,3 +238,301 @@ TEST(CameraInteractorTest, ZeroFramebufferResizeKeepsCurrentViewport) {
     EXPECT_EQ(interactor.get_viewport().get_width(), 1024);
     EXPECT_EQ(interactor.get_viewport().get_height(), 512);
 }
+
+TEST(CameraInteractorTest, FlyModeIgnoresKeysInOrbitStyle) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    const linal::double3 initialPosition = interactor.get_position();
+    const linal::double3 initialTarget = interactor.get_target();
+
+    interactor.update(1.0, [](renderer::Key key) { return key == renderer::Key::KEY_W; });
+
+    EXPECT_EQ(interactor.get_position(), initialPosition);
+    EXPECT_EQ(interactor.get_target(), initialTarget);
+}
+
+TEST(CameraInteractorTest, FlyModeMovesForwardOnW) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+    interactor.set_navigation_style(renderer::CameraInteractor::NavigationStyle::FLY);
+
+    const linal::double3 initialPosition = interactor.get_position();
+    const linal::double3 initialTarget = interactor.get_target();
+    const linal::double3 forward = linal::normalize(initialTarget - initialPosition);
+
+    interactor.update(1.0, [](renderer::Key key) { return key == renderer::Key::KEY_W; });
+
+    const linal::double3 translation = interactor.get_position() - initialPosition;
+    EXPECT_NEAR(linal::length(translation), interactor.get_fly_speed(), 1.0e-6);
+    EXPECT_NEAR(linal::dot(linal::normalize(translation), forward), 1.0, 1.0e-6);
+    EXPECT_TRUE(interactor.get_was_blocking());
+}
+
+TEST(CameraInteractorTest, FlyModeStrafeAndVerticalKeysCombine) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+    interactor.set_navigation_style(renderer::CameraInteractor::NavigationStyle::FLY);
+
+    const linal::double3 initialPosition = interactor.get_position();
+    const linal::double3 initialTarget = interactor.get_target();
+    const linal::double3 forward = linal::normalize(initialTarget - initialPosition);
+    const linal::double3 up = interactor.get_vertical();
+    const linal::double3 right = linal::normalize(linal::cross(forward, up));
+
+    interactor.update(1.0, [](renderer::Key key) {
+        return key == renderer::Key::KEY_D || key == renderer::Key::KEY_E;
+    });
+
+    const linal::double3 translation = interactor.get_position() - initialPosition;
+    EXPECT_GT(linal::dot(translation, right), 0.0);
+    EXPECT_GT(linal::dot(translation, up), 0.0);
+}
+
+TEST(CameraInteractorTest, FlyModeZeroDeltaSecondsIsNoOp) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+    interactor.set_navigation_style(renderer::CameraInteractor::NavigationStyle::FLY);
+
+    const linal::double3 initialPosition = interactor.get_position();
+    const linal::double3 initialTarget = interactor.get_target();
+
+    interactor.update(0.0, [](renderer::Key) { return true; });
+
+    EXPECT_EQ(interactor.get_position(), initialPosition);
+    EXPECT_EQ(interactor.get_target(), initialTarget);
+    EXPECT_FALSE(interactor.get_was_blocking());
+}
+
+TEST(CameraInteractorTest, FlyModeMouseLookRotatesWithoutGroundPlane) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+    // Mirrors ScrollDoesNotBlockWhenGroundPlaneIsNotHit's plane setup: a plane the gaze ray will never hit.
+    interactor.set_ground_plane(renderer::Plane{linal::double3{0.0, 0.0, 100.0}, linal::double3{1.0, 0.0, 0.0}});
+    interactor.set_navigation_style(renderer::CameraInteractor::NavigationStyle::FLY);
+
+    interactor.on_cursor_position(400.0, 300.0);
+    const linal::double3 initialPosition = interactor.get_position();
+    const linal::double3 initialGaze = linal::normalize(interactor.get_target() - initialPosition);
+
+    interactor.on_mouse_button(GLFW_MOUSE_BUTTON_RIGHT, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_cursor_position(410.0, 300.0);
+    interactor.on_cursor_position(440.0, 300.0);
+    interactor.on_mouse_button(GLFW_MOUSE_BUTTON_RIGHT, renderer::Action::RELEASE, renderer::Mods::NONE);
+
+    const linal::double3 newGaze = linal::normalize(interactor.get_target() - interactor.get_position());
+
+    EXPECT_TRUE(interactor.get_was_blocking());
+    // Fly mouse-look rotates the gaze direction in place, unlike orbit which rotates the eye around a
+    // ground-plane pivot; position should be unaffected but the gaze direction should change.
+    EXPECT_EQ(interactor.get_position(), initialPosition);
+    EXPECT_GT(linal::length(newGaze - initialGaze), 1.0e-6);
+}
+
+namespace {
+bool no_key_pressed(renderer::Key) {
+    return false;
+}
+} // namespace
+
+TEST(CameraInteractorTest, PresetViewSnapsInstantlyWhenDurationIsZero) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    const linal::double3 target = interactor.get_target();
+    const double distance = linal::length(interactor.get_position() - target);
+
+    interactor.set_view_transition_duration(0.0);
+    interactor.go_to_preset_view(renderer::CameraInteractor::PresetView::TOP);
+
+    EXPECT_FALSE(interactor.is_transitioning_view());
+    const linal::double3 expectedPosition = target + linal::double3{0.0, 0.0, 1.0} * distance;
+    EXPECT_NEAR(linal::length(interactor.get_position() - expectedPosition), 0.0, tolerance);
+}
+
+TEST(CameraInteractorTest, PresetViewTransitionPreservesDistanceThroughoutInterpolation) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    const linal::double3 target = interactor.get_target();
+    const double distance = linal::length(interactor.get_position() - target);
+
+    constexpr double duration = 0.4;
+    interactor.set_view_transition_duration(duration);
+    interactor.go_to_preset_view(renderer::CameraInteractor::PresetView::RIGHT);
+
+    constexpr int steps = 10;
+    constexpr double stepSeconds = duration / steps;
+    for (int i = 0; i < steps; ++i) {
+        interactor.update(stepSeconds, no_key_pressed);
+        const double currentDistance = linal::length(interactor.get_position() - interactor.get_target());
+        EXPECT_NEAR(currentDistance, distance, 1.0e-6);
+    }
+}
+
+TEST(CameraInteractorTest, PresetViewTransitionReachesExactTargetAtOrAfterDuration) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    const linal::double3 target = interactor.get_target();
+    const double distance = linal::length(interactor.get_position() - target);
+
+    constexpr double duration = 0.4;
+    interactor.set_view_transition_duration(duration);
+    interactor.go_to_preset_view(renderer::CameraInteractor::PresetView::ISO);
+
+    interactor.update(duration * 2.0, no_key_pressed);
+
+    EXPECT_FALSE(interactor.is_transitioning_view());
+    const linal::double3 isoDirection = linal::normalize(linal::double3{1.0, -1.0, 1.0});
+    const linal::double3 expectedPosition = target + isoDirection * distance;
+    EXPECT_NEAR(linal::length(interactor.get_position() - expectedPosition), 0.0, 1.0e-6);
+}
+
+TEST(CameraInteractorTest, PresetViewTransitionIsMonotonicInProgress) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    constexpr double duration = 0.4;
+    interactor.set_view_transition_duration(duration);
+    interactor.go_to_preset_view(renderer::CameraInteractor::PresetView::BACK);
+
+    const linal::double3 endDirection = linal::normalize(linal::double3{0.0, 1.0, 0.0});
+
+    constexpr int steps = 10;
+    constexpr double stepSeconds = duration / steps;
+    double previousAngle = std::numeric_limits<double>::max();
+    for (int i = 0; i < steps; ++i) {
+        interactor.update(stepSeconds, no_key_pressed);
+        const linal::double3 currentDirection =
+            linal::normalize(interactor.get_position() - interactor.get_target());
+        const double cosAngle = std::clamp(linal::dot(currentDirection, endDirection), -1.0, 1.0);
+        const double angle = std::acos(cosAngle);
+        EXPECT_LE(angle, previousAngle + 1.0e-9);
+        previousAngle = angle;
+    }
+}
+
+TEST(CameraInteractorTest, PresetViewTopAndBottomUseAlternateUpVector) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    interactor.set_view_transition_duration(0.0);
+    interactor.go_to_preset_view(renderer::CameraInteractor::PresetView::TOP);
+
+    EXPECT_NEAR(linal::length(interactor.get_vertical() - linal::double3{0.0, 1.0, 0.0}), 0.0, tolerance);
+}
+
+TEST(CameraInteractorTest, PresetViewTransitionBetweenExactOppositesStaysFinite) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    const linal::double3 target = interactor.get_target();
+    const double distance = linal::length(interactor.get_position() - target);
+
+    constexpr double duration = 0.4;
+    interactor.set_view_transition_duration(duration);
+    interactor.go_to_preset_view(renderer::CameraInteractor::PresetView::FRONT);
+    interactor.update(duration * 2.0, no_key_pressed);
+    interactor.go_to_preset_view(renderer::CameraInteractor::PresetView::BACK);
+
+    constexpr int steps = 10;
+    constexpr double stepSeconds = duration / steps;
+    for (int i = 0; i < steps; ++i) {
+        interactor.update(stepSeconds, no_key_pressed);
+        const linal::double3 position = interactor.get_position();
+        EXPECT_TRUE(std::isfinite(position[0]));
+        EXPECT_TRUE(std::isfinite(position[1]));
+        EXPECT_TRUE(std::isfinite(position[2]));
+        EXPECT_NEAR(linal::length(interactor.get_position() - interactor.get_target()), distance, 1.0e-6);
+    }
+
+    const linal::double3 backDirection = linal::normalize(linal::double3{0.0, 1.0, 0.0});
+    const linal::double3 expectedPosition = target + backDirection * distance;
+    EXPECT_NEAR(linal::length(interactor.get_position() - expectedPosition), 0.0, 1.0e-6);
+}
+
+TEST(CameraInteractorTest, PoseTransitionTargetMovesMonotonicallyTowardEndTarget) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    const linal::double3 endPosition{5.0, 5.0, 5.0};
+    const linal::double3 endTarget{2.0, 3.0, 1.0};
+    const linal::double3 endUp{0.0, 0.0, 1.0};
+
+    constexpr double duration = 0.4;
+    interactor.set_view_transition_duration(duration);
+    interactor.transition_to_pose(endPosition, endTarget, endUp);
+
+    constexpr int steps = 10;
+    constexpr double stepSeconds = duration / steps;
+    double previousDistanceToEnd = linal::length(interactor.get_target() - endTarget);
+    for (int i = 0; i < steps; ++i) {
+        interactor.update(stepSeconds, no_key_pressed);
+        const double distanceToEnd = linal::length(interactor.get_target() - endTarget);
+        EXPECT_LE(distanceToEnd, previousDistanceToEnd + 1.0e-9);
+        previousDistanceToEnd = distanceToEnd;
+    }
+}
+
+TEST(CameraInteractorTest, PoseTransitionInterpolatesDistanceWhenEndDistanceDiffers) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    const linal::double3 target = interactor.get_target();
+    const double startDistance = linal::length(interactor.get_position() - target);
+    const linal::double3 direction = linal::normalize(interactor.get_position() - target);
+    const double endDistance = startDistance * 3.0;
+    const linal::double3 endPosition = target + direction * endDistance;
+
+    constexpr double duration = 0.4;
+    interactor.set_view_transition_duration(duration);
+    interactor.transition_to_pose(endPosition, target, interactor.get_vertical());
+
+    constexpr int steps = 10;
+    constexpr double stepSeconds = duration / steps;
+    double previousDistance = startDistance;
+    for (int i = 0; i < steps; ++i) {
+        interactor.update(stepSeconds, no_key_pressed);
+        const double currentDistance = linal::length(interactor.get_position() - interactor.get_target());
+        EXPECT_GE(currentDistance, previousDistance - 1.0e-9);
+        previousDistance = currentDistance;
+    }
+    EXPECT_GT(previousDistance, startDistance + tolerance);
+}
+
+TEST(CameraInteractorTest, PoseTransitionSnapsInstantlyWhenDurationIsZero) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    const linal::double3 endPosition{5.0, 5.0, 5.0};
+    const linal::double3 endTarget{2.0, 3.0, 1.0};
+    const linal::double3 endUp{0.0, 0.0, 1.0};
+
+    interactor.set_view_transition_duration(0.0);
+    interactor.transition_to_pose(endPosition, endTarget, endUp);
+
+    EXPECT_FALSE(interactor.is_transitioning_view());
+    EXPECT_NEAR(linal::length(interactor.get_position() - endPosition), 0.0, tolerance);
+    EXPECT_NEAR(linal::length(interactor.get_target() - endTarget), 0.0, tolerance);
+    EXPECT_NEAR(linal::length(interactor.get_vertical() - endUp), 0.0, tolerance);
+}
+
+TEST(CameraInteractorTest, PoseTransitionReachesExactEndPoseAtOrAfterDuration) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    const linal::double3 endPosition{5.0, 5.0, 5.0};
+    const linal::double3 endTarget{2.0, 3.0, 1.0};
+    const linal::double3 endUp{0.0, 0.0, 1.0};
+
+    constexpr double duration = 0.4;
+    interactor.set_view_transition_duration(duration);
+    interactor.transition_to_pose(endPosition, endTarget, endUp);
+
+    interactor.update(duration * 2.0, no_key_pressed);
+
+    EXPECT_FALSE(interactor.is_transitioning_view());
+    EXPECT_NEAR(linal::length(interactor.get_position() - endPosition), 0.0, 1.0e-6);
+    EXPECT_NEAR(linal::length(interactor.get_target() - endTarget), 0.0, 1.0e-6);
+}

@@ -5,11 +5,13 @@
 #include <OpenGL/Drawable/DrawablesManager.hpp>
 #include <OpenGL/FrameState.hpp>
 #include <OpenGL/LineType.hpp>
+#include <plinth/CameraAutoFit.hpp>
 #include <plinth/CameraInteractor.hpp>
 #include <plinth/GlfwWindow.hpp>
 #include <plinth/ImGuiOverlay.hpp>
 #include <plinth/InputState.hpp>
 #include <plinth/WindowSettings.hpp>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -148,6 +150,15 @@ class Renderer {
     void end_frame(bool& autoFitEnabled);
     void end_frame(bool& autoFitEnabled, bool& homeRequested);
 
+    // --- Camera navigation (geometry-fit aware) ---
+    // Recommended entry points for jumping to a named preset view or "home": unlike the
+    // geometry-agnostic CameraInteractor::go_to_preset_view (which just preserves the current
+    // camera-to-target distance/pivot), these gather all current drawable geometry and fit it
+    // into view via calculate_camera_auto_fit, falling back to the geometry-agnostic behavior
+    // when the scene has no geometry yet.
+    void go_to_preset_view(PresetView view);
+    void go_to_home_view();
+
     // --- Callback extension points ---
     void add_cursor_pos_callback(CursorPosCB cb);
     void add_scroll_callback(ScrollCB cb);
@@ -191,6 +202,18 @@ class Renderer {
     void on_mouse_button(int button, Action action, Mods mods);
     [[nodiscard]]
     std::optional<std::pair<double, double>> current_scene_framebuffer_coordinates() const;
+    // Builds a CameraAutoFitInput from the camera's current projection settings plus the given
+    // hypothetical direction/up/target/distance, gathers all current drawable geometry, and
+    // returns the fitted result. `direction`/`up`/`targetHint` define the frame to fit within
+    // (not necessarily the camera's actual current pose - e.g. a preset-view direction);
+    // `currentDistance` is clamped to a safe minimum so callers can never feed a degenerate
+    // distance into CameraInteractor's transition machinery.
+    [[nodiscard]]
+    CameraAutoFitResult compute_fit_destination(const linal::double3& direction,
+                                                const linal::double3& up,
+                                                const linal::double3& targetHint,
+                                                double currentDistance) const;
+    void apply_fit_result(const CameraAutoFitResult& result);
 
     GlfwWindow m_window;
     opengl::DrawablesManager m_drawablesManager;
@@ -199,6 +222,13 @@ class Renderer {
     SceneViewport m_sceneViewport;
     CursorPosState m_lastWindowCursorPos;
     bool m_cameraMouseInteractionActive{false};
+    std::chrono::steady_clock::time_point m_lastFrameTime;
+    std::chrono::steady_clock::time_point m_lastCameraInteractionTime;
+    bool m_autoFitPending{false};
+    // Mirrors the caller-owned autoFitEnabled bool passed to end_frame(bool&, bool&) - begin_frame
+    // needs to see this to decide whether to run the auto-zoom-when-settled check, but has no
+    // access to end_frame's by-reference parameter (a different call each frame).
+    bool m_autoFitEnabled{false};
 
     std::vector<CursorPosCB> m_cursorPosCallbacks;
     std::vector<ScrollCB> m_scrollCallbacks;

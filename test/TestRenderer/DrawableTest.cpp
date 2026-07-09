@@ -682,3 +682,99 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerDrawsTransparentMeshesAndRestoresCull
     manager.clear_drawables();
     EXPECT_FALSE(manager.has_drawables());
 }
+
+TEST_F(OpenGLDrawableTest, PointDrawableExposesVertexPositions) {
+    opengl::PointProgram program = opengl::make_point_program();
+    const std::vector<float> colors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+    };
+    opengl::PointDrawable drawable = make_point_drawable_with_alpha(program, colors);
+
+    const std::span<const float> positions = drawable.get_vertex_positions();
+    const std::vector<float> expected = {0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F};
+    ASSERT_EQ(expected.size(), positions.size());
+    for (std::size_t i = 0; i < expected.size(); ++i) {
+        EXPECT_FLOAT_EQ(expected[i], positions[i]);
+    }
+}
+
+TEST_F(OpenGLDrawableTest, LineDrawableExposesVertexPositions) {
+    opengl::LineProgram program = opengl::make_line_program();
+    const std::vector<float> colors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F,
+    };
+    opengl::LineDrawable drawable = make_line_drawable_with_alpha(program, colors, 0.0F);
+
+    const std::span<const float> positions = drawable.get_vertex_positions();
+    const std::vector<float> expected = {0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F};
+    ASSERT_EQ(expected.size(), positions.size());
+    for (std::size_t i = 0; i < expected.size(); ++i) {
+        EXPECT_FLOAT_EQ(expected[i], positions[i]);
+    }
+}
+
+TEST_F(OpenGLDrawableTest, MeshDrawableExposesVertexPositions) {
+    opengl::MeshProgram program = opengl::make_mesh_program();
+    const std::vector<float> colors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+    };
+    opengl::MeshDrawable drawable = make_mesh_drawable_with_alpha(program, colors);
+
+    const std::span<const float> positions = drawable.get_vertex_positions();
+    const std::vector<float> expected = {0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F};
+    ASSERT_EQ(expected.size(), positions.size());
+    for (std::size_t i = 0; i < expected.size(); ++i) {
+        EXPECT_FLOAT_EQ(expected[i], positions[i]);
+    }
+}
+
+TEST_F(OpenGLDrawableTest, DrawablesManagerCollectsVertexPositionBuffersAcrossAllDrawableKinds) {
+    opengl::DrawablesManager manager = opengl::DrawablesManager::create().value();
+
+    const std::vector<float> pointVertices = {0.0F, 0.0F, 0.0F, 3.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F};
+    const std::vector<float> pointColors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+    };
+    const std::vector<std::uint32_t> pointIndices = {0U, 1U, 2U};
+    ASSERT_TRUE(manager
+                    .add_point_drawable(pointVertices,
+                                       pointColors,
+                                       pointIndices,
+                                       3.0F,
+                                       opengl::BufferAccessPattern::STATIC_DRAW)
+                    .has_value());
+
+    const std::vector<float> lineVertices = {0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 5.0F, 0.0F, 0.0F, 6.0F, 0.0F, 0.0F};
+    const std::vector<float> lineColors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F,
+    };
+    const std::vector<std::uint32_t> lineIndices = {0U, 1U, 2U, 3U};
+    ASSERT_TRUE(manager
+                    .add_line_drawable(lineVertices,
+                                       lineIndices,
+                                       lineColors,
+                                       opengl::LineType::lines(),
+                                       2.0F,
+                                       1.0F,
+                                       opengl::BufferAccessPattern::STATIC_DRAW)
+                    .has_value());
+
+    const std::vector<float> meshColors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+    };
+    add_mesh_drawable_with_alpha(manager, meshColors); // hardcoded 3 vertices (9 floats), see the helper above
+
+    const auto buffers = manager.collect_vertex_position_buffers();
+    ASSERT_EQ(3U, buffers.size());
+    std::size_t totalFloats = 0;
+    for (const auto& buffer: buffers) {
+        totalFloats += buffer.size();
+    }
+    constexpr std::size_t meshVertexFloatCount = 9U;
+    EXPECT_EQ(pointVertices.size() + lineVertices.size() + meshVertexFloatCount, totalFloats);
+}
+
+TEST_F(OpenGLDrawableTest, DrawablesManagerCollectsEmptyWhenNoDrawablesAdded) {
+    opengl::DrawablesManager manager = opengl::DrawablesManager::create().value();
+    EXPECT_TRUE(manager.collect_vertex_position_buffers().empty());
+}

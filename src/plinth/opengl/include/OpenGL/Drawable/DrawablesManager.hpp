@@ -154,6 +154,32 @@ class DrawablesManager {
         return !m_meshVertexDrawables.empty();
     }
 
+    // Collects a position-buffer view (world-space xyz triplets) for every currently-added
+    // drawable, for use with renderer::calculate_camera_auto_fit. The returned spans borrow
+    // directly from each drawable's own retained storage - the result must not outlive `this`,
+    // and is invalidated by any subsequent add/remove/update call that could reallocate a
+    // drawable's position vector.
+    [[nodiscard]]
+    std::vector<std::span<const float>> collect_vertex_position_buffers() const {
+        std::vector<std::span<const float>> buffers;
+        buffers.reserve(m_pointDrawables.size() + m_lineDrawables.size() + m_meshDrawables.size() +
+                       m_meshSegmentDrawables.size() + m_meshVertexDrawables.size());
+        const auto collect = [&buffers](const auto& drawables) {
+            for (const auto& entry: drawables) {
+                const auto span = entry.drawable.get_vertex_positions();
+                if (!span.empty()) {
+                    buffers.push_back(span);
+                }
+            }
+        };
+        collect(m_pointDrawables);
+        collect(m_lineDrawables);
+        collect(m_meshDrawables);
+        collect(m_meshSegmentDrawables);
+        collect(m_meshVertexDrawables);
+        return buffers;
+    }
+
     DrawableId add_point_drawable(opengl::PointDrawable drawable) {
         const DrawableId id = next_drawable_id();
         m_pointDrawables.emplace_back(DrawableEntry<opengl::PointDrawable>{id, std::move(drawable)});

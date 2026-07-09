@@ -11,6 +11,7 @@
 #include <plinth/Warnings.hpp>
 #include <algorithm>
 #include <cmath>
+#include <functional>
 RENDERER_DISABLE_ALL_WARNINGS
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/ext/quaternion_double.hpp>
@@ -48,6 +49,42 @@ struct CameraSettings {
     linal::double3 m_defaultUp{0.0, 0.0, 1.0};
 };
 
+/** @brief Named camera view presets (front/back/left/right/top/bottom/iso). */
+enum class PresetView {
+    FRONT,
+    BACK,
+    LEFT,
+    RIGHT,
+    TOP,
+    BOTTOM,
+    ISO
+};
+
+struct PresetViewDirection {
+    linal::double3 direction; /**< Unit vector, target -> camera. */
+    linal::double3 up;        /**< Up vector to use for this preset. */
+};
+
+/** @brief Compute the unit direction (target -> camera) and up vector for a preset view.
+ *
+ * Follows the same Z-up convention as CameraSettings::m_defaultUp.
+ */
+[[nodiscard]] inline PresetViewDirection preset_view_direction(PresetView view) {
+    switch (view) {
+    case PresetView::FRONT: return {{0.0, -1.0, 0.0}, {0.0, 0.0, 1.0}};
+    case PresetView::BACK:  return {{0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}};
+    case PresetView::LEFT:  return {{-1.0, 0.0, 0.0}, {0.0, 0.0, 1.0}};
+    case PresetView::RIGHT: return {{1.0, 0.0, 0.0}, {0.0, 0.0, 1.0}};
+    // TOP/BOTTOM: gaze is parallel to the default Z-up vector, so the up vector must be a
+    // different axis (Y) here or Camera::right()/up() degenerates (cross product of parallel vectors).
+    case PresetView::TOP:    return {{0.0, 0.0, 1.0}, {0.0, 1.0, 0.0}};
+    case PresetView::BOTTOM: return {{0.0, 0.0, -1.0}, {0.0, 1.0, 0.0}};
+    case PresetView::ISO:    return {linal::normalize(linal::double3{1.0, -1.0, 1.0}), {0.0, 0.0, 1.0}};
+    }
+    RENDERER_ASSERT(false);
+    return {{0.0, -1.0, 0.0}, {0.0, 0.0, 1.0}};
+}
+
 class CameraInteractor : private CameraSettings {
     enum class CameraMode {
         NO_MODE = 0,
@@ -55,12 +92,40 @@ class CameraInteractor : private CameraSettings {
         PAN
     };
 
+  public:
+    enum class NavigationStyle {
+        ORBIT, // existing behavior: right-drag orbits around a ground-plane pivot, middle-drag pans
+        FLY    // new: WASD(+QE) translates the camera, right-drag mouse-looks in place
+    };
+
+    using KeyPressQuery = std::function<bool(Key)>;
+
+    /** @brief Alias for the free-standing renderer::PresetView, exposed as a nested name for callers
+     *  that prefer to write CameraInteractor::PresetView. */
+    using PresetView = renderer::PresetView;
+
+  private:
     InputState* m_inputState{nullptr};
     CameraMode m_cameraMode{CameraMode::NO_MODE};
     double m_prevXPos{std::numeric_limits<double>::quiet_NaN()};
     double m_prevYPos{std::numeric_limits<double>::quiet_NaN()};
     bool m_wasBlocking{false}; /**< The camera is only blocking when the last event for the  camera
                                   manipulated the position. */
+
+    NavigationStyle m_navigationStyle{NavigationStyle::ORBIT};
+    double m_flySpeed{5.0}; // world units per second
+
+    bool m_isTransitioning{false};
+    double m_transitionElapsedSeconds{0.0};
+    double m_transitionDurationSeconds{0.4}; // default transition duration, in seconds
+    linal::double3 m_transitionStartTarget{0.0};
+    linal::double3 m_transitionEndTarget{0.0};
+    linal::double3 m_transitionStartDirection{0.0};
+    linal::double3 m_transitionEndDirection{0.0};
+    double m_transitionStartDistance{0.0};
+    double m_transitionEndDistance{0.0};
+    linal::double3 m_transitionStartUp{0.0};
+    linal::double3 m_transitionEndUp{0.0};
 
   public:
     CameraInteractor() = default;
@@ -95,6 +160,11 @@ class CameraInteractor : private CameraSettings {
 
     void set_far_plane(double farPlane) {
         m_camera.set_far_plane(farPlane);
+        update_mvp();
+    }
+
+    void set_orthographic_size(double width, double height) {
+        m_camera.set_orthographic_size(width, height);
         update_mvp();
     }
 
@@ -182,6 +252,49 @@ class CameraInteractor : private CameraSettings {
 
     void set_ground_plane(const Plane& groundPlane) { m_groundPlane = groundPlane; }
 
+    void set_navigation_style(NavigationStyle style) { m_navigationStyle = style; }
+    [[nodiscard]]
+    NavigationStyle get_navigation_style() const {
+        return m_navigationStyle;
+    }
+    void set_fly_speed(double unitsPerSecond) { m_flySpeed = unitsPerSecond; }
+    [[nodiscard]]
+    double get_fly_speed() const {
+        return m_flySpeed;
+    }
+
+    /** @brief Smoothly transition the camera to a named preset view (front/top/iso/...).
+     *
+     * The pivot (current gaze target) and camera-to-target distance are preserved; only the
+     * viewing direction and up vector animate. If the transition duration is 0 (or negative),
+     * the camera snaps to the preset view instantly instead of animating.
+     */
+    void go_to_preset_view(PresetView view) {
+        const linal::double3 pos = to_linal(m_camera.get_position());
+        const linal::double3 target = to_linal(m_camera.get_target());
+        const double distance = linal::length(pos - target);
+        RENDERER_ASSERT(distance > 1.0e-9);
+
+        const PresetViewDirection preset = preset_view_direction(view);
+        begin_pose_transition(target + preset.direction * distance, target, preset.up);
+    }
+
+    /** @brief Smoothly transition the camera to an arbitrary destination pose (position/target/up),
+     *  e.g. a geometry-fit result. Unlike go_to_preset_view, this does not assume the pivot or
+     *  distance stay fixed - both may change if endTarget/endPosition differ from the current pose.
+     */
+    void transition_to_pose(const linal::double3& endPosition,
+                            const linal::double3& endTarget,
+                            const linal::double3& endUp) {
+        begin_pose_transition(endPosition, endTarget, endUp);
+    }
+
+    void set_view_transition_duration(double seconds) { m_transitionDurationSeconds = std::max(0.0, seconds); }
+    [[nodiscard]]
+    bool is_transitioning_view() const {
+        return m_isTransitioning;
+    }
+
     void set_viewport(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height) {
         m_camera.set_viewport(x, y, width, height);
         update_mvp();
@@ -224,6 +337,94 @@ class CameraInteractor : private CameraSettings {
 
         m_wasBlocking = true;
         update_mvp();
+    }
+
+    /** @brief Advance per-frame camera state: fly-mode keyboard navigation and any in-flight
+     *  preset-view transition.
+     *
+     * The fly-movement portion is a no-op unless the navigation style is FLY and deltaSeconds is
+     * positive. The preset-view transition-advance portion runs regardless of navigation style
+     * (guarded internally by whether a transition is in flight) so a transition started while in
+     * ORBIT style can still play out.
+     *
+     * @param deltaSeconds Time elapsed since the previous frame, in seconds.
+     * @param isKeyPressed Query function returning whether a given key is currently held down.
+     */
+    void update(double deltaSeconds, const KeyPressQuery& isKeyPressed) {
+        if (m_navigationStyle == NavigationStyle::FLY && deltaSeconds > 0.0) {
+            const linal::double3 cameraPos = to_linal(m_camera.get_position());
+            const linal::double3 cameraTarget = to_linal(m_camera.get_target());
+            const linal::double3 forward = linal::normalize(cameraTarget - cameraPos);
+            const linal::double3 upVec = to_linal(m_camera.get_vertical());
+            const linal::double3 right = linal::normalize(linal::cross(forward, upVec));
+
+            linal::double3 move{0.0, 0.0, 0.0};
+            if (isKeyPressed(Key::KEY_W)) { move = move + forward; }
+            if (isKeyPressed(Key::KEY_S)) { move = move - forward; }
+            if (isKeyPressed(Key::KEY_D)) { move = move + right; }
+            if (isKeyPressed(Key::KEY_A)) { move = move - right; }
+            if (isKeyPressed(Key::KEY_E)) { move = move + upVec; }
+            if (isKeyPressed(Key::KEY_Q)) { move = move - upVec; }
+
+            if (linal::length(move) >= 1.0e-12) {
+                const linal::double3 translation = linal::normalize(move) * (m_flySpeed * deltaSeconds);
+                m_camera.look_at(to_glm(cameraPos + translation), to_glm(cameraTarget + translation), to_glm(upVec));
+                m_wasBlocking = true;
+                update_mvp();
+            }
+        }
+
+        if (m_isTransitioning) {
+            m_transitionElapsedSeconds += std::max(0.0, deltaSeconds);
+            double t = m_transitionDurationSeconds > 0.0 ? m_transitionElapsedSeconds / m_transitionDurationSeconds
+                                                          : 1.0;
+            t = std::clamp(t, 0.0, 1.0);
+            const double easedT = t * t * (3.0 - 2.0 * t); // smoothstep
+
+            // Slerp the direction vector (not a plain lerp) so distance-to-target stays constant
+            // throughout the transition instead of the camera cutting through the pivot on the
+            // short path.
+            const double cosAngle =
+                std::clamp(linal::dot(m_transitionStartDirection, m_transitionEndDirection), -1.0, 1.0);
+            const double angle = std::acos(cosAngle);
+            linal::double3 direction;
+            if (angle < 1.0e-6) {
+                direction = m_transitionEndDirection;
+            } else {
+                linal::double3 axis = linal::cross(m_transitionStartDirection, m_transitionEndDirection);
+                if (linal::length(axis) < 1.0e-9) {
+                    // Start/end directions are antiparallel (e.g. FRONT<->BACK, LEFT<->RIGHT,
+                    // TOP<->BOTTOM): their cross product is the exact zero vector, which would
+                    // normalize to NaN. Rotate around an arbitrary axis perpendicular to the start
+                    // direction instead - any such axis produces a valid 180-degree turn.
+                    const linal::double3 arbitrary = std::abs(m_transitionStartDirection[0]) < 0.9
+                                                          ? linal::double3{1.0, 0.0, 0.0}
+                                                          : linal::double3{0.0, 1.0, 0.0};
+                    axis = linal::cross(m_transitionStartDirection, arbitrary);
+                }
+                axis = linal::normalize(axis);
+                const glm::dquat rot = glm::angleAxis(angle * easedT, glm::dvec3{axis[0], axis[1], axis[2]});
+                const glm::dvec3 rotated =
+                    rot * glm::dvec3{m_transitionStartDirection[0],
+                                      m_transitionStartDirection[1],
+                                      m_transitionStartDirection[2]};
+                direction = linal::normalize(to_linal(rotated));
+            }
+            const linal::double3 up =
+                linal::normalize(m_transitionStartUp * (1.0 - easedT) + m_transitionEndUp * easedT);
+            const linal::double3 target =
+                m_transitionStartTarget * (1.0 - easedT) + m_transitionEndTarget * easedT;
+            const double distanceValue =
+                m_transitionStartDistance * (1.0 - easedT) + m_transitionEndDistance * easedT;
+            const linal::double3 position = target + direction * distanceValue;
+
+            m_camera.look_at(to_glm(position), to_glm(target), to_glm(up));
+            update_mvp();
+
+            if (t >= 1.0) {
+                m_isTransitioning = false;
+            }
+        }
     }
 
     void on_cursor_position(double xpos, double ypos) {
@@ -287,6 +488,50 @@ class CameraInteractor : private CameraSettings {
 
             m_camera.look_at(to_glm(newCameraPos), to_glm(newCameraTarget), to_glm(cameraUpNorm));
             update_mvp();
+        }
+
+        if (m_cameraMode == CameraMode::ORBIT && m_navigationStyle == NavigationStyle::FLY) {
+            m_wasBlocking = true;
+
+            // Fly mode mouse-look always works, regardless of the ground plane, so just re-arm the
+            // screen-space delta tracking the same way orbit mode does on the first drag event.
+            if (m_isRotateStart) {
+                m_isRotateStart = false;
+                m_rotateScreenXYStart = glm::vec2{xpos, ypos};
+            }
+
+            double deltaXPos = m_rotateScreenXYStart[0] - xpos;
+            double deltaYPos = m_rotateScreenXYStart[1] - ypos;
+
+            m_rotateScreenXYStart = glm::vec2{xpos, ypos};
+
+            constexpr double epsilon = 0.00001;
+            if (std::abs(deltaXPos) < epsilon) {
+                deltaXPos = 0.0;
+            }
+
+            if (std::abs(deltaYPos) < epsilon) {
+                deltaYPos = 0.0;
+            }
+
+            if (deltaXPos == 0.0 && deltaYPos == 0.0) {
+                m_wasBlocking = false;
+                return;
+            }
+
+            auto vertical = m_camera.get_vertical();
+            auto right = m_camera.right();
+            const glm::dquat zQuat = glm::angleAxis(glm::radians(deltaXPos * m_rotateSpeed),
+                                                    glm::dvec3{vertical[0], vertical[1], vertical[2]});
+            const glm::dquat rightQuat =
+                glm::angleAxis(glm::radians(-deltaYPos * m_rotateSpeed), glm::dvec3{right[0], right[1], right[2]});
+            const glm::dquat rotQuat = zQuat * rightQuat;
+
+            glm::dvec3 position = m_camera.get_position();
+            const glm::dvec3 newForward = rotQuat * (m_camera.get_target() - position);
+            m_camera.look_at(position, position + newForward, m_camera.get_vertical());
+            update_mvp();
+            return;
         }
 
         if (m_cameraMode == CameraMode::ORBIT) {
@@ -416,6 +661,38 @@ class CameraInteractor : private CameraSettings {
     }
 
   private:
+    // Begin an animated transition to an arbitrary full camera pose. Decomposes both the
+    // current pose and the destination pose into (target, direction, distance, up) and
+    // interpolates all four independently in update(); when the destination target/distance
+    // equal the current ones (as go_to_preset_view always arranges), this reduces exactly to
+    // rotating around a fixed pivot at a fixed radius.
+    void begin_pose_transition(const linal::double3& endPosition,
+                              const linal::double3& endTarget,
+                              const linal::double3& endUp) {
+        const linal::double3 startPos = to_linal(m_camera.get_position());
+        const linal::double3 startTarget = to_linal(m_camera.get_target());
+        const double startDistance = linal::length(startPos - startTarget);
+        const double endDistance = linal::length(endPosition - endTarget);
+        RENDERER_ASSERT(startDistance > 1.0e-9);
+        RENDERER_ASSERT(endDistance > 1.0e-9);
+
+        m_transitionStartTarget = startTarget;
+        m_transitionEndTarget = endTarget;
+        m_transitionStartDirection = linal::normalize(startPos - startTarget);
+        m_transitionEndDirection = linal::normalize(endPosition - endTarget);
+        m_transitionStartDistance = startDistance;
+        m_transitionEndDistance = endDistance;
+        m_transitionStartUp = to_linal(m_camera.get_vertical());
+        m_transitionEndUp = endUp;
+        m_transitionElapsedSeconds = 0.0;
+        m_isTransitioning = m_transitionDurationSeconds > 0.0;
+
+        if (!m_isTransitioning) {
+            m_camera.look_at(to_glm(endPosition), to_glm(endTarget), to_glm(endUp));
+            update_mvp();
+        }
+    }
+
     [[nodiscard]]
     static linal::hmatf to_hmatf(const glm::dmat4& mat) {
         linal::hmatf result;

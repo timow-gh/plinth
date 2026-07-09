@@ -88,6 +88,11 @@ bool GlfwWindow::is_escape_pressed() const {
     return glfwGetKey(m_glfwWindow, GLFW_KEY_ESCAPE) == GLFW_PRESS;
 }
 
+bool GlfwWindow::is_key_pressed(Key key) const {
+    RENDERER_ASSERT(m_glfwWindow);
+    return glfwGetKey(m_glfwWindow, static_cast<int>(key)) == GLFW_PRESS;
+}
+
 std::pair<int, int> GlfwWindow::get_window_size() const {
     RENDERER_ASSERT(m_glfwWindow);
 

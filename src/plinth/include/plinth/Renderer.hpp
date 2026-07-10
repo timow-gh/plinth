@@ -114,6 +114,11 @@ class Renderer {
 
     bool remove_drawable(DrawableHandle handle);
 
+    bool set_drawable_transform(DrawableHandle handle, const linal::hmatf& transform);
+    [[nodiscard]]
+    std::optional<linal::hmatf> get_drawable_transform(DrawableHandle handle) const;
+    bool reset_drawable_transform(DrawableHandle handle);
+
     void update_last_point_drawable(std::span<const float> vertices,
                                     std::span<const float> colors,
                                     std::span<const std::uint32_t> indices,

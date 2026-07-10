@@ -1,8 +1,8 @@
 #include "OpenGL/VertexBuffer.hpp"
+#include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/UpdateBuffer.hpp"
 #include <plinth/Assert.hpp>
 #include <limits>
-#include <print>
 #include <utility>
 
 namespace opengl {
@@ -46,7 +46,7 @@ std::optional<VertexBuffer> VertexBuffer::create(std::span<const float> vectors,
     GLuint bufferId{0};
     glGenBuffers(1, &bufferId);
     if (bufferId == 0) {
-        std::print(stderr, "Error: glGenBuffers failed to allocate a vertex buffer\n");
+        report_error("Error: glGenBuffers failed to allocate a vertex buffer");
         RENDERER_ASSERT(false);
         return std::nullopt;
     }

@@ -67,7 +67,7 @@ TEST_F(GoldenImageTest, PointSceneMatchesGolden) {
     ASSERT_TRUE(drawable.has_value());
 
     linal::hmatf identity = linal::hmatf::identity();
-    drawable->draw_opaque(identity);
+    drawable->draw_opaque(identity, identity);
 
     // Read-back happens after draw(), before any swap.
     const plinth_test::CapturedImage image = plinth_test::read_back_rgba(captureWidth, captureHeight);

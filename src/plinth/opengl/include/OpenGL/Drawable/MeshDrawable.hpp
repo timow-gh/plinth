@@ -76,6 +76,11 @@ class OPENGL_EXPORT MeshDrawable {
         return m_transparencyInfo.distance_squared_to(viewPosition);
     }
 
+    [[nodiscard]]
+    double distance_squared_to(const linal::double3& viewPosition, const linal::hmatf& transform) const noexcept {
+        return m_transparencyInfo.distance_squared_to(viewPosition, transform);
+    }
+
     // World-space xyz-triplet vertex positions, for scene-bounds computation (e.g. camera auto-fit).
     // Flattens element-by-element rather than reinterpreting m_vertexPositions' memory directly -
     // linal::float3 is not guaranteed to be a tightly-packed 3-float struct (its policy-mixin base

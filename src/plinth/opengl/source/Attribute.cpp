@@ -1,7 +1,8 @@
 #include "OpenGL/Attribute.hpp"
+#include "OpenGL/ErrorReporting.hpp"
 #include <cstdlib>
+#include <format>
 #include <plinth/Assert.hpp>
-#include <print>
 
 namespace opengl {
 
@@ -19,7 +20,7 @@ Attribute make_attribute(std::string_view name, ProgramId program) {
     Location location{glGetAttribLocation(program.get_value(), name.data())};
     if (location.get_value() == -1) {
         RENDERER_ASSERT(false);
-        std::print(stderr, "Attribute {} not found\n", name);
+        report_error(std::format("Attribute {} not found", name));
         abort();
     }
 

@@ -1,6 +1,7 @@
 #include "OpenGL/Programs/CreateProgram.hpp"
+#include "OpenGL/ErrorReporting.hpp"
 #include "ProgramOpenGL.hpp"
-#include <print>
+#include <format>
 #include <utility>
 
 namespace opengl {
@@ -63,7 +64,8 @@ ProgramCreationResult create_program(const char* vertexShaderSource, const char*
     program_opengl::compile_shader(vertexShader);
 
     if (!program_opengl::get_shader_compile_status(vertexShader)) {
-        std::print(stderr, "Vertex shader compilation failed: {}\n", program_opengl::get_shader_info_log(vertexShader));
+        report_error(
+            std::format("Vertex shader compilation failed: {}", program_opengl::get_shader_info_log(vertexShader)));
         return make_error_code(ProgramCreationFailureStage::VertexShaderCompilation);
     }
 
@@ -76,9 +78,8 @@ ProgramCreationResult create_program(const char* vertexShaderSource, const char*
     program_opengl::compile_shader(fragmentShader);
 
     if (!program_opengl::get_shader_compile_status(fragmentShader)) {
-        std::print(stderr,
-                   "Fragment shader compilation failed: {}\n",
-                   program_opengl::get_shader_info_log(fragmentShader));
+        report_error(std::format("Fragment shader compilation failed: {}",
+                                 program_opengl::get_shader_info_log(fragmentShader)));
         return make_error_code(ProgramCreationFailureStage::FragmentShaderCompilation);
     }
 
@@ -93,7 +94,7 @@ ProgramCreationResult create_program(const char* vertexShaderSource, const char*
 
     if (!program_opengl::get_program_link_status(programId)) {
         std::string infoLog = program_opengl::get_program_info_log(programId);
-        std::print(stderr, "Program linking failed: {}\n", infoLog);
+        report_error(std::format("Program linking failed: {}", infoLog));
         program_opengl::delete_program(programId);
         return make_error_code(ProgramCreationFailureStage::ProgramLinking);
     }

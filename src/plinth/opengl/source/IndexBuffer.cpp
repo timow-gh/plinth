@@ -1,8 +1,8 @@
 #include "OpenGL/IndexBuffer.hpp"
+#include "OpenGL/ErrorReporting.hpp"
 #include <cstdint>
 #include <limits>
 #include <plinth/Assert.hpp>
-#include <print>
 #include <utility>
 
 namespace opengl {
@@ -39,7 +39,7 @@ std::optional<IndexBuffer> IndexBuffer::create(std::span<const std::uint32_t> in
     BufferId id;
     glGenBuffers(1, &id.get_value());
     if (id.get_value() == 0) {
-        std::print(stderr, "Error: glGenBuffers failed to allocate an index buffer\n");
+        report_error("Error: glGenBuffers failed to allocate an index buffer");
         RENDERER_ASSERT(false);
         return std::nullopt;
     }

@@ -110,23 +110,27 @@ void LineDrawable::update_line_drawable(std::span<const float> vertices,
     rebuild_index_buffers(accessPattern);
 }
 
-void LineDrawable::draw(const linal::hmatf& mvp) const {
-    draw_opaque(mvp);
-    draw_index_buffer(mvp, m_translucentLineIndicesBuffer);
+void LineDrawable::draw(const linal::hmatf& mvp, const linal::hmatf& modelMatrix) const {
+    draw_opaque(mvp, modelMatrix);
+    draw_index_buffer(mvp, modelMatrix, m_translucentLineIndicesBuffer);
 }
 
-void LineDrawable::draw_opaque(const linal::hmatf& mvp) const {
-    draw_index_buffer(mvp, m_opaqueLineIndicesBuffer);
+void LineDrawable::draw_opaque(const linal::hmatf& mvp, const linal::hmatf& modelMatrix) const {
+    draw_index_buffer(mvp, modelMatrix, m_opaqueLineIndicesBuffer);
 }
 
-void LineDrawable::draw_translucent(const linal::hmatf& mvp, const linal::double3& viewPosition) {
+void LineDrawable::draw_translucent(const linal::hmatf& mvp,
+                                    const linal::hmatf& modelMatrix,
+                                    const linal::double3& viewPosition) {
     const std::vector<std::uint32_t> sortedIndices =
         sort_translucent_line_indices_back_to_front(m_translucentLineSegments, viewPosition);
     m_translucentLineIndicesBuffer.update_indices_buffer(sortedIndices, BufferAccessPattern::STREAM_DRAW);
-    draw_index_buffer(mvp, m_translucentLineIndicesBuffer);
+    draw_index_buffer(mvp, modelMatrix, m_translucentLineIndicesBuffer);
 }
 
-void LineDrawable::draw_index_buffer(const linal::hmatf& mvp, const IndexBuffer& indexBuffer) const {
+void LineDrawable::draw_index_buffer(const linal::hmatf& mvp,
+                                     const linal::hmatf& modelMatrix,
+                                     const IndexBuffer& indexBuffer) const {
     if (indexBuffer.get_index_count() == 0) {
         return;
     }
@@ -135,6 +139,7 @@ void LineDrawable::draw_index_buffer(const linal::hmatf& mvp, const IndexBuffer&
     auto& prog = *m_program;
     prog.use();
     glUniformMatrix4fv(prog.get_mvp_location().get_value(), 1, GL_FALSE, mvp.data());
+    glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_FALSE, modelMatrix.data());
     glLineWidth(m_lineThickness);
     m_vertexArray.bind();
     indexBuffer.bind();

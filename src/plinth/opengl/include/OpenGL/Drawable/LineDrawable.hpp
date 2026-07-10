@@ -84,11 +84,11 @@ class OPENGL_EXPORT LineDrawable {
                               std::span<const std::uint32_t> indices,
                               BufferAccessPattern accessPattern);
 
-    void draw(const linal::hmatf& mvp) const;
+    void draw(const linal::hmatf& mvp, const linal::hmatf& modelMatrix) const;
 
-    void draw_opaque(const linal::hmatf& mvp) const;
+    void draw_opaque(const linal::hmatf& mvp, const linal::hmatf& modelMatrix) const;
 
-    void draw_translucent(const linal::hmatf& mvp, const linal::double3& viewPosition);
+    void draw_translucent(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const linal::double3& viewPosition);
 
     [[nodiscard]]
     bool has_opaque_primitives() const noexcept {
@@ -110,6 +110,11 @@ class OPENGL_EXPORT LineDrawable {
         return m_transparencyInfo.distance_squared_to(viewPosition);
     }
 
+    [[nodiscard]]
+    double distance_squared_to(const linal::double3& viewPosition, const linal::hmatf& transform) const noexcept {
+        return m_transparencyInfo.distance_squared_to(viewPosition, transform);
+    }
+
     // World-space xyz-triplet vertex positions, for scene-bounds computation (e.g. camera auto-fit).
     // Flattens element-by-element rather than reinterpreting m_vertexPositions' memory directly -
     // linal::float3 is not guaranteed to be a tightly-packed 3-float struct (its policy-mixin base
@@ -127,7 +132,7 @@ class OPENGL_EXPORT LineDrawable {
     }
 
   private:
-    void draw_index_buffer(const linal::hmatf& mvp, const IndexBuffer& indexBuffer) const;
+    void draw_index_buffer(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const IndexBuffer& indexBuffer) const;
 
     void rebuild_index_buffers(BufferAccessPattern accessPattern);
 };

@@ -40,7 +40,8 @@ function(create_plinth_opengl_program_unit_test testName)
     add_executable(${testName}
             ${testName}.cpp
             ${CMAKE_SOURCE_DIR}/src/plinth/opengl/source/Programs/CreateProgram.cpp
-            ${CMAKE_SOURCE_DIR}/src/plinth/opengl/source/Programs/ProgramId.cpp)
+            ${CMAKE_SOURCE_DIR}/src/plinth/opengl/source/Programs/ProgramId.cpp
+            ${CMAKE_SOURCE_DIR}/src/plinth/opengl/source/ErrorReporting.cpp)
     target_include_directories(${testName} PRIVATE
             ${CMAKE_BINARY_DIR}/src/plinth/opengl/export_header_includes
             ${CMAKE_SOURCE_DIR}/src/plinth/opengl/include
@@ -62,6 +63,7 @@ create_renderer_test(CameraAutoFitTest)
 create_renderer_test(CameraInteractorTest)
 create_renderer_test(CameraTest)
 create_plinth_opengl_internal_test(DrawableTest)
+create_plinth_opengl_internal_test(ErrorReportingTest)
 create_plinth_opengl_internal_test(GoldenImageTest)
 target_include_directories(GoldenImageTest PRIVATE ${Stb_INCLUDE_DIR})
 target_compile_definitions(GoldenImageTest PRIVATE PLINTH_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")

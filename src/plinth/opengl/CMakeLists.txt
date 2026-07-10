@@ -14,6 +14,7 @@ set(opengl_HEADER_FILES
         include/OpenGL/BufferId.hpp
         include/OpenGL/FrameState.hpp
         include/OpenGL/BufferAccessPattern.hpp
+        include/OpenGL/ErrorReporting.hpp
         include/OpenGL/IndexBuffer.hpp
         include/OpenGL/LineType.hpp
         include/OpenGL/OpenGL.hpp
@@ -28,6 +29,7 @@ set(opengl_HEADER_FILES
 )
 
 set(opengl_SOURCE_FILES
+        source/ErrorReporting.cpp
         source/IndexBuffer.cpp
         source/FrameState.cpp
         source/Programs/CreateProgram.cpp

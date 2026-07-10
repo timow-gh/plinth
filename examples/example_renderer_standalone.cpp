@@ -4,17 +4,14 @@
 #include <plinth/Renderer.hpp>
 #include <plinth/WindowSettings.hpp>
 
-namespace
-{
+namespace {
 constexpr std::uint32_t defaultWindowWidth = 1024;
 constexpr std::uint32_t defaultWindowHeight = 768;
 constexpr float standalonePointSize = 12.0F;
 constexpr float standaloneLineWidth = 2.0F;
 } // namespace
 
-int
-main()
-{
+int main() {
     renderer::WindowSettings settings;
     settings.title = "renderer standalone example";
     settings.width = defaultWindowWidth;
@@ -52,9 +49,10 @@ main()
         if (key == renderer::Key::KEY_TAB && action == renderer::Action::PRESS) {
             auto camera = renderer->get_camera().lock();
             if (camera) {
-                camera->set_navigation_style(camera->get_navigation_style() == renderer::CameraInteractor::NavigationStyle::ORBIT
-                                                  ? renderer::CameraInteractor::NavigationStyle::FLY
-                                                  : renderer::CameraInteractor::NavigationStyle::ORBIT);
+                camera->set_navigation_style(camera->get_navigation_style() ==
+                                                     renderer::CameraInteractor::NavigationStyle::ORBIT
+                                                 ? renderer::CameraInteractor::NavigationStyle::FLY
+                                                 : renderer::CameraInteractor::NavigationStyle::ORBIT);
             }
         }
     });
@@ -78,7 +76,7 @@ main()
         case renderer::Key::KEY_5: renderer->go_to_preset_view(renderer::PresetView::TOP); break;
         case renderer::Key::KEY_6: renderer->go_to_preset_view(renderer::PresetView::BOTTOM); break;
         case renderer::Key::KEY_7: renderer->go_to_preset_view(renderer::PresetView::ISO); break;
-        default: break;
+        default:                   break;
         }
     });
 

@@ -1,8 +1,8 @@
+#include <OpenGL/ErrorReporting.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <plinth/Renderer.hpp>
-#include <print>
 
 namespace renderer {
 
@@ -72,7 +72,7 @@ Renderer::to_scene_framebuffer_coordinates(const SceneViewport& sceneViewport, d
 std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
     auto window = GlfwWindow::create(settings);
     if (!window.has_value()) {
-        std::print(stderr, "Error: Renderer::create failed - window creation failed (see above)\n");
+        opengl::report_error("Error: Renderer::create failed - window creation failed (see above)");
         return nullptr;
     }
 
@@ -91,8 +91,8 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 
     auto drawablesManager = opengl::DrawablesManager::create();
     if (!drawablesManager.has_value()) {
-        std::print(stderr,
-                   "Error: Renderer::create failed - GL program/drawables-manager creation failed (see above)\n");
+        opengl::report_error(
+            "Error: Renderer::create failed - GL program/drawables-manager creation failed (see above)");
         return nullptr;
     }
 
@@ -289,6 +289,44 @@ bool Renderer::remove_drawable(DrawableHandle handle) {
     return false;
 }
 
+bool Renderer::set_drawable_transform(DrawableHandle handle, const linal::hmatf& transform) {
+    if (!handle.is_valid()) {
+        return false;
+    }
+
+    switch (handle.kind) {
+    case DrawableKind::point:       return m_drawablesManager.set_point_drawable_transform(handle.id, transform);
+    case DrawableKind::line:        return m_drawablesManager.set_line_drawable_transform(handle.id, transform);
+    case DrawableKind::mesh:        return m_drawablesManager.set_mesh_drawable_transform(handle.id, transform);
+    case DrawableKind::meshSegment: return m_drawablesManager.set_mesh_segment_drawable_transform(handle.id, transform);
+    case DrawableKind::meshVertex:  return m_drawablesManager.set_mesh_vertex_drawable_transform(handle.id, transform);
+    case DrawableKind::invalid:     return false;
+    }
+
+    return false;
+}
+
+std::optional<linal::hmatf> Renderer::get_drawable_transform(DrawableHandle handle) const {
+    if (!handle.is_valid()) {
+        return std::nullopt;
+    }
+
+    switch (handle.kind) {
+    case DrawableKind::point:       return m_drawablesManager.get_point_drawable_transform(handle.id);
+    case DrawableKind::line:        return m_drawablesManager.get_line_drawable_transform(handle.id);
+    case DrawableKind::mesh:        return m_drawablesManager.get_mesh_drawable_transform(handle.id);
+    case DrawableKind::meshSegment: return m_drawablesManager.get_mesh_segment_drawable_transform(handle.id);
+    case DrawableKind::meshVertex:  return m_drawablesManager.get_mesh_vertex_drawable_transform(handle.id);
+    case DrawableKind::invalid:     return std::nullopt;
+    }
+
+    return std::nullopt;
+}
+
+bool Renderer::reset_drawable_transform(DrawableHandle handle) {
+    return set_drawable_transform(handle, linal::hmatf::identity());
+}
+
 void Renderer::update_last_point_drawable(std::span<const float> vertices,
                                           std::span<const float> colors,
                                           std::span<const std::uint32_t> indices,
@@ -395,10 +433,8 @@ void Renderer::draw(const opengl::LightingConfig& lighting) {
 
         opengl::LightingConfig effectiveLighting = lighting;
         effectiveLighting.lightPosition = viewPosF;
-        m_drawablesManager.draw_meshes(m_camera->get_model_matrix(),
-                                       m_camera->get_view_matrix(),
+        m_drawablesManager.draw_meshes(m_camera->get_view_matrix(),
                                        m_camera->get_projection_matrix(),
-                                       m_camera->get_normal_matrix(),
                                        viewPosF,
                                        effectiveLighting);
     }
@@ -466,8 +502,13 @@ CameraAutoFitResult Renderer::compute_fit_destination(const linal::double3& dire
     input.orthographicWidth = orthoParams.width;
     input.orthographicHeight = orthoParams.height;
 
-    const std::vector<std::span<const float>> positionBuffers = m_drawablesManager.collect_vertex_position_buffers();
-    return calculate_camera_auto_fit(std::span<const std::span<const float>>{positionBuffers}, input);
+    const std::vector<std::vector<float>> positionBuffers = m_drawablesManager.collect_vertex_position_buffers();
+    std::vector<std::span<const float>> positionBufferSpans;
+    positionBufferSpans.reserve(positionBuffers.size());
+    for (const auto& buffer: positionBuffers) {
+        positionBufferSpans.push_back(buffer);
+    }
+    return calculate_camera_auto_fit(std::span<const std::span<const float>>{positionBufferSpans}, input);
 }
 
 void Renderer::apply_fit_result(const CameraAutoFitResult& result) {

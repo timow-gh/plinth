@@ -1,6 +1,6 @@
 #include "OpenGL/VertexArray.hpp"
+#include "OpenGL/ErrorReporting.hpp"
 #include <plinth/Assert.hpp>
-#include <print>
 #include <utility>
 
 namespace opengl {
@@ -37,7 +37,7 @@ std::optional<VertexArray> VertexArray::create() {
     GLuint id{0};
     glGenVertexArrays(1, &id);
     if (id == 0) {
-        std::print(stderr, "Error: glGenVertexArrays failed to allocate a vertex array object\n");
+        report_error("Error: glGenVertexArrays failed to allocate a vertex array object");
         RENDERER_ASSERT(false);
         return std::nullopt;
     }

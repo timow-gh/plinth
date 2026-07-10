@@ -1,3 +1,4 @@
+#include <OpenGL/ErrorReporting.hpp>
 #include <plinth/Assert.hpp>
 #include <plinth/GlfwWindow.hpp>
 #include <print>
@@ -33,9 +34,12 @@ std::optional<GlfwWindow> GlfwWindow::create(const WindowSettings& settings) {
         return std::nullopt;
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, settings.debug_context ? 3 : 1);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    if (settings.debug_context) {
+        glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+    }
     set_window_hints(settings);
 
     GLFWwindow* glfwWindow = glfwCreateWindow(static_cast<int>(settings.width),
@@ -59,6 +63,15 @@ std::optional<GlfwWindow> GlfwWindow::create(const WindowSettings& settings) {
     if (gladLoadGLLoader(load_glfw_proc) == 0) {
         std::print("Failed to initialize OpenGL context\n");
         return std::nullopt;
+    }
+
+    if (settings.debug_context) {
+        if (!opengl::install_debug_callback()) {
+            opengl::report_warning(
+                "debug_context requested but GL_VERSION_4_3 (or higher) is not available on this "
+                "context; debug messages will not be reported via glDebugMessageCallback. "
+                "glGetError() checks remain active regardless.");
+        }
     }
 
     return window;

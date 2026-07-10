@@ -37,6 +37,27 @@ std::string_view gl_error_name(GLenum err) {
     }
 }
 
+void GLAPIENTRY on_gl_debug_message(GLenum /*source*/,
+                                    GLenum type,
+                                    GLuint /*id*/,
+                                    GLenum severity,
+                                    GLsizei length,
+                                    const GLchar* message,
+                                    const void* /*userParam*/) {
+    if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
+        return;
+    }
+    const ErrorSeverity mapped = (severity == GL_DEBUG_SEVERITY_HIGH || severity == GL_DEBUG_SEVERITY_MEDIUM)
+                                      ? ErrorSeverity::error
+                                      : ErrorSeverity::warning;
+    const std::string_view text{message, static_cast<std::size_t>(length)};
+    if (mapped == ErrorSeverity::error) {
+        report_error(std::format("[gl-debug type=0x{:04X}] {}", type, text));
+    } else {
+        report_warning(std::format("[gl-debug type=0x{:04X}] {}", type, text));
+    }
+}
+
 } // namespace
 
 void set_error_sink(ErrorSink sink) {
@@ -63,6 +84,16 @@ bool check_gl_errors(std::string_view context) {
         }
     }
     return found;
+}
+
+bool install_debug_callback() {
+    if (!GLAD_GL_VERSION_4_3) {
+        return false;
+    }
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(on_gl_debug_message, nullptr);
+    return true;
 }
 
 } // namespace opengl

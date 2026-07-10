@@ -28,6 +28,15 @@ OPENGL_EXPORT void report_warning(std::string_view message);
 // per GL call) - glGetError forces a sync point.
 OPENGL_EXPORT bool check_gl_errors(std::string_view context);
 
+// Enables GL_DEBUG_OUTPUT (synchronous) and installs a glDebugMessageCallback that routes
+// driver-provided diagnostics through report_error/report_warning. Requires a GL 4.3+ context
+// (glDebugMessageCallback is core since 4.3, promoted from KHR_debug/ARB_debug_output) - the
+// availability check is GLAD_GL_VERSION_4_3, not an extension flag (this project's vendored
+// glad build has no extension flags, only GLAD_GL_VERSION_x_y). Returns false without side
+// effects if the current context is below 4.3. Call after gladLoadGLLoader has populated the
+// GLAD_GL_VERSION_* flags for the current context.
+OPENGL_EXPORT bool install_debug_callback();
+
 } // namespace opengl
 
 #endif // OPENGL_ERRORREPORTING_HPP

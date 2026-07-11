@@ -1,8 +1,8 @@
-#include <plinth/Renderer.hpp>
 #include <OpenGL/ErrorReporting.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <plinth/Renderer.hpp>
 
 namespace renderer {
 
@@ -506,7 +506,7 @@ CameraAutoFitResult Renderer::compute_fit_destination(const linal::double3& dire
     std::vector<std::span<const float>> positionBufferSpans;
     positionBufferSpans.reserve(positionBuffers.size());
     for (const auto& buffer: positionBuffers) {
-        positionBufferSpans.push_back(buffer);
+        positionBufferSpans.emplace_back(buffer);
     }
     return calculate_camera_auto_fit(std::span<const std::span<const float>>{positionBufferSpans}, input);
 }

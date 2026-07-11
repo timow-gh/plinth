@@ -28,9 +28,10 @@ void* load_glfw_proc(const char* procName) {
     return reinterpret_cast<void*>(glfwGetProcAddress(procName));
 }
 
-// A GL 4.1 core, non-debug context - the plinth default (see GlfwWindow::create). 4.1 < 4.3,
-// so install_debug_callback() must deterministically report unavailability on it without
-// needing a real 4.3 debug context in CI.
+// A GL 4.1 core, non-debug context (the project floor). install_debug_callback()
+// must return false when the context is below 4.3 and true at 4.3+. The test queries
+// the actual context version and asserts the correct outcome. GLFW version hints are
+// minimums, so some drivers may give a higher version than requested.
 class DebugCallbackTest : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { ASSERT_EQ(GLFW_TRUE, glfwInit()); }
@@ -60,8 +61,13 @@ class DebugCallbackTest : public ::testing::Test {
     GLFWwindow* m_window{nullptr};
 };
 
-TEST_F(DebugCallbackTest, ReturnsFalseOnSub43Context) {
-    EXPECT_FALSE(opengl::install_debug_callback());
+TEST_F(DebugCallbackTest, ReturnsCorrectValueForContextVersion) {
+    GLint major = 0;
+    GLint minor = 0;
+    glGetIntegerv(GL_MAJOR_VERSION, &major);
+    glGetIntegerv(GL_MINOR_VERSION, &minor);
+    const bool expectsDebug = (major > 4 || (major == 4 && minor >= 3));
+    EXPECT_EQ(expectsDebug, opengl::install_debug_callback());
 }
 
 } // namespace

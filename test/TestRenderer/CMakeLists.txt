@@ -5,6 +5,15 @@ function(create_plinth_internal_test testName)
     set_property(GLOBAL APPEND PROPERTY ${PROJECT_NAME}_COVERAGE_TESTS ${testName})
 endfunction()
 
+# glad::glad generates code that calls dlopen/dlsym/dlclose on Linux but its
+# upstream CMakeLists.txt does not declare a dependency on ${CMAKE_DL_LIBS}.
+# Work around this missing transitive dependency until it is fixed upstream.
+if(UNIX AND NOT APPLE AND NOT HAIKU)
+    set(PLINTH_GLAD_DL_LIBS ${CMAKE_DL_LIBS})
+else()
+    set(PLINTH_GLAD_DL_LIBS "")
+endif()
+
 function(create_plinth_opengl_internal_test testName)
     add_executable(${testName} ${testName}.cpp)
     target_link_libraries(${testName} PRIVATE
@@ -13,7 +22,8 @@ function(create_plinth_opengl_internal_test testName)
             plinth::opengl
             glad::glad
             glfw
-            linal::linal)
+            linal::linal
+            ${PLINTH_GLAD_DL_LIBS})
     add_test(NAME plinth.${testName} COMMAND ${testName})
     set_tests_properties(plinth.${testName} PROPERTIES RESOURCE_LOCK plinth_glfw)
     set_property(GLOBAL APPEND PROPERTY ${PROJECT_NAME}_COVERAGE_TESTS ${testName})
@@ -53,7 +63,8 @@ function(create_plinth_opengl_program_unit_test testName)
             gmock
             gtest_main
             fmt::fmt
-            glad::glad)
+            glad::glad
+            ${PLINTH_GLAD_DL_LIBS})
     add_test(NAME plinth.${testName} COMMAND ${testName})
     set_property(GLOBAL APPEND PROPERTY ${PROJECT_NAME}_COVERAGE_TESTS ${testName})
 endfunction()

@@ -14,7 +14,7 @@ jobs:
       contents: read
       pull-requests: write
     env:
-      GCOV: /usr/bin/gcov-14
+      GCOV: /usr/bin/gcov-16
     steps:
       - uses: actions/checkout@v4
       # ubuntu-build-steps installs build deps (including xvfb for headless OpenGL)

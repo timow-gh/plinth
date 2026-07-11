@@ -8,55 +8,7 @@ on:
       - 'v*'
 
 jobs:
-  build-packages:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-24.04
-            workflow-preset: workflow-package-gcc-shared
-            artifact-path: out/packages/package-gcc-release-shared
-          - os: windows-latest
-            workflow-preset: workflow-package-msvc-shared
-            artifact-path: out/packages/package-msvc-release-shared
-    
-    runs-on: ${{ matrix.os }}
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set VCPKG_ROOT (Ubuntu)
-        if: matrix.os == 'ubuntu-24.04'
-        run: echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> $GITHUB_ENV
-        shell: bash
-      
-      - name: Set VCPKG_ROOT (Windows)
-        if: matrix.os == 'windows-latest'
-        run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
-        shell: pwsh
-      
-      - name: Install build tools (Ubuntu)
-        if: matrix.os == 'ubuntu-24.04'
-        run: sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y && sudo apt-get update && sudo apt-get install -y gcc-15 g++-15 ninja-build uuid-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev
-        shell: bash
-      
-      - name: Install NSIS (Windows only)
-        if: matrix.os == 'windows-latest'
-        run: choco install nsis -y
-      
-      - name: Create package
-        run: |
-          cmake --workflow --preset ${{ matrix.workflow-preset }}
-        shell: bash
-      
-      - name: Upload ${{ matrix.os }} artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.os }}-shared-build
-          path: ${{ github.workspace }}/${{ matrix.artifact-path }}/*.*
-          retention-days: 1
-
   create-release:
-    needs: build-packages
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -109,9 +61,6 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
-
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -119,8 +68,5 @@ jobs:
           draft: false
           prerelease: false
           body: ${{ steps.git_cliff.outputs.content }}
-          files: |
-            ubuntu-24.04-shared-build/*
-            windows-latest-shared-build/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <linal/hmat.hpp>
 #include <linal/vec.hpp>
+#include <memory>
 #include <numeric>
 #include <optional>
 #include <unordered_map>
@@ -91,41 +92,20 @@ class DrawablesManager {
   public:
     DrawablesManager(const DrawablesManager&) = delete;
     DrawablesManager& operator=(const DrawablesManager&) = delete;
-    DrawablesManager(DrawablesManager&& other) noexcept {
-        programManager = std::move(other.programManager);
-        m_nextDrawableId = other.m_nextDrawableId;
-        m_pointDrawables = std::move(other.m_pointDrawables);
-        m_lineDrawables = std::move(other.m_lineDrawables);
-        m_meshDrawables = std::move(other.m_meshDrawables);
-        m_meshCullModes = std::move(other.m_meshCullModes);
-        m_meshSegmentDrawables = std::move(other.m_meshSegmentDrawables);
-        m_meshVertexDrawables = std::move(other.m_meshVertexDrawables);
-    }
-    DrawablesManager& operator=(DrawablesManager&& other) noexcept {
-        if (this != &other) {
-            programManager = std::move(other.programManager);
-            m_nextDrawableId = other.m_nextDrawableId;
-            m_pointDrawables = std::move(other.m_pointDrawables);
-            m_lineDrawables = std::move(other.m_lineDrawables);
-            m_meshDrawables = std::move(other.m_meshDrawables);
-            m_meshCullModes = std::move(other.m_meshCullModes);
-            m_meshSegmentDrawables = std::move(other.m_meshSegmentDrawables);
-            m_meshVertexDrawables = std::move(other.m_meshVertexDrawables);
-        }
-        return *this;
-    }
+    DrawablesManager(DrawablesManager&&) = delete;
+    DrawablesManager& operator=(DrawablesManager&&) = delete;
     ~DrawablesManager() { clear_drawables(); }
 
     [[nodiscard]]
-    static std::optional<DrawablesManager> create() {
+    static std::unique_ptr<DrawablesManager> create() {
         ProgramManager programManager;
         programManager.compile();
 
         if (!programManager.is_compiled()) {
-            return std::nullopt;
+            return nullptr;
         }
 
-        return DrawablesManager(std::move(programManager));
+        return std::unique_ptr<DrawablesManager>(new DrawablesManager(std::move(programManager)));
     }
 
     [[nodiscard]]

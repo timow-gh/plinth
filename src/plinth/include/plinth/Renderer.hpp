@@ -201,7 +201,7 @@ class Renderer {
 
   private:
     Renderer(GlfwWindow window,
-             opengl::DrawablesManager drawablesManager,
+             std::unique_ptr<opengl::DrawablesManager> drawablesManager,
              std::shared_ptr<CameraInteractor> camera,
              std::shared_ptr<ImGuiOverlay> imgui);
 
@@ -226,7 +226,7 @@ class Renderer {
     void apply_fit_result(const CameraAutoFitResult& result);
 
     GlfwWindow m_window;
-    opengl::DrawablesManager m_drawablesManager;
+    std::unique_ptr<opengl::DrawablesManager> m_drawablesManager;
     std::shared_ptr<CameraInteractor> m_camera;
     std::shared_ptr<ImGuiOverlay> m_imgui;
     SceneViewport m_sceneViewport;

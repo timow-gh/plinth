@@ -90,7 +90,7 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
     auto imgui = std::make_shared<ImGuiOverlay>(window->get_native_handle());
 
     auto drawablesManager = opengl::DrawablesManager::create();
-    if (!drawablesManager.has_value()) {
+    if (!drawablesManager) {
         opengl::report_error(
             "Error: Renderer::create failed - GL program/drawables-manager creation failed (see above)");
         return nullptr;
@@ -98,9 +98,9 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 
     // Use raw new because the constructor is private and Renderer is non-movable.
     std::unique_ptr<Renderer> renderer(new Renderer(std::move(window.value()),
-                                                    std::move(drawablesManager.value()),
-                                                    std::move(camera),
-                                                    std::move(imgui)));
+                                                     std::move(drawablesManager),
+                                                     std::move(camera),
+                                                     std::move(imgui)));
 
     renderer->update_scene_viewport();
     renderer->wire_callbacks();
@@ -109,7 +109,7 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 }
 
 Renderer::Renderer(GlfwWindow window,
-                   opengl::DrawablesManager drawables,
+                   std::unique_ptr<opengl::DrawablesManager> drawables,
                    std::shared_ptr<CameraInteractor> camera,
                    std::shared_ptr<ImGuiOverlay> imgui)
     : m_window(std::move(window))
@@ -211,7 +211,7 @@ DrawableHandle Renderer::add_point_drawable(std::span<const float> vertices,
                                             std::span<const std::uint32_t> indices,
                                             float pointSize,
                                             opengl::BufferAccessPattern accessPattern) {
-    const auto id = m_drawablesManager.add_point_drawable(vertices, colors, indices, pointSize, accessPattern);
+    const auto id = m_drawablesManager->add_point_drawable(vertices, colors, indices, pointSize, accessPattern);
     if (!id.has_value()) {
         return DrawableHandle{};
     }
@@ -226,7 +226,7 @@ DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
                                            float pointSize,
                                            opengl::BufferAccessPattern accessPattern) {
     const auto id =
-        m_drawablesManager.add_line_drawable(vertices, indices, colors, lineType, lineWidth, pointSize, accessPattern);
+        m_drawablesManager->add_line_drawable(vertices, indices, colors, lineType, lineWidth, pointSize, accessPattern);
     if (!id.has_value()) {
         return DrawableHandle{};
     }
@@ -239,7 +239,7 @@ DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
                                            std::span<const std::uint32_t> triangleIndices,
                                            opengl::BufferAccessPattern accessPattern) {
     const auto id =
-        m_drawablesManager.add_mesh_drawable(vertices, 3, normals, colors, 4, triangleIndices, accessPattern);
+        m_drawablesManager->add_mesh_drawable(vertices, 3, normals, colors, 4, triangleIndices, accessPattern);
     if (!id.has_value()) {
         return DrawableHandle{};
     }
@@ -250,7 +250,7 @@ DrawableHandle Renderer::add_mesh_segment_drawable(std::span<const float> positi
                                                    std::span<const std::uint32_t> indices,
                                                    std::span<const float> color,
                                                    float lineWidth) {
-    const auto id = m_drawablesManager.add_mesh_segment_drawable(positions, indices, color, lineWidth);
+    const auto id = m_drawablesManager->add_mesh_segment_drawable(positions, indices, color, lineWidth);
     if (!id.has_value()) {
         return DrawableHandle{};
     }
@@ -259,7 +259,7 @@ DrawableHandle Renderer::add_mesh_segment_drawable(std::span<const float> positi
 
 DrawableHandle
 Renderer::add_mesh_vertex_drawable(std::span<const float> positions, std::span<const float> color, float pointSize) {
-    const auto id = m_drawablesManager.add_mesh_vertex_drawable(positions, color, pointSize);
+    const auto id = m_drawablesManager->add_mesh_vertex_drawable(positions, color, pointSize);
     if (!id.has_value()) {
         return DrawableHandle{};
     }
@@ -268,7 +268,7 @@ Renderer::add_mesh_vertex_drawable(std::span<const float> positions, std::span<c
 
 void Renderer::set_mesh_drawable_cull_mode(DrawableHandle handle, opengl::MeshCullFaceMode mode) {
     if (handle.kind == DrawableKind::mesh && handle.id != 0U) {
-        m_drawablesManager.set_mesh_drawable_cull_mode(handle.id, mode);
+        m_drawablesManager->set_mesh_drawable_cull_mode(handle.id, mode);
     }
 }
 
@@ -278,11 +278,11 @@ bool Renderer::remove_drawable(DrawableHandle handle) {
     }
 
     switch (handle.kind) {
-    case DrawableKind::point:       return m_drawablesManager.remove_point_drawable(handle.id);
-    case DrawableKind::line:        return m_drawablesManager.remove_line_drawable(handle.id);
-    case DrawableKind::mesh:        return m_drawablesManager.remove_mesh_drawable(handle.id);
-    case DrawableKind::meshSegment: return m_drawablesManager.remove_mesh_segment_drawable(handle.id);
-    case DrawableKind::meshVertex:  return m_drawablesManager.remove_mesh_vertex_drawable(handle.id);
+    case DrawableKind::point:       return m_drawablesManager->remove_point_drawable(handle.id);
+    case DrawableKind::line:        return m_drawablesManager->remove_line_drawable(handle.id);
+    case DrawableKind::mesh:        return m_drawablesManager->remove_mesh_drawable(handle.id);
+    case DrawableKind::meshSegment: return m_drawablesManager->remove_mesh_segment_drawable(handle.id);
+    case DrawableKind::meshVertex:  return m_drawablesManager->remove_mesh_vertex_drawable(handle.id);
     case DrawableKind::invalid:     return false;
     }
 
@@ -295,11 +295,11 @@ bool Renderer::set_drawable_transform(DrawableHandle handle, const linal::hmatf&
     }
 
     switch (handle.kind) {
-    case DrawableKind::point:       return m_drawablesManager.set_point_drawable_transform(handle.id, transform);
-    case DrawableKind::line:        return m_drawablesManager.set_line_drawable_transform(handle.id, transform);
-    case DrawableKind::mesh:        return m_drawablesManager.set_mesh_drawable_transform(handle.id, transform);
-    case DrawableKind::meshSegment: return m_drawablesManager.set_mesh_segment_drawable_transform(handle.id, transform);
-    case DrawableKind::meshVertex:  return m_drawablesManager.set_mesh_vertex_drawable_transform(handle.id, transform);
+    case DrawableKind::point:       return m_drawablesManager->set_point_drawable_transform(handle.id, transform);
+    case DrawableKind::line:        return m_drawablesManager->set_line_drawable_transform(handle.id, transform);
+    case DrawableKind::mesh:        return m_drawablesManager->set_mesh_drawable_transform(handle.id, transform);
+    case DrawableKind::meshSegment: return m_drawablesManager->set_mesh_segment_drawable_transform(handle.id, transform);
+    case DrawableKind::meshVertex:  return m_drawablesManager->set_mesh_vertex_drawable_transform(handle.id, transform);
     case DrawableKind::invalid:     return false;
     }
 
@@ -312,11 +312,11 @@ std::optional<linal::hmatf> Renderer::get_drawable_transform(DrawableHandle hand
     }
 
     switch (handle.kind) {
-    case DrawableKind::point:       return m_drawablesManager.get_point_drawable_transform(handle.id);
-    case DrawableKind::line:        return m_drawablesManager.get_line_drawable_transform(handle.id);
-    case DrawableKind::mesh:        return m_drawablesManager.get_mesh_drawable_transform(handle.id);
-    case DrawableKind::meshSegment: return m_drawablesManager.get_mesh_segment_drawable_transform(handle.id);
-    case DrawableKind::meshVertex:  return m_drawablesManager.get_mesh_vertex_drawable_transform(handle.id);
+    case DrawableKind::point:       return m_drawablesManager->get_point_drawable_transform(handle.id);
+    case DrawableKind::line:        return m_drawablesManager->get_line_drawable_transform(handle.id);
+    case DrawableKind::mesh:        return m_drawablesManager->get_mesh_drawable_transform(handle.id);
+    case DrawableKind::meshSegment: return m_drawablesManager->get_mesh_segment_drawable_transform(handle.id);
+    case DrawableKind::meshVertex:  return m_drawablesManager->get_mesh_vertex_drawable_transform(handle.id);
     case DrawableKind::invalid:     return std::nullopt;
     }
 
@@ -331,37 +331,37 @@ void Renderer::update_last_point_drawable(std::span<const float> vertices,
                                           std::span<const float> colors,
                                           std::span<const std::uint32_t> indices,
                                           opengl::BufferAccessPattern accessPattern) {
-    m_drawablesManager.update_last_point_drawable(vertices, colors, indices, accessPattern);
+    m_drawablesManager->update_last_point_drawable(vertices, colors, indices, accessPattern);
 }
 
 void Renderer::update_last_line_drawable(std::span<const float> vertices,
                                          std::span<const float> colors,
                                          std::span<const std::uint32_t> indices,
                                          opengl::BufferAccessPattern accessPattern) {
-    m_drawablesManager.update_last_line_drawable(vertices, colors, indices, accessPattern);
+    m_drawablesManager->update_last_line_drawable(vertices, colors, indices, accessPattern);
 }
 
 void Renderer::clear_point_drawables() {
-    m_drawablesManager.clear_point_drawables();
+    m_drawablesManager->clear_point_drawables();
 }
 void Renderer::clear_line_drawables() {
-    m_drawablesManager.clear_line_drawables();
+    m_drawablesManager->clear_line_drawables();
 }
 void Renderer::clear_mesh_drawables() {
-    m_drawablesManager.clear_mesh_drawables();
+    m_drawablesManager->clear_mesh_drawables();
 }
 void Renderer::clear_drawables() {
-    m_drawablesManager.clear_drawables();
+    m_drawablesManager->clear_drawables();
 }
 
 bool Renderer::has_point_drawables() const {
-    return m_drawablesManager.has_point_drawables();
+    return m_drawablesManager->has_point_drawables();
 }
 bool Renderer::has_line_drawables() const {
-    return m_drawablesManager.has_line_drawables();
+    return m_drawablesManager->has_line_drawables();
 }
 bool Renderer::has_mesh_drawables() const {
-    return m_drawablesManager.has_mesh_drawables();
+    return m_drawablesManager->has_mesh_drawables();
 }
 
 // --- Frame lifecycle ---
@@ -424,29 +424,29 @@ void Renderer::draw() {
 }
 
 void Renderer::draw(const opengl::LightingConfig& lighting) {
-    m_drawablesManager.draw_lines_and_points(m_camera->get_current_MVP(), m_camera->get_position());
+    m_drawablesManager->draw_lines_and_points(m_camera->get_current_MVP(), m_camera->get_position());
 
-    if (m_drawablesManager.has_mesh_drawables()) {
+    if (m_drawablesManager->has_mesh_drawables()) {
         const linal::float3 viewPosF{static_cast<float>(m_camera->get_position()[0]),
                                      static_cast<float>(m_camera->get_position()[1]),
                                      static_cast<float>(m_camera->get_position()[2])};
 
         opengl::LightingConfig effectiveLighting = lighting;
         effectiveLighting.lightPosition = viewPosF;
-        m_drawablesManager.draw_meshes(m_camera->get_view_matrix(),
+        m_drawablesManager->draw_meshes(m_camera->get_view_matrix(),
                                        m_camera->get_projection_matrix(),
                                        viewPosF,
                                        effectiveLighting);
     }
 
     // Draw segment overlays on top of meshes.
-    if (m_drawablesManager.has_mesh_segment_drawables()) {
-        m_drawablesManager.draw_mesh_segment_overlays(m_camera->get_current_MVP());
+    if (m_drawablesManager->has_mesh_segment_drawables()) {
+        m_drawablesManager->draw_mesh_segment_overlays(m_camera->get_current_MVP());
     }
 
     // Draw vertex overlays on top of meshes.
-    if (m_drawablesManager.has_mesh_vertex_drawables()) {
-        m_drawablesManager.draw_mesh_vertex_overlays(m_camera->get_current_MVP());
+    if (m_drawablesManager->has_mesh_vertex_drawables()) {
+        m_drawablesManager->draw_mesh_vertex_overlays(m_camera->get_current_MVP());
     }
 }
 
@@ -502,7 +502,7 @@ CameraAutoFitResult Renderer::compute_fit_destination(const linal::double3& dire
     input.orthographicWidth = orthoParams.width;
     input.orthographicHeight = orthoParams.height;
 
-    const std::vector<std::vector<float>> positionBuffers = m_drawablesManager.collect_vertex_position_buffers();
+    const std::vector<std::vector<float>> positionBuffers = m_drawablesManager->collect_vertex_position_buffers();
     std::vector<std::span<const float>> positionBufferSpans;
     positionBufferSpans.reserve(positionBuffers.size());
     for (const auto& buffer: positionBuffers) {

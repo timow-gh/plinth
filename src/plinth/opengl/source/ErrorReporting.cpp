@@ -87,7 +87,11 @@ bool check_gl_errors(std::string_view context) {
 }
 
 bool install_debug_callback() {
-    if (!GLAD_GL_VERSION_4_3) {
+    GLint major = 0;
+    GLint minor = 0;
+    glGetIntegerv(GL_MAJOR_VERSION, &major);
+    glGetIntegerv(GL_MINOR_VERSION, &minor);
+    if (major < 4 || (major == 4 && minor < 3)) {
         return false;
     }
     glEnable(GL_DEBUG_OUTPUT);

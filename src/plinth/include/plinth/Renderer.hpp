@@ -4,6 +4,7 @@
 #include <OpenGL/BufferAccessPattern.hpp>
 #include <OpenGL/Drawable/DrawablesManager.hpp>
 #include <OpenGL/FrameState.hpp>
+#include <OpenGL/GpuCapabilities.hpp>
 #include <OpenGL/LineType.hpp>
 #include <plinth/CameraAutoFit.hpp>
 #include <plinth/CameraInteractor.hpp>
@@ -190,6 +191,10 @@ class Renderer {
     [[nodiscard]]
     std::weak_ptr<ImGuiOverlay> get_imgui() {
         return m_imgui;
+    }
+    [[nodiscard]]
+    const opengl::GpuCapabilities& gpu_capabilities() const {
+        return m_window.capabilities();
     }
 
     static constexpr opengl::ClearColor defaultClearColor{0.05F, 0.05F, 0.08F, 1.0F};

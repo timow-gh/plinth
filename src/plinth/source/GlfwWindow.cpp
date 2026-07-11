@@ -1,4 +1,5 @@
 #include <OpenGL/ErrorReporting.hpp>
+#include <OpenGL/GpuCapabilities.hpp>
 #include <plinth/Assert.hpp>
 #include <plinth/GlfwWindow.hpp>
 #include <print>
@@ -64,6 +65,8 @@ std::optional<GlfwWindow> GlfwWindow::create(const WindowSettings& settings) {
         std::print("Failed to initialize OpenGL context\n");
         return std::nullopt;
     }
+
+    window.m_capabilities = opengl::query_gpu_capabilities();
 
     if (settings.debug_context) {
         if (!opengl::install_debug_callback()) {

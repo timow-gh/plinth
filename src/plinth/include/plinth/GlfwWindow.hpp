@@ -1,6 +1,7 @@
 #ifndef RENDERER_GLFWWINDOW_HPP
 #define RENDERER_GLFWWINDOW_HPP
 
+#include <OpenGL/GpuCapabilities.hpp>
 #include <plinth/InputState.hpp>
 #include <plinth/WindowSettings.hpp>
 #include <optional>
@@ -10,6 +11,7 @@ namespace renderer {
 
 class GlfwWindow {
     GLFWwindow* m_glfwWindow{nullptr};
+    opengl::GpuCapabilities m_capabilities;
 
   public:
     GlfwWindow() = default;
@@ -18,11 +20,13 @@ class GlfwWindow {
     GlfwWindow(GlfwWindow&& other) noexcept {
         m_glfwWindow = other.m_glfwWindow;
         other.m_glfwWindow = nullptr;
+        m_capabilities = std::move(other.m_capabilities);
     }
     GlfwWindow& operator=(GlfwWindow&& other) noexcept {
         if (this != &other) {
             m_glfwWindow = other.m_glfwWindow;
             other.m_glfwWindow = nullptr;
+            m_capabilities = std::move(other.m_capabilities);
         }
         return *this;
     }
@@ -38,6 +42,10 @@ class GlfwWindow {
     [[nodiscard]]
     GLFWwindow* get_native_handle() const {
         return m_glfwWindow;
+    }
+    [[nodiscard]]
+    const opengl::GpuCapabilities& capabilities() const {
+        return m_capabilities;
     }
 
     void make_context_current() const;

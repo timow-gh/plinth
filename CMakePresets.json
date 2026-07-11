@@ -133,8 +133,8 @@
       "hidden": true,
       "inherits": "conf-unix-common",
       "cacheVariables": {
-        "CMAKE_C_COMPILER": "gcc-14",
-        "CMAKE_CXX_COMPILER": "g++-14"
+        "CMAKE_C_COMPILER": "gcc-15",
+        "CMAKE_CXX_COMPILER": "g++-15"
       }
     },
     {
@@ -310,7 +310,7 @@
       "description": "Do not register the installed package smoke test",
       "hidden": true,
       "cacheVariables": {
-        "geoqik_INSTALL_SMOKE_TEST": "OFF"
+        "plinth_INSTALL_SMOKE_TEST": "OFF"
       }
     },
     {
@@ -823,7 +823,10 @@
       "displayName": "Strict",
       "description": "Enable output and stop on failure",
       "hidden": true,
-      "inherits": "test-common"
+      "inherits": "test-common",
+      "environment": {
+        "LIBGL_ALWAYS_SOFTWARE": "1"
+      }
     },
     {
       "name": "test-tsan-common",

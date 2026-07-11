@@ -6,6 +6,7 @@ std::string line_vertex_shader_source() {
         R"(#version 330
 
 uniform mat4 u_MVP;
+uniform mat4 u_model;
 
 in vec3 a_vertex;
 in vec4 a_color;
@@ -13,7 +14,7 @@ in vec4 a_color;
 out vec4 v_color;
 
 void main() {
-    gl_Position = u_MVP * vec4(a_vertex, 1.0);
+    gl_Position = u_MVP * u_model * vec4(a_vertex, 1.0);
     v_color = a_color;
 })";
 }
@@ -36,6 +37,7 @@ std::string point_color_vertex_shader_source() {
         R"(#version 330
 
 uniform mat4 u_MVP;
+uniform mat4 u_model;
 uniform float u_pointSize;
 
 in vec3 a_vertex;
@@ -44,7 +46,7 @@ in vec4 a_color;
 out vec4 v_color;
 
 void main() {
-    gl_Position = u_MVP * vec4(a_vertex, 1.0);
+    gl_Position = u_MVP * u_model * vec4(a_vertex, 1.0);
     gl_PointSize = u_pointSize;
     v_color = a_color;
 })";

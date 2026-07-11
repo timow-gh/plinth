@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <linal/hmat.hpp>
 #include <linal/vec.hpp>
 #include <span>
 #include <vector>
@@ -19,6 +20,15 @@ struct DrawableTransparencyInfo {
         const double dx = static_cast<double>(sortCenter[0]) - viewPosition[0];
         const double dy = static_cast<double>(sortCenter[1]) - viewPosition[1];
         const double dz = static_cast<double>(sortCenter[2]) - viewPosition[2];
+        return dx * dx + dy * dy + dz * dz;
+    }
+
+    [[nodiscard]]
+    double distance_squared_to(const linal::double3& viewPosition, const linal::hmatf& transform) const noexcept {
+        const linal::float3 transformedCenter = linal::to_vec(transform * linal::to_hvec(sortCenter));
+        const double dx = static_cast<double>(transformedCenter[0]) - viewPosition[0];
+        const double dy = static_cast<double>(transformedCenter[1]) - viewPosition[1];
+        const double dz = static_cast<double>(transformedCenter[2]) - viewPosition[2];
         return dx * dx + dy * dy + dz * dz;
     }
 };

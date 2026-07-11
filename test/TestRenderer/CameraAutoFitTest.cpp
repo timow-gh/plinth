@@ -1,5 +1,6 @@
 #include <plinth/CameraAutoFit.hpp>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <span>
@@ -17,6 +18,10 @@ renderer::CameraAutoFitInput make_input() {
     input.nearPlane = 0.01;
     input.farPlaneMultiplier = 3.0;
     return input;
+}
+
+bool is_finite3(const linal::double3& v) {
+    return std::isfinite(v[0]) && std::isfinite(v[1]) && std::isfinite(v[2]);
 }
 
 } // namespace
@@ -220,4 +225,46 @@ TEST(CameraAutoFitTest, OrthographicPansToOffCenterGeometry) {
     EXPECT_TRUE(result.changed);
     EXPECT_GT(result.position[0], input.position[0]);
     EXPECT_GT(result.target[0], input.target[0]);
+}
+
+TEST(CameraAutoFitTest, EmptyBuffersReportNoGeometryAndStayFinite) {
+    const std::array<std::span<const float>, 0> vertexPositionBuffers{};
+    const renderer::CameraAutoFitInput input = make_input();
+
+    const renderer::CameraAutoFitResult result =
+        renderer::calculate_camera_auto_fit(std::span<const std::span<const float>>{vertexPositionBuffers}, input);
+
+    EXPECT_FALSE(result.hasGeometry);
+    EXPECT_FALSE(result.changed);
+    EXPECT_TRUE(is_finite3(result.position));
+    EXPECT_TRUE(is_finite3(result.target));
+}
+
+TEST(CameraAutoFitTest, SinglePointProducesFiniteResult) {
+    const std::vector<float> pointVertices{5.0f, 5.0f, 5.0f};
+    const std::array<std::span<const float>, 1> vertexPositionBuffers{std::span<const float>{pointVertices}};
+
+    const renderer::CameraAutoFitInput input = make_input();
+    const renderer::CameraAutoFitResult result =
+        renderer::calculate_camera_auto_fit(std::span<const std::span<const float>>{vertexPositionBuffers}, input);
+
+    EXPECT_TRUE(is_finite3(result.position));
+    EXPECT_TRUE(is_finite3(result.target));
+    EXPECT_TRUE(std::isfinite(result.orthographicWidth));
+    EXPECT_TRUE(std::isfinite(result.orthographicHeight));
+}
+
+TEST(CameraAutoFitTest, CoincidentPointsProduceFiniteResult) {
+    const std::vector<float> pointVertices{
+        3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f};
+    const std::array<std::span<const float>, 1> vertexPositionBuffers{std::span<const float>{pointVertices}};
+
+    const renderer::CameraAutoFitInput input = make_input();
+    const renderer::CameraAutoFitResult result =
+        renderer::calculate_camera_auto_fit(std::span<const std::span<const float>>{vertexPositionBuffers}, input);
+
+    EXPECT_TRUE(is_finite3(result.position));
+    EXPECT_TRUE(is_finite3(result.target));
+    EXPECT_TRUE(std::isfinite(result.orthographicWidth));
+    EXPECT_TRUE(std::isfinite(result.orthographicHeight));
 }

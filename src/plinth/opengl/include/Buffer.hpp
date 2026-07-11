@@ -7,7 +7,7 @@
 #include <span>
 #include <type_traits>
 
-namespace geoqik {
+namespace opengl {
 
 template <typename T>
     requires std::is_trivially_copyable_v<T>
@@ -164,6 +164,6 @@ class Buffer {
     std::unique_ptr<value_type[]> m_data;
 };
 
-} // namespace geoqik
+} // namespace opengl
 
 #endif // BUFFER_HPP

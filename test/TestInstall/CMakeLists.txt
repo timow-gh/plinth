@@ -43,11 +43,6 @@ add_custom_target(test_geoqik_install
         --build ${${test_target}_TEST_SOURCE_DIR}/build
         --config ${CMAKE_BUILD_TYPE}
         --parallel
-
-        COMMAND ${CMAKE_COMMAND}
-        --install ${${test_target}_TEST_SOURCE_DIR}/build
-        --config ${CMAKE_BUILD_TYPE}
-        --prefix ${${test_target}_TEST_SOURCE_DIR}/install
 )
 
 add_custom_target(test_geoqik_install_clean

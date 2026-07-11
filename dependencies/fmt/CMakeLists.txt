@@ -1,5 +1,5 @@
 # Force fmt to always build as a static library regardless of the global
-# BUILD_SHARED_LIBS setting.  fmt is a private implementation detail of geoqik
+# BUILD_SHARED_LIBS setting.  fmt is a private implementation detail of plinth
 # (its types never appear in the public C API), so making it shared would only
 # produce a stray fmtd.dll that consumers cannot easily redistribute.
 set(_saved_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})

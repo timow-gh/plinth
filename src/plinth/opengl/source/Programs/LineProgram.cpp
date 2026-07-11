@@ -1,8 +1,9 @@
 #include "OpenGL/Programs/LineProgram.hpp"
+#include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/Programs/CreateProgram.hpp"
 #include "OpenGL/ShaderSources.hpp"
+#include <format>
 #include <plinth/Assert.hpp>
-#include <print>
 #include <string>
 #include <utility>
 
@@ -10,14 +11,17 @@ namespace opengl {
 
 LineProgram::LineProgram(ProgramHandle program,
                          Uniform mvpLocation,
+                         Uniform modelMatrixLocation,
                          Attribute vertexLocation,
                          Attribute colorLocation) noexcept
     : m_program{std::move(program)}
     , m_mvpLocation{mvpLocation}
+    , m_modelMatrixLocation{modelMatrixLocation}
     , m_vertexLocation{vertexLocation}
     , m_colorLocation{colorLocation} {
     RENDERER_ASSERT(m_program.is_valid());
     RENDERER_ASSERT(mvpLocation.get_location().get_value() != -1);
+    RENDERER_ASSERT(modelMatrixLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(vertexLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(colorLocation.get_location().get_value() != -1);
 }
@@ -31,11 +35,10 @@ opengl::LineProgram make_line_program() {
     const std::string fragmentShaderSource = line_fragment_shader_source();
     ProgramCreationResult program = create_program(vertexShaderSource.c_str(), fragmentShaderSource.c_str());
     if (!program) {
-        std::print(stderr,
-                   "Error category: '{}';Error code: '{}'; Error message: '{}'\n",
-                   program.error().category().name(),
-                   program.error().value(),
-                   program.error().message());
+        report_error(std::format("Error category: '{}';Error code: '{}'; Error message: '{}'",
+                                 program.error().category().name(),
+                                 program.error().value(),
+                                 program.error().message()));
         RENDERER_ASSERT(false);
         return {};
     }
@@ -43,9 +46,10 @@ opengl::LineProgram make_line_program() {
     ProgramId id = program->get_id();
     RENDERER_ASSERT(id.get_value() != 0);
     Uniform mvpLocation = make_uniform("u_MVP", id);
+    Uniform modelMatrixLocation = make_uniform("u_model", id);
     Attribute vertexLocation = make_attribute("a_vertex", id);
     Attribute colorLocation = make_attribute("a_color", id);
-    return LineProgram{std::move(*program), mvpLocation, vertexLocation, colorLocation};
+    return LineProgram{std::move(*program), mvpLocation, modelMatrixLocation, vertexLocation, colorLocation};
 }
 
 } // namespace opengl

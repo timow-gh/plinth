@@ -1,3 +1,4 @@
+#include <OpenGL/ErrorReporting.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -8,6 +9,17 @@ namespace renderer {
 namespace {
 
 constexpr linal::double3 defaultCameraPosition{5.0, 5.0, 5.0};
+// Safe floor for any hypothetical camera-to-target distance fed into a fit/transition
+// computation, so CameraInteractor's degenerate-distance assertions can never be reached
+// regardless of the user's prior zoom state.
+constexpr double minimumFitDistance = 1.0;
+// Caps the per-frame delta fed to CameraInteractor::update() so a long gap between frames (e.g.
+// asset loading between Renderer construction and the first begin_frame() call, or any other
+// stall) can't translate into a single huge fly-mode jump or transition skip.
+constexpr double maxFrameDeltaSeconds = 0.1;
+// Reuse CameraAutoFitSettings' own default suppression window rather than duplicating the
+// magic number here.
+constexpr CameraAutoFitSettings defaultAutoFitSettings{};
 
 std::uint32_t valid_framebuffer_dimension(int dimension) {
     return static_cast<std::uint32_t>(dimension > 0 ? dimension : 1);
@@ -60,6 +72,7 @@ Renderer::to_scene_framebuffer_coordinates(const SceneViewport& sceneViewport, d
 std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
     auto window = GlfwWindow::create(settings);
     if (!window.has_value()) {
+        opengl::report_error("Error: Renderer::create failed - window creation failed (see above)");
         return nullptr;
     }
 
@@ -78,6 +91,8 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 
     auto drawablesManager = opengl::DrawablesManager::create();
     if (!drawablesManager.has_value()) {
+        opengl::report_error(
+            "Error: Renderer::create failed - GL program/drawables-manager creation failed (see above)");
         return nullptr;
     }
 
@@ -100,7 +115,9 @@ Renderer::Renderer(GlfwWindow window,
     : m_window(std::move(window))
     , m_drawablesManager(std::move(drawables))
     , m_camera(std::move(camera))
-    , m_imgui(std::move(imgui)) {
+    , m_imgui(std::move(imgui))
+    , m_lastFrameTime(std::chrono::steady_clock::now())
+    , m_lastCameraInteractionTime(m_lastFrameTime) {
 }
 
 void Renderer::on_cursor_pos(double xpos, double ypos) {
@@ -170,6 +187,11 @@ void Renderer::wire_callbacks() {
 
     m_window.set_key_callback([this](Key key, Scancode scancode, Action action, Mods mods) {
         (void)m_imgui->handle_key(key, scancode, action, mods);
+        // Built-in library shortcut: H triggers the same "go home" behavior as the ImGui Home
+        // button, edge-triggered on physical key-press (not polled) so it fires once per press.
+        if (key == Key::KEY_H && action == Action::PRESS && !m_imgui->wants_keyboard()) {
+            go_to_home_view();
+        }
         for (const auto& cb: m_keyCallbacks) {
             cb(key, scancode, action, mods);
         }
@@ -267,6 +289,44 @@ bool Renderer::remove_drawable(DrawableHandle handle) {
     return false;
 }
 
+bool Renderer::set_drawable_transform(DrawableHandle handle, const linal::hmatf& transform) {
+    if (!handle.is_valid()) {
+        return false;
+    }
+
+    switch (handle.kind) {
+    case DrawableKind::point:       return m_drawablesManager.set_point_drawable_transform(handle.id, transform);
+    case DrawableKind::line:        return m_drawablesManager.set_line_drawable_transform(handle.id, transform);
+    case DrawableKind::mesh:        return m_drawablesManager.set_mesh_drawable_transform(handle.id, transform);
+    case DrawableKind::meshSegment: return m_drawablesManager.set_mesh_segment_drawable_transform(handle.id, transform);
+    case DrawableKind::meshVertex:  return m_drawablesManager.set_mesh_vertex_drawable_transform(handle.id, transform);
+    case DrawableKind::invalid:     return false;
+    }
+
+    return false;
+}
+
+std::optional<linal::hmatf> Renderer::get_drawable_transform(DrawableHandle handle) const {
+    if (!handle.is_valid()) {
+        return std::nullopt;
+    }
+
+    switch (handle.kind) {
+    case DrawableKind::point:       return m_drawablesManager.get_point_drawable_transform(handle.id);
+    case DrawableKind::line:        return m_drawablesManager.get_line_drawable_transform(handle.id);
+    case DrawableKind::mesh:        return m_drawablesManager.get_mesh_drawable_transform(handle.id);
+    case DrawableKind::meshSegment: return m_drawablesManager.get_mesh_segment_drawable_transform(handle.id);
+    case DrawableKind::meshVertex:  return m_drawablesManager.get_mesh_vertex_drawable_transform(handle.id);
+    case DrawableKind::invalid:     return std::nullopt;
+    }
+
+    return std::nullopt;
+}
+
+bool Renderer::reset_drawable_transform(DrawableHandle handle) {
+    return set_drawable_transform(handle, linal::hmatf::identity());
+}
+
 void Renderer::update_last_point_drawable(std::span<const float> vertices,
                                           std::span<const float> colors,
                                           std::span<const std::uint32_t> indices,
@@ -319,6 +379,41 @@ bool Renderer::is_escape_pressed() const {
 }
 
 void Renderer::begin_frame(const opengl::ClearColor& clearColor) {
+    const auto now = std::chrono::steady_clock::now();
+    const double deltaSeconds =
+        std::min(maxFrameDeltaSeconds, std::chrono::duration<double>(now - m_lastFrameTime).count());
+    m_lastFrameTime = now;
+
+    m_camera->update(deltaSeconds, [this](Key key) {
+        return !m_imgui->wants_keyboard() && m_window.is_key_pressed(key);
+    });
+
+    // Auto Zoom: once the camera settles after user interaction (no reorientation - just a
+    // distance/pan correction along the current gaze), fit current geometry into view. Never
+    // fires while actively interacting or mid-transition, and only re-triggers on the next real
+    // interaction (does not re-check due to geometry being added/removed while the camera sits
+    // still - no drawable-mutation hook exists for that).
+    if (m_camera->get_was_blocking()) {
+        m_lastCameraInteractionTime = now;
+        m_autoFitPending = true;
+        m_camera->reset_was_blocking();
+    } else if (m_autoFitEnabled && m_autoFitPending && !m_camera->is_transitioning_view() &&
+              (now - m_lastCameraInteractionTime) >= defaultAutoFitSettings.suppressAfterUserCameraInteraction) {
+        const linal::double3 currentPosition = m_camera->get_position();
+        const linal::double3 currentTarget = m_camera->get_target();
+        const double currentDistance = linal::length(currentPosition - currentTarget);
+        const linal::double3 direction =
+            currentDistance > 1.0e-9 ? linal::normalize(currentPosition - currentTarget) : linal::double3{0.0, -1.0, 0.0};
+
+        const CameraAutoFitResult result =
+            compute_fit_destination(direction, m_camera->get_vertical(), currentTarget, currentDistance);
+        if (result.hasGeometry && result.changed) {
+            m_camera->transition_to_pose(result.position, result.target, result.vertical);
+            apply_fit_result(result);
+        }
+        m_autoFitPending = false;
+    }
+
     update_scene_viewport();
     opengl::begin_frame(clearColor, m_sceneViewport.framebuffer);
 }
@@ -338,10 +433,8 @@ void Renderer::draw(const opengl::LightingConfig& lighting) {
 
         opengl::LightingConfig effectiveLighting = lighting;
         effectiveLighting.lightPosition = viewPosF;
-        m_drawablesManager.draw_meshes(m_camera->get_model_matrix(),
-                                       m_camera->get_view_matrix(),
+        m_drawablesManager.draw_meshes(m_camera->get_view_matrix(),
                                        m_camera->get_projection_matrix(),
-                                       m_camera->get_normal_matrix(),
                                        viewPosF,
                                        effectiveLighting);
     }
@@ -379,7 +472,87 @@ void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
         m_camera->set_projection_type(projectionType);
     }
 
+    m_autoFitEnabled = autoFitEnabled;
+
+    if (homeRequested) {
+        go_to_home_view();
+        homeRequested = false;
+    }
+
     m_window.swap_buffers();
+}
+
+// --- Camera navigation (geometry-fit aware) ---
+
+CameraAutoFitResult Renderer::compute_fit_destination(const linal::double3& direction,
+                                                      const linal::double3& up,
+                                                      const linal::double3& targetHint,
+                                                      double currentDistance) const {
+    const double distance = std::max(currentDistance, minimumFitDistance);
+
+    CameraAutoFitInput input;
+    input.position = targetHint + direction * distance;
+    input.target = targetHint;
+    input.vertical = up;
+    input.projectionType = m_camera->get_projection_type();
+    input.verticalFovDegrees = m_camera->get_fov();
+    input.aspectRatio = m_camera->get_viewport().get_aspect_ratio();
+    input.nearPlane = m_camera->get_near_plane();
+    const auto orthoParams = m_camera->get_orthographic_params();
+    input.orthographicWidth = orthoParams.width;
+    input.orthographicHeight = orthoParams.height;
+
+    const std::vector<std::vector<float>> positionBuffers = m_drawablesManager.collect_vertex_position_buffers();
+    std::vector<std::span<const float>> positionBufferSpans;
+    positionBufferSpans.reserve(positionBuffers.size());
+    for (const auto& buffer: positionBuffers) {
+        positionBufferSpans.emplace_back(buffer);
+    }
+    return calculate_camera_auto_fit(std::span<const std::span<const float>>{positionBufferSpans}, input);
+}
+
+void Renderer::apply_fit_result(const CameraAutoFitResult& result) {
+    if (m_camera->get_projection_type() == CameraProjectionType::ORTHOGRAPHIC) {
+        m_camera->set_orthographic_size(result.orthographicWidth, result.orthographicHeight);
+    }
+    m_camera->set_far_plane(result.farPlane);
+}
+
+void Renderer::go_to_preset_view(PresetView view) {
+    const PresetViewDirection preset = preset_view_direction(view);
+    const linal::double3 currentTarget = m_camera->get_target();
+    const double currentDistance = linal::length(m_camera->get_position() - currentTarget);
+
+    const CameraAutoFitResult result =
+        compute_fit_destination(preset.direction, preset.up, currentTarget, currentDistance);
+
+    if (!result.hasGeometry) {
+        // No geometry in the scene: fall back to the existing geometry-agnostic behavior
+        // (rotate around the current pivot at the current, clamped-safe distance).
+        m_camera->go_to_preset_view(view);
+        return;
+    }
+
+    m_camera->transition_to_pose(result.position, result.target, result.vertical);
+    apply_fit_result(result);
+}
+
+void Renderer::go_to_home_view() {
+    const linal::double3 defaultPosition = m_camera->get_default_position();
+    const linal::double3 defaultTarget = m_camera->get_default_target();
+    const linal::double3 defaultUp = m_camera->get_default_up();
+    const linal::double3 direction = linal::normalize(defaultPosition - defaultTarget);
+    const double defaultDistance = linal::length(defaultPosition - defaultTarget);
+
+    const CameraAutoFitResult result = compute_fit_destination(direction, defaultUp, defaultTarget, defaultDistance);
+
+    if (!result.hasGeometry) {
+        m_camera->transition_to_pose(defaultPosition, defaultTarget, defaultUp);
+        return;
+    }
+
+    m_camera->transition_to_pose(result.position, result.target, result.vertical);
+    apply_fit_result(result);
 }
 
 // --- Callback extension ---

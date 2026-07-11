@@ -22,19 +22,20 @@ runs:
     
     - name: Install build tools
       run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
         sudo apt-get update
-        # gcc-14/g++-14 and clang-20/clang++-20: compilers used by the presets.
+        # gcc-15/g++-15 and clang-20/clang++-20: compilers used by the presets.
         # libclang-rt-20-dev: clang sanitizer runtime (ASan/TSan/UBSan)
         # ninja-build: fast build backend used by the CMake presets
         # uuid-dev: required by the stduuid dependency
         # libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev: X11 headers needed to build GLFW
         # libgl-dev: OpenGL headers; the system Mesa (llvmpipe) provides the runtime
         # xvfb: X Virtual Framebuffer — GitHub Actions runners have no display server.
-        #   GeoQik uses GLFW which calls XOpenDisplay() at glfwInit() time; without a
+        #   plinth uses GLFW which calls XOpenDisplay() at glfwInit() time; without a
         #   display that call fails and every test that opens a window aborts immediately.
         #   xvfb-run (see Test step) starts a temporary in-process display so glfwInit()
         #   and glfwCreateWindow() succeed against the system Mesa/llvmpipe renderer.
-        sudo apt-get install -y gcc-14 g++-14 clang-20 libclang-rt-20-dev ninja-build uuid-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev xvfb ${{ inputs.install_tools }}
+        sudo apt-get install -y gcc-15 g++-15 clang-20 libclang-rt-20-dev ninja-build uuid-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev xvfb ${{ inputs.install_tools }}
       shell: bash
     
     - name: Extract preset names

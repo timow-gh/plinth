@@ -14,7 +14,7 @@ namespace renderer {
 #endif
 
 struct PLINTH_EXPORT WindowSettings {
-    const char* title = "GeoQik Viewer"; ///< Title of the window.
+    const char* title = "plinth Viewer"; ///< Title of the window.
     std::uint32_t width = 1280;          ///< Width of the window.
     std::uint32_t height = 720;          ///< Height of the window.
 
@@ -46,6 +46,9 @@ struct PLINTH_EXPORT WindowSettings {
     bool transparent_framebuffer = false; ///< Whether the framebuffer should be transparent.
     bool focus_on_show = true;            ///< Whether the window should be focused when shown.
     bool scale_to_monitor = true; ///< Whether the window content should be scaled based on the monitor content scale.
+    bool debug_context = false;   ///< Request a debug-capable GL context (GL 4.3 core +
+                                   ///< GLFW_OPENGL_DEBUG_CONTEXT) instead of the default GL 4.1 core.
+                                   ///< Intended for development builds only - see OpenGL/ErrorReporting.hpp.
 };
 
 #ifdef _MSC_VER

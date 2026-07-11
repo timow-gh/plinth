@@ -1,10 +1,10 @@
 services:
-  # ── GCC 14 build ──────────────────────────────────────────────────────────
+  # ── GCC 15 build ──────────────────────────────────────────────────────────
   gcc:
     build:
       context: .
       dockerfile: Dockerfile
-    image: geoqik-build-env
+    image: plinth-build-env
     volumes:
       # Source code
       - ..:/workspace
@@ -22,7 +22,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: geoqik-build-env
+    image: plinth-build-env
     volumes:
       - ..:/workspace
       - vcpkg-binary-cache:/cache/vcpkg-binary
@@ -37,7 +37,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: geoqik-build-env
+    image: plinth-build-env
     volumes:
       - ..:/workspace
       - vcpkg-binary-cache:/cache/vcpkg-binary

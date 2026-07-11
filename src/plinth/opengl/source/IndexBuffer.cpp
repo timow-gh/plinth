@@ -1,6 +1,8 @@
 #include "OpenGL/IndexBuffer.hpp"
-#include <cstdint>
+#include "OpenGL/ErrorReporting.hpp"
 #include <plinth/Assert.hpp>
+#include <cstdint>
+#include <limits>
 #include <utility>
 
 namespace opengl {
@@ -37,13 +39,16 @@ std::optional<IndexBuffer> IndexBuffer::create(std::span<const std::uint32_t> in
     BufferId id;
     glGenBuffers(1, &id.get_value());
     if (id.get_value() == 0) {
+        report_error("Error: glGenBuffers failed to allocate an index buffer");
         RENDERER_ASSERT(false);
         return std::nullopt;
     }
 
     IndexBuffer buffer{id, static_cast<GLsizei>(indices.size())};
     buffer.bind();
-    const auto size = static_cast<GLsizeiptr>(indices.size() * sizeof(std::uint32_t));
+    const auto byteSize = indices.size() * sizeof(std::uint32_t);
+    RENDERER_ASSERT(byteSize <= static_cast<std::size_t>(std::numeric_limits<GLsizeiptr>::max()));
+    const auto size = static_cast<GLsizeiptr>(byteSize);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, indices.data(), get_enum_value(accessPattern));
 
     return std::optional<IndexBuffer>{std::move(buffer)};
@@ -65,9 +70,11 @@ void IndexBuffer::unbind() {
 
 void IndexBuffer::update_indices_buffer(std::span<const std::uint32_t> indices, BufferAccessPattern accessPattern) {
     bind();
-    const auto size = static_cast<GLsizeiptr>(indices.size() * sizeof(std::uint32_t));
+    const auto byteSize = indices.size() * sizeof(std::uint32_t);
+    RENDERER_ASSERT(byteSize <= static_cast<std::size_t>(std::numeric_limits<GLsizeiptr>::max()));
+    const auto size = static_cast<GLsizeiptr>(byteSize);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, nullptr, get_enum_value(accessPattern));
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, indices.data(), get_enum_value(accessPattern));
+    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, size, indices.data());
     set_index_count(static_cast<GLsizei>(indices.size()));
 }
 

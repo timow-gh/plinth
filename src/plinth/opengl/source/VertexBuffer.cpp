@@ -1,5 +1,7 @@
 #include "OpenGL/VertexBuffer.hpp"
+#include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/UpdateBuffer.hpp"
+#include <limits>
 #include <plinth/Assert.hpp>
 #include <utility>
 
@@ -44,12 +46,14 @@ std::optional<VertexBuffer> VertexBuffer::create(std::span<const float> vectors,
     GLuint bufferId{0};
     glGenBuffers(1, &bufferId);
     if (bufferId == 0) {
+        report_error("Error: glGenBuffers failed to allocate a vertex buffer");
         RENDERER_ASSERT(false);
         return std::nullopt;
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, bufferId);
     const auto size = vectors.size() * sizeof(float);
+    RENDERER_ASSERT(size <= static_cast<std::size_t>(std::numeric_limits<GLsizeiptr>::max()));
     glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(size), vectors.data(), get_enum_value(accessPattern));
     glEnableVertexAttribArray(bufferLocation.get_as_unsigned());
     const GLsizei stride = vectorDimension * static_cast<GLsizei>(sizeof(float));

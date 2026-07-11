@@ -20,7 +20,7 @@ void update_buffer(TBuffer& buffer, std::span<const T> newBufferData, opengl::Bu
     RENDERER_ASSERT(size <= static_cast<std::size_t>(std::numeric_limits<GLsizeiptr>::max()));
     const auto bufferSize = static_cast<GLsizeiptr>(size);
     glBufferData(GL_ARRAY_BUFFER, bufferSize, nullptr, get_enum_value(accessPattern));
-    glBufferData(GL_ARRAY_BUFFER, bufferSize, newBufferData.data(), get_enum_value(accessPattern));
+    glBufferSubData(GL_ARRAY_BUFFER, 0, bufferSize, newBufferData.data());
 }
 
 } // namespace opengl

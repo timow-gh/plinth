@@ -20,9 +20,14 @@
     do {                                                                                                               \
         if (__VA_ARGS__) [[likely]] {                                                                                  \
         } else {                                                                                                       \
-            const std::string _renderer_assert_msg = std::string(__FILE__) + ":" + std::to_string(__LINE__) +          \
-                                                     ": internal check failed in '" + __func__ +                       \
-                                                     "': '" #__VA_ARGS__ "'\n";                                        \
+            std::string _renderer_assert_msg{__FILE__};                                                                \
+            _renderer_assert_msg += ":";                                                                               \
+            _renderer_assert_msg += std::to_string(__LINE__);                                                          \
+            _renderer_assert_msg += ": internal check failed in '";                                                    \
+            _renderer_assert_msg += __func__;                                                                          \
+            _renderer_assert_msg += "': '";                                                                            \
+            _renderer_assert_msg += #__VA_ARGS__;                                                                      \
+            _renderer_assert_msg += "'\n";                                                                             \
             std::fputs(_renderer_assert_msg.c_str(), stderr);                                                          \
             RENDERER_ASSERT_TRAP();                                                                                    \
         }                                                                                                              \

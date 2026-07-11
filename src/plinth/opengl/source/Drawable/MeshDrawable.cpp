@@ -22,7 +22,8 @@ MeshDrawable::MeshDrawable(MeshProgram& program,
                            IndexBuffer triangleIndicesBuffer,
                            DrawableTransparencyInfo transparencyInfo,
                            std::int32_t vertexDimension,
-                           std::int32_t colorDimension)
+                           std::int32_t colorDimension,
+                           std::vector<linal::float3> vertexPositions)
     : m_program(&program)
     , m_vertexArray(std::move(vertexArray))
     , m_vertexBuffer(std::move(vertexBuffer))
@@ -31,7 +32,8 @@ MeshDrawable::MeshDrawable(MeshProgram& program,
     , m_triangleIndicesBuffer(std::move(triangleIndicesBuffer))
     , m_vertexDimension(vertexDimension)
     , m_colorDimension(colorDimension)
-    , m_transparencyInfo(transparencyInfo) {
+    , m_transparencyInfo(transparencyInfo)
+    , m_vertexPositions(std::move(vertexPositions)) {
 }
 
 MeshDrawable::MeshDrawable(MeshDrawable&& other) noexcept
@@ -43,7 +45,8 @@ MeshDrawable::MeshDrawable(MeshDrawable&& other) noexcept
     , m_triangleIndicesBuffer(std::move(other.m_triangleIndicesBuffer))
     , m_vertexDimension(other.m_vertexDimension)
     , m_colorDimension(other.m_colorDimension)
-    , m_transparencyInfo(other.m_transparencyInfo) {
+    , m_transparencyInfo(other.m_transparencyInfo)
+    , m_vertexPositions(std::move(other.m_vertexPositions)) {
 }
 
 MeshDrawable& MeshDrawable::operator=(MeshDrawable&& other) noexcept {
@@ -57,6 +60,7 @@ MeshDrawable& MeshDrawable::operator=(MeshDrawable&& other) noexcept {
         m_vertexDimension = other.m_vertexDimension;
         m_colorDimension = other.m_colorDimension;
         m_transparencyInfo = other.m_transparencyInfo;
+        m_vertexPositions = std::move(other.m_vertexPositions);
     }
     return *this;
 }
@@ -138,7 +142,8 @@ std::optional<MeshDrawable> make_mesh_soup(MeshProgram& program,
                         std::move(triangleIndicesBuffer.value()),
                         make_drawable_transparency_info(vertices, vertexDimension, colors, colorDimension),
                         vertexDimension,
-                        colorDimension};
+                        colorDimension,
+                        make_vertex_sort_positions(vertices, vertexDimension)};
 }
 
 } // namespace opengl

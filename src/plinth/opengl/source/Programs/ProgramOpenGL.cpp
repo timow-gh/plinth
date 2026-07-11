@@ -1,4 +1,5 @@
 #include "ProgramOpenGL.hpp"
+#include "OpenGL/ErrorReporting.hpp"
 
 namespace opengl::program_opengl {
 
@@ -70,6 +71,7 @@ void attach_shader(GLuint program, GLuint shader) {
 
 void link_program(GLuint program) {
     glLinkProgram(program);
+    check_gl_errors("after glLinkProgram");
 }
 
 bool get_program_link_status(GLuint program) {

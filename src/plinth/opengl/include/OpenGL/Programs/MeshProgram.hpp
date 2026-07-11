@@ -68,11 +68,7 @@ class OPENGL_EXPORT MeshProgram {
         }
         return *this;
     }
-    ~MeshProgram() {
-        if (m_program.is_valid()) {
-            glDeleteProgram(m_program.get_id().get_value());
-        }
-    }
+    ~MeshProgram() = default;
 
     [[nodiscard]]
     bool is_valid() const noexcept {

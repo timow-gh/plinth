@@ -19,7 +19,7 @@
 
 namespace opengl {
 
-// Mirrors geoqik::MeshCullMode from the geoqik layer.
+// Mirrors the renderer-layer mesh cull mode.
 enum class MeshCullFaceMode {
     back,  // GL_BACK  (default)
     front, // GL_FRONT
@@ -44,6 +44,7 @@ class DrawablesManager {
     struct DrawableEntry {
         DrawableId id{};
         Drawable drawable;
+        linal::hmatf transform{linal::hmatf::identity()};
     };
 
     struct ScopedDepthMask {
@@ -152,6 +153,42 @@ class DrawablesManager {
     [[nodiscard]]
     bool has_mesh_vertex_drawables() const {
         return !m_meshVertexDrawables.empty();
+    }
+
+    // Collects a position buffer (world-space xyz triplets, transformed by each drawable's
+    // current transform) for every currently-added drawable, for use with
+    // renderer::calculate_camera_auto_fit. Unlike the untransformed local vertex data a drawable
+    // caches internally, this must return owned data - applying a transform produces new values,
+    // not a view into existing memory.
+    [[nodiscard]]
+    std::vector<std::vector<float>> collect_vertex_position_buffers() const {
+        std::vector<std::vector<float>> buffers;
+        buffers.reserve(m_pointDrawables.size() + m_lineDrawables.size() + m_meshDrawables.size() +
+                       m_meshSegmentDrawables.size() + m_meshVertexDrawables.size());
+        const auto collect = [&buffers](const auto& drawables) {
+            for (const auto& entry: drawables) {
+                const auto span = entry.drawable.get_vertex_positions();
+                if (span.empty()) {
+                    continue;
+                }
+                std::vector<float> transformed;
+                transformed.reserve(span.size());
+                for (std::size_t i = 0; i + 2 < span.size(); i += 3) {
+                    const linal::float3 transformedPoint =
+                        linal::to_vec(entry.transform * linal::to_hvec(linal::float3{span[i], span[i + 1], span[i + 2]}));
+                    transformed.push_back(transformedPoint[0]);
+                    transformed.push_back(transformedPoint[1]);
+                    transformed.push_back(transformedPoint[2]);
+                }
+                buffers.push_back(std::move(transformed));
+            }
+        };
+        collect(m_pointDrawables);
+        collect(m_lineDrawables);
+        collect(m_meshDrawables);
+        collect(m_meshSegmentDrawables);
+        collect(m_meshVertexDrawables);
+        return buffers;
     }
 
     DrawableId add_point_drawable(opengl::PointDrawable drawable) {
@@ -318,16 +355,56 @@ class DrawablesManager {
 
     bool remove_mesh_vertex_drawable(DrawableId id) { return remove_drawable_by_id(m_meshVertexDrawables, id); }
 
+    bool set_point_drawable_transform(DrawableId id, const linal::hmatf& transform) {
+        return set_drawable_transform_by_id(m_pointDrawables, id, transform);
+    }
+    [[nodiscard]]
+    std::optional<linal::hmatf> get_point_drawable_transform(DrawableId id) const {
+        return get_drawable_transform_by_id(m_pointDrawables, id);
+    }
+
+    bool set_line_drawable_transform(DrawableId id, const linal::hmatf& transform) {
+        return set_drawable_transform_by_id(m_lineDrawables, id, transform);
+    }
+    [[nodiscard]]
+    std::optional<linal::hmatf> get_line_drawable_transform(DrawableId id) const {
+        return get_drawable_transform_by_id(m_lineDrawables, id);
+    }
+
+    bool set_mesh_drawable_transform(DrawableId id, const linal::hmatf& transform) {
+        return set_drawable_transform_by_id(m_meshDrawables, id, transform);
+    }
+    [[nodiscard]]
+    std::optional<linal::hmatf> get_mesh_drawable_transform(DrawableId id) const {
+        return get_drawable_transform_by_id(m_meshDrawables, id);
+    }
+
+    bool set_mesh_segment_drawable_transform(DrawableId id, const linal::hmatf& transform) {
+        return set_drawable_transform_by_id(m_meshSegmentDrawables, id, transform);
+    }
+    [[nodiscard]]
+    std::optional<linal::hmatf> get_mesh_segment_drawable_transform(DrawableId id) const {
+        return get_drawable_transform_by_id(m_meshSegmentDrawables, id);
+    }
+
+    bool set_mesh_vertex_drawable_transform(DrawableId id, const linal::hmatf& transform) {
+        return set_drawable_transform_by_id(m_meshVertexDrawables, id, transform);
+    }
+    [[nodiscard]]
+    std::optional<linal::hmatf> get_mesh_vertex_drawable_transform(DrawableId id) const {
+        return get_drawable_transform_by_id(m_meshVertexDrawables, id);
+    }
+
     // Draw overlay calls ΓÇö draw opaque only, no transparency sorting needed for overlays.
     void draw_mesh_segment_overlays(const linal::hmatf& mvp) const {
         for (const auto& entry: m_meshSegmentDrawables) {
-            entry.drawable.draw_opaque(mvp);
+            entry.drawable.draw_opaque(mvp, entry.transform);
         }
     }
 
     void draw_mesh_vertex_overlays(const linal::hmatf& mvp) const {
         for (const auto& entry: m_meshVertexDrawables) {
-            entry.drawable.draw_opaque(mvp);
+            entry.drawable.draw_opaque(mvp, entry.transform);
         }
     }
 
@@ -377,13 +454,13 @@ class DrawablesManager {
 
     void draw_points(const linal::hmatf& mvp) const {
         for (const auto& entry: m_pointDrawables) {
-            entry.drawable.draw(mvp);
+            entry.drawable.draw(mvp, entry.transform);
         }
     }
 
     void draw_lines(const linal::hmatf& mvp) const {
         for (const auto& entry: m_lineDrawables) {
-            entry.drawable.draw(mvp);
+            entry.drawable.draw(mvp, entry.transform);
         }
     }
 
@@ -420,7 +497,9 @@ class DrawablesManager {
             }
             if (drawable.has_translucent_primitives()) {
                 renderQueue.transparentCommands.push_back(
-                    {RenderCommand::Type::line, i, drawable.distance_squared_to(viewPosition)});
+                    {RenderCommand::Type::line,
+                     i,
+                     drawable.distance_squared_to(viewPosition, m_lineDrawables[i].transform)});
             }
         }
 
@@ -431,15 +510,19 @@ class DrawablesManager {
             }
             if (drawable.has_translucent_primitives()) {
                 renderQueue.transparentCommands.push_back(
-                    {RenderCommand::Type::point, i, drawable.distance_squared_to(viewPosition)});
+                    {RenderCommand::Type::point,
+                     i,
+                     drawable.distance_squared_to(viewPosition, m_pointDrawables[i].transform)});
             }
         }
 
         for (const auto& opaqueCommand: renderQueue.opaqueCommands) {
             if (opaqueCommand.type == RenderCommand::Type::line) {
-                m_lineDrawables[opaqueCommand.index].drawable.draw_opaque(mvp);
+                m_lineDrawables[opaqueCommand.index].drawable.draw_opaque(
+                    mvp, m_lineDrawables[opaqueCommand.index].transform);
             } else {
-                m_pointDrawables[opaqueCommand.index].drawable.draw_opaque(mvp);
+                m_pointDrawables[opaqueCommand.index].drawable.draw_opaque(
+                    mvp, m_pointDrawables[opaqueCommand.index].transform);
             }
         }
 
@@ -456,17 +539,17 @@ class DrawablesManager {
         const ScopedDepthMask depthMask(GL_FALSE);
         for (const auto& transparentCommand: renderQueue.transparentCommands) {
             if (transparentCommand.type == RenderCommand::Type::line) {
-                m_lineDrawables[transparentCommand.index].drawable.draw_translucent(mvp, viewPosition);
+                m_lineDrawables[transparentCommand.index].drawable.draw_translucent(
+                    mvp, m_lineDrawables[transparentCommand.index].transform, viewPosition);
             } else {
-                m_pointDrawables[transparentCommand.index].drawable.draw_translucent(mvp, viewPosition);
+                m_pointDrawables[transparentCommand.index].drawable.draw_translucent(
+                    mvp, m_pointDrawables[transparentCommand.index].transform, viewPosition);
             }
         }
     }
 
-    void draw_meshes(const linal::hmatf& modelMatrix,
-                     const linal::hmatf& viewMatrix,
+    void draw_meshes(const linal::hmatf& viewMatrix,
                      const linal::hmatf& projectionMatrix,
-                     const linal::hmatf& normalMatrix,
                      const linal::float3& viewPos,
                      const LightingConfig& lighting = LightingConfig{}) const {
         struct TransparentMesh {
@@ -510,9 +593,10 @@ class DrawablesManager {
             }
 
             if (drawable.is_translucent()) {
-                transparentMeshes.push_back({i, drawable.distance_squared_to(viewPositionDouble)});
+                transparentMeshes.push_back({i, drawable.distance_squared_to(viewPositionDouble, entry.transform)});
             } else {
-                drawable.draw(modelMatrix,
+                const linal::hmatf normalMatrix = linal::hmatf::inverse(entry.transform).transpose();
+                drawable.draw(entry.transform,
                               viewMatrix,
                               projectionMatrix,
                               normalMatrix,
@@ -549,17 +633,19 @@ class DrawablesManager {
         const ScopedDepthMask depthMask(GL_FALSE);
         const ScopedCullFaceDisabled cullFace;
         for (const auto& transparentMesh: transparentMeshes) {
-            m_meshDrawables[transparentMesh.index].drawable.draw(modelMatrix,
-                                                                 viewMatrix,
-                                                                 projectionMatrix,
-                                                                 normalMatrix,
-                                                                 lighting.lightPosition,
-                                                                 viewPos,
-                                                                 lighting.lightColor,
-                                                                 lighting.fillLightDir,
-                                                                 lighting.fillLightColor,
-                                                                 lighting.ambientColor,
-                                                                 lighting.shininess);
+            const DrawableEntry<opengl::MeshDrawable>& entry = m_meshDrawables[transparentMesh.index];
+            const linal::hmatf normalMatrix = linal::hmatf::inverse(entry.transform).transpose();
+            entry.drawable.draw(entry.transform,
+                                viewMatrix,
+                                projectionMatrix,
+                                normalMatrix,
+                                lighting.lightPosition,
+                                viewPos,
+                                lighting.lightColor,
+                                lighting.fillLightDir,
+                                lighting.fillLightColor,
+                                lighting.ambientColor,
+                                lighting.shininess);
         }
     }
 
@@ -588,6 +674,41 @@ class DrawablesManager {
 
         drawables.erase(it);
         return true;
+    }
+
+    template <typename Drawable>
+    static bool
+    set_drawable_transform_by_id(std::vector<DrawableEntry<Drawable>>& drawables, DrawableId id, const linal::hmatf& transform) {
+        if (id == 0U) {
+            return false;
+        }
+
+        const auto it = std::find_if(drawables.begin(), drawables.end(), [id](const DrawableEntry<Drawable>& entry) {
+            return entry.id == id;
+        });
+        if (it == drawables.end()) {
+            return false;
+        }
+
+        it->transform = transform;
+        return true;
+    }
+
+    template <typename Drawable>
+    static std::optional<linal::hmatf> get_drawable_transform_by_id(const std::vector<DrawableEntry<Drawable>>& drawables,
+                                                                    DrawableId id) {
+        if (id == 0U) {
+            return std::nullopt;
+        }
+
+        const auto it = std::find_if(drawables.begin(), drawables.end(), [id](const DrawableEntry<Drawable>& entry) {
+            return entry.id == id;
+        });
+        if (it == drawables.end()) {
+            return std::nullopt;
+        }
+
+        return it->transform;
     }
 };
 

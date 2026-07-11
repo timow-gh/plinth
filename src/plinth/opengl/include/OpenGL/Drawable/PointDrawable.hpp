@@ -35,6 +35,7 @@ class OPENGL_EXPORT PointDrawable {
     std::vector<std::uint32_t> m_pointIndices;
     std::vector<SortablePointIndex> m_translucentPointIndices;
     DrawableTransparencyInfo m_transparencyInfo;
+    mutable std::vector<float> m_vertexPositionsFlatCache;
 
   public:
     PointDrawable(PointProgram& program,
@@ -71,11 +72,11 @@ class OPENGL_EXPORT PointDrawable {
                                std::span<const std::uint32_t> indices,
                                BufferAccessPattern accessPattern);
 
-    void draw(const linal::hmatf& mvp) const;
+    void draw(const linal::hmatf& mvp, const linal::hmatf& modelMatrix) const;
 
-    void draw_opaque(const linal::hmatf& mvp) const;
+    void draw_opaque(const linal::hmatf& mvp, const linal::hmatf& modelMatrix) const;
 
-    void draw_translucent(const linal::hmatf& mvp, const linal::double3& viewPosition);
+    void draw_translucent(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const linal::double3& viewPosition);
 
     [[nodiscard]]
     bool has_opaque_primitives() const noexcept {
@@ -97,8 +98,29 @@ class OPENGL_EXPORT PointDrawable {
         return m_transparencyInfo.distance_squared_to(viewPosition);
     }
 
+    [[nodiscard]]
+    double distance_squared_to(const linal::double3& viewPosition, const linal::hmatf& transform) const noexcept {
+        return m_transparencyInfo.distance_squared_to(viewPosition, transform);
+    }
+
+    // World-space xyz-triplet vertex positions, for scene-bounds computation (e.g. camera auto-fit).
+    // Flattens element-by-element rather than reinterpreting m_vertexPositions' memory directly -
+    // linal::float3 is not guaranteed to be a tightly-packed 3-float struct (its policy-mixin base
+    // classes can add padding/alignment), so a raw reinterpret_cast is not safe here.
+    [[nodiscard]]
+    std::span<const float> get_vertex_positions() const noexcept {
+        m_vertexPositionsFlatCache.clear();
+        m_vertexPositionsFlatCache.reserve(m_vertexPositions.size() * 3U);
+        for (const auto& p: m_vertexPositions) {
+            m_vertexPositionsFlatCache.push_back(p[0]);
+            m_vertexPositionsFlatCache.push_back(p[1]);
+            m_vertexPositionsFlatCache.push_back(p[2]);
+        }
+        return m_vertexPositionsFlatCache;
+    }
+
   private:
-    void draw_index_buffer(const linal::hmatf& mvp, const IndexBuffer& indexBuffer) const;
+    void draw_index_buffer(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const IndexBuffer& indexBuffer) const;
 
     void rebuild_index_buffers(BufferAccessPattern accessPattern);
 };

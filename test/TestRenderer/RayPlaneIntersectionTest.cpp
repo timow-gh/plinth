@@ -41,3 +41,25 @@ TEST(RayPlaneIntersectionTest, RejectsIntersectionBehindRayOrigin) {
     EXPECT_FALSE(hit);
     EXPECT_EQ((linal::double3{9.0, 9.0, 9.0}), result);
 }
+
+TEST(RayPlaneIntersectionTest, RejectsRayJustInsideParallelEpsilon) {
+    const renderer::Plane plane{linal::double3{0.0, 0.0, 0.0}, linal::double3{0.0, 0.0, 1.0}};
+    linal::double3 result{9.0, 9.0, 9.0};
+
+    // dot(dir, normal) = 5e-7 < eps(1e-6) -> treated as parallel -> no hit.
+    const bool hit = renderer::ray_plane_intersection(
+        linal::double3{0.0, 0.0, 5.0}, linal::double3{1.0, 0.0, 5.0e-7}, plane, result, 1.0e-6);
+
+    EXPECT_FALSE(hit);
+}
+
+TEST(RayPlaneIntersectionTest, AcceptsRayJustOutsideParallelEpsilon) {
+    const renderer::Plane plane{linal::double3{0.0, 0.0, 0.0}, linal::double3{0.0, 0.0, 1.0}};
+    linal::double3 result{0.0};
+
+    // dot(dir, normal) = 5e-6 > eps(1e-6) -> intersection computed.
+    const bool hit = renderer::ray_plane_intersection(
+        linal::double3{0.0, 0.0, 5.0}, linal::double3{1.0, 0.0, -5.0e-6}, plane, result, 1.0e-6);
+
+    EXPECT_TRUE(hit);
+}

@@ -14,7 +14,7 @@ class GlfwWindowFixture : public ::testing::Test {
     void SetUp() override {
         glfwDefaultWindowHints();
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-        m_window = glfwCreateWindow(64, 64, "GeoQik InputState test", nullptr, nullptr);
+        m_window = glfwCreateWindow(64, 64, "plinth InputState test", nullptr, nullptr);
         ASSERT_NE(nullptr, m_window);
     }
 

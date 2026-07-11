@@ -133,8 +133,8 @@
       "hidden": true,
       "inherits": "conf-unix-common",
       "cacheVariables": {
-        "CMAKE_C_COMPILER": "gcc-16",
-        "CMAKE_CXX_COMPILER": "g++-16"
+        "CMAKE_C_COMPILER": "gcc-15",
+        "CMAKE_CXX_COMPILER": "g++-15"
       }
     },
     {

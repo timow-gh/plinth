@@ -1,4 +1,4 @@
-# Build environment for plinth with GCC 14 and Clang 20
+# Build environment for plinth with GCC 15 and Clang 20
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -6,10 +6,14 @@ ENV TZ=UTC
 
 # ── System packages ──────────────────────────────────────────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    && add-apt-repository ppa:ubuntu-toolchain-r/test -y \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
     # Compilers
     build-essential \
-    gcc-14 \
-    g++-14 \
+    gcc-15 \
+    g++-15 \
     # Build tools
     cmake \
     ninja-build \

@@ -36,7 +36,7 @@ jobs:
       
       - name: Install build tools (Ubuntu)
         if: matrix.os == 'ubuntu-24.04'
-        run: sudo apt-get update && sudo apt-get install -y gcc-14 g++-14 ninja-build uuid-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev
+        run: sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y && sudo apt-get update && sudo apt-get install -y gcc-15 g++-15 ninja-build uuid-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev
         shell: bash
       
       - name: Install NSIS (Windows only)

@@ -2,8 +2,8 @@
 #include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/Programs/CreateProgram.hpp"
 #include "OpenGL/ShaderSources.hpp"
-#include <format>
 #include <plinth/Assert.hpp>
+#include <format>
 #include <string>
 #include <utility>
 

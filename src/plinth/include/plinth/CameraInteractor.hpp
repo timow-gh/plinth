@@ -252,14 +252,14 @@ class CameraInteractor : private CameraSettings {
 
     void set_ground_plane(const Plane& groundPlane) { m_groundPlane = groundPlane; }
 
-    void set_navigation_style(NavigationStyle style) { m_navigationStyle = style; }
+    void set_navigation_style(NavigationStyle style) noexcept { m_navigationStyle = style; }
     [[nodiscard]]
-    NavigationStyle get_navigation_style() const {
+    NavigationStyle get_navigation_style() const noexcept {
         return m_navigationStyle;
     }
-    void set_fly_speed(double unitsPerSecond) { m_flySpeed = unitsPerSecond; }
+    void set_fly_speed(double unitsPerSecond) noexcept { m_flySpeed = unitsPerSecond; }
     [[nodiscard]]
-    double get_fly_speed() const {
+    double get_fly_speed() const noexcept {
         return m_flySpeed;
     }
 
@@ -289,9 +289,9 @@ class CameraInteractor : private CameraSettings {
         begin_pose_transition(endPosition, endTarget, endUp);
     }
 
-    void set_view_transition_duration(double seconds) { m_transitionDurationSeconds = std::max(0.0, seconds); }
+    void set_view_transition_duration(double seconds) noexcept { m_transitionDurationSeconds = std::max(0.0, seconds); }
     [[nodiscard]]
-    bool is_transitioning_view() const {
+    bool is_transitioning_view() const noexcept {
         return m_isTransitioning;
     }
 

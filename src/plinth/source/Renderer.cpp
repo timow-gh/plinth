@@ -1,8 +1,8 @@
+#include <plinth/Renderer.hpp>
 #include <OpenGL/ErrorReporting.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <plinth/Renderer.hpp>
 
 namespace renderer {
 

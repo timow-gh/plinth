@@ -1,5 +1,5 @@
-#include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/GpuCapabilities.hpp"
+#include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/OpenGL.hpp"
 
 namespace opengl {

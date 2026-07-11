@@ -1,7 +1,7 @@
+#include <plinth/GlfwWindow.hpp>
 #include <OpenGL/ErrorReporting.hpp>
 #include <OpenGL/GpuCapabilities.hpp>
 #include <plinth/Assert.hpp>
-#include <plinth/GlfwWindow.hpp>
 #include <print>
 
 namespace renderer {

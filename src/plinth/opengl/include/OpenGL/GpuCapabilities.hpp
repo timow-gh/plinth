@@ -24,7 +24,7 @@ struct OPENGL_EXPORT GpuCapabilities {
     bool supportsDebugOutput{false}; // core-4.3 glDebugMessageCallback path (see ErrorReporting.hpp)
 
     // Convenience: true if the context is at least the given version.
-    [[nodiscard]] bool supports_version(int major, int minor) const {
+    [[nodiscard]] bool supports_version(int major, int minor) const noexcept {
         return glMajorVersion > major || (glMajorVersion == major && glMinorVersion >= minor);
     }
 };

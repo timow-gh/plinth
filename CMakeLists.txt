@@ -10,7 +10,7 @@ include(detect_ninja)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 project(plinth
-        VERSION 0.0.0
+        VERSION 1.0.0
         LANGUAGES CXX)
 
 include(warnings)

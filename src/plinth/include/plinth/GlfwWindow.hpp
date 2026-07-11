@@ -24,6 +24,11 @@ class GlfwWindow {
     }
     GlfwWindow& operator=(GlfwWindow&& other) noexcept {
         if (this != &other) {
+            if (m_glfwWindow != nullptr) {
+                clear_callbacks(m_glfwWindow);
+                glfwDestroyWindow(m_glfwWindow);
+                glfwTerminate();
+            }
             m_glfwWindow = other.m_glfwWindow;
             other.m_glfwWindow = nullptr;
             m_capabilities = std::move(other.m_capabilities);

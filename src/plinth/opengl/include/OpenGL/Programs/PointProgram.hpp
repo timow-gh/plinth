@@ -44,11 +44,7 @@ class OPENGL_EXPORT PointProgram {
         }
         return *this;
     }
-    ~PointProgram() {
-        if (m_program.is_valid()) {
-            glDeleteProgram(m_program.get_id().get_value());
-        }
-    }
+    ~PointProgram() = default;
 
     [[nodiscard]]
     bool is_valid() const noexcept {

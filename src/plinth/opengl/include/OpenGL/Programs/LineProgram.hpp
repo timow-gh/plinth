@@ -44,11 +44,7 @@ class OPENGL_EXPORT LineProgram {
         }
         return *this;
     }
-    ~LineProgram() {
-        if (is_valid()) {
-            glDeleteProgram(m_program.get_id().get_value());
-        }
-    }
+    ~LineProgram() = default;
 
     [[nodiscard]]
     bool is_valid() const noexcept {

@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
   "name": "plinth",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "builtin-baseline": "4b6c50d962cc20aaa3ef457f8ba683b586263cfb",
   "dependencies": [
     "glad",

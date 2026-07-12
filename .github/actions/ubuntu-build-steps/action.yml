@@ -70,5 +70,8 @@ runs:
         # GLFW can open an OpenGL window (rendered in software by Mesa/llvmpipe).
         # --auto-servernum selects a free display number automatically, which avoids
         # conflicts when multiple matrix jobs run on the same host.
-        xvfb-run --auto-servernum ctest --preset ${{ steps.preset.outputs.test }}
+        # --server-args="-noreset -ac": -noreset prevents the X server from resetting
+        # when all clients disconnect (e.g. when GlfwWindow::~GlfwWindow calls
+        # glfwTerminate between test cases). -ac disables access control.
+        xvfb-run --auto-servernum --server-args="-noreset -ac" ctest --preset ${{ steps.preset.outputs.test }}
       shell: bash

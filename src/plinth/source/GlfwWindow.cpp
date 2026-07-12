@@ -1,7 +1,7 @@
 #include "InputStateInternal.hpp"
+#include <GLFW/glfw3.h>
 #include <OpenGL/ErrorReporting.hpp>
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #include <plinth/Assert.hpp>
 #include <plinth/GlfwWindow.hpp>
 #include <print>

@@ -1,12 +1,11 @@
 #ifndef RENDERER_RENDERER_HPP
 #define RENDERER_RENDERER_HPP
 
-#include <OpenGL/BufferAccessPattern.hpp>
-#include <OpenGL/Drawable/DrawablesManager.hpp>
-#include <OpenGL/FrameState.hpp>
-#include <OpenGL/GpuCapabilities.hpp>
-#include <OpenGL/LineType.hpp>
+#include <plinth/BufferAccessPattern.hpp>
 #include <plinth/CameraAutoFit.hpp>
+#include <plinth/FrameState.hpp>
+#include <plinth/LightingConfig.hpp>
+#include <plinth/LineType.hpp>
 #include <plinth/CameraInteractor.hpp>
 #include <plinth/GlfwWindow.hpp>
 #include <plinth/ImGuiOverlay.hpp>
@@ -19,6 +18,10 @@
 #include <span>
 #include <utility>
 #include <vector>
+
+namespace opengl {
+class DrawablesManager;
+}
 
 namespace renderer {
 
@@ -55,7 +58,7 @@ struct LogicalViewportRect {
 
 struct SceneViewport {
     LogicalViewportRect logical;
-    opengl::ViewportRect framebuffer;
+    renderer::ViewportRect framebuffer;
 };
 
 class Renderer {
@@ -65,7 +68,7 @@ class Renderer {
     Renderer& operator=(const Renderer&) = delete;
     Renderer(Renderer&&) = delete;
     Renderer& operator=(Renderer&&) = delete;
-    ~Renderer() = default;
+    ~Renderer();
 
     [[nodiscard]]
     static std::unique_ptr<Renderer> create(const WindowSettings& settings);
@@ -85,23 +88,23 @@ class Renderer {
                        std::span<const float> colors,
                        std::span<const std::uint32_t> indices,
                        float pointSize,
-                       opengl::BufferAccessPattern accessPattern = opengl::BufferAccessPattern::STATIC_DRAW);
+                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::STATIC_DRAW);
 
     DrawableHandle
     add_line_drawable(std::span<const float> vertices,
                       std::span<const std::uint32_t> indices,
                       std::span<const float> colors,
-                      opengl::LineType lineType,
+                      renderer::LineType lineType,
                       float lineWidth,
                       float pointSize = 0.0F,
-                      opengl::BufferAccessPattern accessPattern = opengl::BufferAccessPattern::STATIC_DRAW);
+                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::STATIC_DRAW);
 
     DrawableHandle
     add_mesh_drawable(std::span<const float> vertices,
                       std::span<const float> normals,
                       std::span<const float> colors,
                       std::span<const std::uint32_t> triangleIndices,
-                      opengl::BufferAccessPattern accessPattern = opengl::BufferAccessPattern::STATIC_DRAW);
+                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::STATIC_DRAW);
 
     DrawableHandle add_mesh_segment_drawable(std::span<const float> positions,
                                              std::span<const std::uint32_t> indices,
@@ -111,7 +114,7 @@ class Renderer {
     DrawableHandle
     add_mesh_vertex_drawable(std::span<const float> positions, std::span<const float> color, float pointSize);
 
-    void set_mesh_drawable_cull_mode(DrawableHandle handle, opengl::MeshCullFaceMode mode);
+    void set_mesh_drawable_cull_mode(DrawableHandle handle, renderer::MeshCullFaceMode mode);
 
     bool remove_drawable(DrawableHandle handle);
 
@@ -123,12 +126,12 @@ class Renderer {
     void update_last_point_drawable(std::span<const float> vertices,
                                     std::span<const float> colors,
                                     std::span<const std::uint32_t> indices,
-                                    opengl::BufferAccessPattern accessPattern);
+                                    renderer::BufferAccessPattern accessPattern);
 
     void update_last_line_drawable(std::span<const float> vertices,
                                    std::span<const float> colors,
                                    std::span<const std::uint32_t> indices,
-                                   opengl::BufferAccessPattern accessPattern);
+                                   renderer::BufferAccessPattern accessPattern);
 
     void clear_point_drawables();
     void clear_line_drawables();
@@ -149,9 +152,9 @@ class Renderer {
     [[nodiscard]]
     bool is_escape_pressed() const;
 
-    void begin_frame(const opengl::ClearColor& clearColor = defaultClearColor);
+    void begin_frame(const renderer::ClearColor& clearColor = defaultClearColor);
     void draw();
-    void draw(const opengl::LightingConfig& lighting);
+    void draw(const renderer::LightingConfig& lighting);
     void end_frame();
     void end_frame(bool& autoFitEnabled);
     void end_frame(bool& autoFitEnabled, bool& homeRequested);
@@ -192,12 +195,8 @@ class Renderer {
     std::weak_ptr<ImGuiOverlay> get_imgui() {
         return m_imgui;
     }
-    [[nodiscard]]
-    const opengl::GpuCapabilities& gpu_capabilities() const {
-        return m_window.capabilities();
-    }
 
-    static constexpr opengl::ClearColor defaultClearColor{0.05F, 0.05F, 0.08F, 1.0F};
+    static constexpr renderer::ClearColor defaultClearColor{0.05F, 0.05F, 0.08F, 1.0F};
 
   private:
     Renderer(GlfwWindow window,

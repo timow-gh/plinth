@@ -592,12 +592,12 @@ class CameraInteractor : private CameraSettings {
     void on_mouse_button(int button, Action action, [[maybe_unused]] Mods mods) {
         if (action == Action::PRESS && m_cameraMode == CameraMode::NO_MODE) {
             switch (button) {
-            case GLFW_MOUSE_BUTTON_RIGHT: {
+            case 1: { // GLFW_MOUSE_BUTTON_RIGHT
                 m_cameraMode = CameraMode::ORBIT;
                 m_isRotateStart = true;
                 return;
             }
-            case GLFW_MOUSE_BUTTON_MIDDLE: {
+            case 2: { // GLFW_MOUSE_BUTTON_MIDDLE
                 m_cameraMode = CameraMode::PAN;
                 m_isPanStart = true;
                 return;

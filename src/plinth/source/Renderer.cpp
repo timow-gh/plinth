@@ -1,10 +1,14 @@
+#include <OpenGL/Drawable/DrawablesManager.hpp>
 #include <OpenGL/ErrorReporting.hpp>
+#include <OpenGL/FrameState.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <plinth/Renderer.hpp>
 
 namespace renderer {
+
+Renderer::~Renderer() = default;
 
 namespace {
 
@@ -52,7 +56,7 @@ SceneViewport Renderer::calculate_scene_viewport(std::pair<int, int> windowSize,
     SceneViewport viewport;
     viewport.logical = LogicalViewportRect{sceneX, 0.0, sceneWidth, logicalWindowHeight};
     viewport.framebuffer =
-        opengl::ViewportRect{framebufferX, 0, std::max(1, framebufferWidth - framebufferX), framebufferHeight};
+        renderer::ViewportRect{framebufferX, 0, std::max(1, framebufferWidth - framebufferX), framebufferHeight};
     return viewport;
 }
 
@@ -166,7 +170,7 @@ void Renderer::on_mouse_button(int button, Action action, Mods mods) {
     }
     if (action == Action::PRESS) {
         m_cameraMouseInteractionActive =
-            sceneCoordinates.has_value() && (button == GLFW_MOUSE_BUTTON_RIGHT || button == GLFW_MOUSE_BUTTON_MIDDLE);
+            sceneCoordinates.has_value() && (button == 1 || button == 2);
     }
     m_camera->on_mouse_button(button, action, mods);
     if (action == Action::RELEASE) {
@@ -210,7 +214,7 @@ DrawableHandle Renderer::add_point_drawable(std::span<const float> vertices,
                                             std::span<const float> colors,
                                             std::span<const std::uint32_t> indices,
                                             float pointSize,
-                                            opengl::BufferAccessPattern accessPattern) {
+                                            renderer::BufferAccessPattern accessPattern) {
     const auto id = m_drawablesManager->add_point_drawable(vertices, colors, indices, pointSize, accessPattern);
     if (!id.has_value()) {
         return DrawableHandle{};
@@ -221,10 +225,10 @@ DrawableHandle Renderer::add_point_drawable(std::span<const float> vertices,
 DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
                                            std::span<const std::uint32_t> indices,
                                            std::span<const float> colors,
-                                           opengl::LineType lineType,
+                                           renderer::LineType lineType,
                                            float lineWidth,
                                            float pointSize,
-                                           opengl::BufferAccessPattern accessPattern) {
+                                           renderer::BufferAccessPattern accessPattern) {
     const auto id =
         m_drawablesManager->add_line_drawable(vertices, indices, colors, lineType, lineWidth, pointSize, accessPattern);
     if (!id.has_value()) {
@@ -237,7 +241,7 @@ DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
                                            std::span<const float> normals,
                                            std::span<const float> colors,
                                            std::span<const std::uint32_t> triangleIndices,
-                                           opengl::BufferAccessPattern accessPattern) {
+                                           renderer::BufferAccessPattern accessPattern) {
     const auto id =
         m_drawablesManager->add_mesh_drawable(vertices, 3, normals, colors, 4, triangleIndices, accessPattern);
     if (!id.has_value()) {
@@ -266,7 +270,7 @@ Renderer::add_mesh_vertex_drawable(std::span<const float> positions, std::span<c
     return DrawableHandle{DrawableKind::meshVertex, *id};
 }
 
-void Renderer::set_mesh_drawable_cull_mode(DrawableHandle handle, opengl::MeshCullFaceMode mode) {
+void Renderer::set_mesh_drawable_cull_mode(DrawableHandle handle, renderer::MeshCullFaceMode mode) {
     if (handle.kind == DrawableKind::mesh && handle.id != 0U) {
         m_drawablesManager->set_mesh_drawable_cull_mode(handle.id, mode);
     }
@@ -330,14 +334,14 @@ bool Renderer::reset_drawable_transform(DrawableHandle handle) {
 void Renderer::update_last_point_drawable(std::span<const float> vertices,
                                           std::span<const float> colors,
                                           std::span<const std::uint32_t> indices,
-                                          opengl::BufferAccessPattern accessPattern) {
+                                          renderer::BufferAccessPattern accessPattern) {
     m_drawablesManager->update_last_point_drawable(vertices, colors, indices, accessPattern);
 }
 
 void Renderer::update_last_line_drawable(std::span<const float> vertices,
                                          std::span<const float> colors,
                                          std::span<const std::uint32_t> indices,
-                                         opengl::BufferAccessPattern accessPattern) {
+                                         renderer::BufferAccessPattern accessPattern) {
     m_drawablesManager->update_last_line_drawable(vertices, colors, indices, accessPattern);
 }
 
@@ -378,7 +382,7 @@ bool Renderer::is_escape_pressed() const {
     return m_window.is_escape_pressed();
 }
 
-void Renderer::begin_frame(const opengl::ClearColor& clearColor) {
+void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
     const auto now = std::chrono::steady_clock::now();
     const double deltaSeconds =
         std::min(maxFrameDeltaSeconds, std::chrono::duration<double>(now - m_lastFrameTime).count());
@@ -419,11 +423,11 @@ void Renderer::begin_frame(const opengl::ClearColor& clearColor) {
 }
 
 void Renderer::draw() {
-    const opengl::LightingConfig lighting;
+    const renderer::LightingConfig lighting;
     draw(lighting);
 }
 
-void Renderer::draw(const opengl::LightingConfig& lighting) {
+void Renderer::draw(const renderer::LightingConfig& lighting) {
     m_drawablesManager->draw_lines_and_points(m_camera->get_current_MVP(), m_camera->get_position());
 
     if (m_drawablesManager->has_mesh_drawables()) {
@@ -431,7 +435,7 @@ void Renderer::draw(const opengl::LightingConfig& lighting) {
                                      static_cast<float>(m_camera->get_position()[1]),
                                      static_cast<float>(m_camera->get_position()[2])};
 
-        opengl::LightingConfig effectiveLighting = lighting;
+        renderer::LightingConfig effectiveLighting = lighting;
         effectiveLighting.lightPosition = viewPosF;
         m_drawablesManager->draw_meshes(m_camera->get_view_matrix(),
                                        m_camera->get_projection_matrix(),

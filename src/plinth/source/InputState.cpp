@@ -1,3 +1,5 @@
+#include "InputStateInternal.hpp"
+#include <GLFW/glfw3.h>
 #include <plinth/InputState.hpp>
 #include <unordered_map>
 
@@ -15,7 +17,7 @@ struct WindowCallbacks {
     ScrollCB scroll;
     DropCB drop;
 
-    InputState inputState; // This is not a callback, but a place to store the current input state.
+    InputState inputState;
 
     FramebufferSizeCB framebufferSizeCB;
 };
@@ -107,55 +109,55 @@ static void set_window_callbacks(GLFWwindow* glfwWindow) {
     glfwSetFramebufferSizeCallback(glfwWindow, framebuffer_size_callback_trampoline);
 }
 
-} // namespace detail
-
 InputState* get_input_state(GLFWwindow* glfwWindow) {
     RENDERER_ASSERT(glfwWindow);
-    return &detail::get_window_callbacks(glfwWindow)->inputState;
+    return &get_window_callbacks(glfwWindow)->inputState;
 }
 
 void set_key_callback(GLFWwindow* glfwWindow, KeyCB cb) {
     RENDERER_ASSERT(glfwWindow);
-    detail::get_window_callbacks(glfwWindow)->key = std::move(cb);
+    get_window_callbacks(glfwWindow)->key = std::move(cb);
 }
 void set_char_callback(GLFWwindow* glfwWindow, CharCB cb) {
     RENDERER_ASSERT(glfwWindow);
-    detail::get_window_callbacks(glfwWindow)->ch = std::move(cb);
+    get_window_callbacks(glfwWindow)->ch = std::move(cb);
 }
 void set_char_mods_callback(GLFWwindow* glfwWindow, CharModsCB cb) {
     RENDERER_ASSERT(glfwWindow);
-    detail::get_window_callbacks(glfwWindow)->chMods = std::move(cb);
+    get_window_callbacks(glfwWindow)->chMods = std::move(cb);
 }
 void set_mouse_button_callback(GLFWwindow* glfwWindow, MouseBtnCB cb) {
     RENDERER_ASSERT(glfwWindow);
-    detail::get_window_callbacks(glfwWindow)->mouseBtn = std::move(cb);
+    get_window_callbacks(glfwWindow)->mouseBtn = std::move(cb);
 }
 void set_cursor_pos_callback(GLFWwindow* glfwWindow, CursorPosCB cb) {
     RENDERER_ASSERT(glfwWindow);
-    detail::get_window_callbacks(glfwWindow)->cursorPos = std::move(cb);
+    get_window_callbacks(glfwWindow)->cursorPos = std::move(cb);
 }
 void set_cursor_enter_callback(GLFWwindow* glfwWindow, CursorEnterCB cb) {
     RENDERER_ASSERT(glfwWindow);
-    detail::get_window_callbacks(glfwWindow)->cursorEnter = std::move(cb);
+    get_window_callbacks(glfwWindow)->cursorEnter = std::move(cb);
 }
 void set_scroll_callback(GLFWwindow* glfwWindow, ScrollCB cb) {
     RENDERER_ASSERT(glfwWindow);
-    detail::get_window_callbacks(glfwWindow)->scroll = std::move(cb);
+    get_window_callbacks(glfwWindow)->scroll = std::move(cb);
 }
 void set_drop_callback(GLFWwindow* glfwWindow, DropCB cb) {
     RENDERER_ASSERT(glfwWindow);
-    detail::get_window_callbacks(glfwWindow)->drop = std::move(cb);
+    get_window_callbacks(glfwWindow)->drop = std::move(cb);
 }
 
 void set_framebuffer_size_callback(GLFWwindow* glfwWindow, FramebufferSizeCB cb) {
     RENDERER_ASSERT(glfwWindow);
-    detail::get_window_callbacks(glfwWindow)->framebufferSizeCB = std::move(cb);
+    get_window_callbacks(glfwWindow)->framebufferSizeCB = std::move(cb);
 }
 
 void clear_callbacks(GLFWwindow* glfwWindow) {
     RENDERER_ASSERT(glfwWindow);
-    detail::window_callbacks_storage().erase(glfwWindow);
+    window_callbacks_storage().erase(glfwWindow);
     glfwSetWindowUserPointer(glfwWindow, nullptr);
 }
+
+} // namespace detail
 
 } // namespace renderer

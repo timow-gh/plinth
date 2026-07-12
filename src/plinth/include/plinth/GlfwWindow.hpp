@@ -1,57 +1,29 @@
 #ifndef RENDERER_GLFWWINDOW_HPP
 #define RENDERER_GLFWWINDOW_HPP
 
-#include <OpenGL/GpuCapabilities.hpp>
 #include <plinth/InputState.hpp>
 #include <plinth/WindowSettings.hpp>
+#include <memory>
 #include <optional>
-#include <utility>
 
 namespace renderer {
 
 class GlfwWindow {
-    GLFWwindow* m_glfwWindow{nullptr};
-    opengl::GpuCapabilities m_capabilities;
-
   public:
-    GlfwWindow() = default;
+    GlfwWindow();
     GlfwWindow(const GlfwWindow&) = delete;
     GlfwWindow& operator=(const GlfwWindow&) = delete;
-    GlfwWindow(GlfwWindow&& other) noexcept {
-        m_glfwWindow = other.m_glfwWindow;
-        other.m_glfwWindow = nullptr;
-        m_capabilities = std::move(other.m_capabilities);
-    }
-    GlfwWindow& operator=(GlfwWindow&& other) noexcept {
-        if (this != &other) {
-            if (m_glfwWindow != nullptr) {
-                clear_callbacks(m_glfwWindow);
-                glfwDestroyWindow(m_glfwWindow);
-                glfwTerminate();
-            }
-            m_glfwWindow = other.m_glfwWindow;
-            other.m_glfwWindow = nullptr;
-            m_capabilities = std::move(other.m_capabilities);
-        }
-        return *this;
-    }
+    GlfwWindow(GlfwWindow&&) noexcept;
+    GlfwWindow& operator=(GlfwWindow&&) noexcept;
     ~GlfwWindow();
 
     [[nodiscard]]
     static std::optional<GlfwWindow> create(const WindowSettings& settings);
 
     [[nodiscard]]
-    bool is_initialized() const {
-        return m_glfwWindow != nullptr;
-    }
+    bool is_initialized() const;
     [[nodiscard]]
-    GLFWwindow* get_native_handle() const {
-        return m_glfwWindow;
-    }
-    [[nodiscard]]
-    const opengl::GpuCapabilities& capabilities() const {
-        return m_capabilities;
-    }
+    void* get_native_handle() const;
 
     void make_context_current() const;
     static void poll_events();
@@ -86,6 +58,9 @@ class GlfwWindow {
         return hint ? 1 : 0;
     }
     static void set_window_hints(const WindowSettings& hints);
+
+    struct Impl;
+    std::unique_ptr<Impl> m_impl;
 };
 
 } // namespace renderer

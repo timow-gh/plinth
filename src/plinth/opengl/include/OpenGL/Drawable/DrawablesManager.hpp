@@ -14,27 +14,15 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <plinth/LightingConfig.hpp>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
 namespace opengl {
 
-// Mirrors the renderer-layer mesh cull mode.
-enum class MeshCullFaceMode {
-    back,  // GL_BACK  (default)
-    front, // GL_FRONT
-    none,  // cull face disabled
-};
-
-struct LightingConfig {
-    linal::float3 lightPosition{0.0F, 0.0F, 10.0F};
-    linal::float3 lightColor{1.0F, 1.0F, 1.0F};
-    linal::float3 fillLightDir{-0.45F, 0.60F, 0.35F};
-    linal::float3 fillLightColor{0.2F, 0.2F, 0.3F};
-    linal::float3 ambientColor{0.1F, 0.1F, 0.1F};
-    float shininess{8.0F};
-};
+using renderer::LightingConfig;
+using renderer::MeshCullFaceMode;
 
 class DrawablesManager {
   public:

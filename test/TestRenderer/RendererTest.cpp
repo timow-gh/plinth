@@ -1,4 +1,5 @@
 #include "PlinthTestMatchers.hpp"
+#include <GLFW/glfw3.h>
 #include <gtest/gtest.h>
 #include <linal/hmat.hpp>
 #include <plinth/Renderer.hpp>
@@ -67,7 +68,7 @@ TEST_F(RendererTest, AddLineDrawableReturnsValidHandle) {
     };
 
     const renderer::DrawableHandle handle =
-        m_renderer->add_line_drawable(vertices, indices, colors, opengl::LineType::lines(), 2.0F);
+        m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), 2.0F);
 
     EXPECT_TRUE(handle.is_valid());
     EXPECT_EQ(renderer::DrawableKind::line, handle.kind);
@@ -126,7 +127,7 @@ TEST_F(RendererTest, ClearDrawablesEmptiesState) {
     };
 
     m_renderer->add_point_drawable(vertices, colors, indices, 1.0F);
-    m_renderer->add_line_drawable(vertices, indices, colors, opengl::LineType::lines(), 2.0F);
+    m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), 2.0F);
     m_renderer->add_mesh_drawable(vertices, normals, colors, indices);
 
     EXPECT_TRUE(m_renderer->has_point_drawables());
@@ -214,7 +215,7 @@ TEST_F(RendererTest, FrameLoopWithDrawablesDoesNotCrash) {
     };
 
     m_renderer->add_point_drawable(vertices, colors, indices, 1.0F);
-    m_renderer->add_line_drawable(vertices, indices, colors, opengl::LineType::lines(), 2.0F);
+    m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), 2.0F);
     m_renderer->add_mesh_drawable(vertices, normals, colors, indices);
 
     m_renderer->begin_frame();

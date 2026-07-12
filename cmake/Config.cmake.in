@@ -9,6 +9,8 @@ set(CMAKE_MAP_IMPORTED_CONFIG_RELEASE Release RelWithDebInfo MinSizeRel Debug ""
 
 # Find dependencies
 include(CMakeFindDependencyMacro)
+find_dependency(LinAl CONFIG)
+find_dependency(glm CONFIG)
 find_dependency(glad CONFIG)
 find_dependency(glfw3 3.3)
 find_dependency(imgui CONFIG)

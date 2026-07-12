@@ -7,6 +7,7 @@
 
 RENDERER_DISABLE_ALL_WARNINGS
 #include <imgui.h>
+#include <GLFW/glfw3.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 RENDERER_ENABLE_ALL_WARNINGS
@@ -71,15 +72,17 @@ void render_panel_resize_grip(float& panelWidth, float viewportWidth, float heig
 
 } // namespace
 
-ImGuiOverlay::ImGuiOverlay(GLFWwindow* window)
-    : m_window(window) {
+ImGuiOverlay::ImGuiOverlay(void* nativeWindow)
+    : m_window(nativeWindow) {
     RENDERER_ASSERT(m_window != nullptr);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
 
-    ImGui_ImplGlfw_InitForOpenGL(m_window, false);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* glfwWindow = static_cast<GLFWwindow*>(m_window);
+    ImGui_ImplGlfw_InitForOpenGL(glfwWindow, false);
     ImGui_ImplOpenGL3_Init("#version 330");
 }
 
@@ -187,22 +190,30 @@ bool ImGuiOverlay::wants_keyboard() const // NOLINT(readability-convert-member-f
 }
 
 bool ImGuiOverlay::handle_cursor_position(double xpos, double ypos) {
-    ImGui_ImplGlfw_CursorPosCallback(m_window, xpos, ypos);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* glfwWindow = static_cast<GLFWwindow*>(m_window);
+    ImGui_ImplGlfw_CursorPosCallback(glfwWindow, xpos, ypos);
     return m_inputCaptureState.should_forward_cursor_position(ImGui::GetIO().WantCaptureMouse);
 }
 
 bool ImGuiOverlay::handle_mouse_button(int button, Action action, Mods mods) {
-    ImGui_ImplGlfw_MouseButtonCallback(m_window, button, static_cast<int>(action), static_cast<int>(mods));
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* glfwWindow = static_cast<GLFWwindow*>(m_window);
+    ImGui_ImplGlfw_MouseButtonCallback(glfwWindow, button, static_cast<int>(action), static_cast<int>(mods));
     return m_inputCaptureState.should_forward_mouse_button(button, action, ImGui::GetIO().WantCaptureMouse);
 }
 
 bool ImGuiOverlay::handle_scroll(double xoffset, double yoffset) {
-    ImGui_ImplGlfw_ScrollCallback(m_window, xoffset, yoffset);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* glfwWindow = static_cast<GLFWwindow*>(m_window);
+    ImGui_ImplGlfw_ScrollCallback(glfwWindow, xoffset, yoffset);
     return m_inputCaptureState.should_forward_scroll(ImGui::GetIO().WantCaptureMouse);
 }
 
 bool ImGuiOverlay::handle_key(Key key, Scancode scancode, Action action, Mods mods) {
-    ImGui_ImplGlfw_KeyCallback(m_window,
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* glfwWindow = static_cast<GLFWwindow*>(m_window);
+    ImGui_ImplGlfw_KeyCallback(glfwWindow,
                                static_cast<int>(key),
                                scancode.get_value(),
                                static_cast<int>(action),
@@ -211,7 +222,9 @@ bool ImGuiOverlay::handle_key(Key key, Scancode scancode, Action action, Mods mo
 }
 
 void ImGuiOverlay::handle_char(std::uint32_t codepoint) {
-    ImGui_ImplGlfw_CharCallback(m_window, codepoint);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* glfwWindow = static_cast<GLFWwindow*>(m_window);
+    ImGui_ImplGlfw_CharCallback(glfwWindow, codepoint);
 }
 
 } // namespace renderer

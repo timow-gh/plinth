@@ -1,4 +1,6 @@
+#include <GLFW/glfw3.h>
 #include <plinth/InputState.hpp>
+#include "../../src/plinth/source/InputStateInternal.hpp"
 #include <gtest/gtest.h>
 
 using namespace renderer;
@@ -20,7 +22,7 @@ class GlfwWindowFixture : public ::testing::Test {
 
     void TearDown() override {
         if (m_window != nullptr) {
-            clear_callbacks(m_window);
+            renderer::detail::clear_callbacks(m_window);
             glfwDestroyWindow(m_window);
             m_window = nullptr;
         }
@@ -54,7 +56,7 @@ TEST_F(GlfwWindowFixture, TrampolinesForwardRegisteredCallbacks) {
     renderer::Scancode receivedScancode;
     renderer::Action receivedAction = renderer::Action::UNDEFINED;
     renderer::Mods receivedKeyMods = renderer::Mods::NONE;
-    renderer::set_key_callback(
+    renderer::detail::set_key_callback(
         m_window,
         [&](renderer::Key key, renderer::Scancode scancode, renderer::Action action, renderer::Mods mods) {
             receivedKey = key;
@@ -71,7 +73,7 @@ TEST_F(GlfwWindowFixture, TrampolinesForwardRegisteredCallbacks) {
     EXPECT_EQ(renderer::Mods::SHIFT, receivedKeyMods);
 
     std::uint32_t receivedChar = 0;
-    renderer::set_char_callback(m_window, [&](std::uint32_t codepoint) { receivedChar = codepoint; });
+    renderer::detail::set_char_callback(m_window, [&](std::uint32_t codepoint) { receivedChar = codepoint; });
     GLFWcharfun charCallback = glfwSetCharCallback(m_window, nullptr);
     ASSERT_NE(nullptr, charCallback);
     charCallback(m_window, 66);
@@ -79,7 +81,7 @@ TEST_F(GlfwWindowFixture, TrampolinesForwardRegisteredCallbacks) {
 
     std::uint32_t receivedCharModsCodepoint = 0;
     renderer::Mods receivedCharMods = renderer::Mods::NONE;
-    renderer::set_char_mods_callback(m_window, [&](std::uint32_t codepoint, renderer::Mods mods) {
+    renderer::detail::set_char_mods_callback(m_window, [&](std::uint32_t codepoint, renderer::Mods mods) {
         receivedCharModsCodepoint = codepoint;
         receivedCharMods = mods;
     });
@@ -92,7 +94,7 @@ TEST_F(GlfwWindowFixture, TrampolinesForwardRegisteredCallbacks) {
     int receivedButton = -1;
     renderer::Action receivedButtonAction = renderer::Action::UNDEFINED;
     renderer::Mods receivedButtonMods = renderer::Mods::NONE;
-    renderer::set_mouse_button_callback(m_window, [&](int button, renderer::Action action, renderer::Mods mods) {
+    renderer::detail::set_mouse_button_callback(m_window, [&](int button, renderer::Action action, renderer::Mods mods) {
         receivedButton = button;
         receivedButtonAction = action;
         receivedButtonMods = mods;
@@ -105,7 +107,7 @@ TEST_F(GlfwWindowFixture, TrampolinesForwardRegisteredCallbacks) {
     EXPECT_EQ(renderer::Mods::CONTROL, receivedButtonMods);
 
     bool receivedCursorEnter = false;
-    renderer::set_cursor_enter_callback(m_window, [&](bool entered) { receivedCursorEnter = entered; });
+    renderer::detail::set_cursor_enter_callback(m_window, [&](bool entered) { receivedCursorEnter = entered; });
     GLFWcursorenterfun cursorEnterCallback = glfwSetCursorEnterCallback(m_window, nullptr);
     ASSERT_NE(nullptr, cursorEnterCallback);
     cursorEnterCallback(m_window, GLFW_TRUE);
@@ -113,7 +115,7 @@ TEST_F(GlfwWindowFixture, TrampolinesForwardRegisteredCallbacks) {
 
     double receivedScrollX = 0.0;
     double receivedScrollY = 0.0;
-    renderer::set_scroll_callback(m_window, [&](double xoff, double yoff) {
+    renderer::detail::set_scroll_callback(m_window, [&](double xoff, double yoff) {
         receivedScrollX = xoff;
         receivedScrollY = yoff;
     });
@@ -125,7 +127,7 @@ TEST_F(GlfwWindowFixture, TrampolinesForwardRegisteredCallbacks) {
 
     int receivedDropCount = 0;
     const char** receivedDropPaths = nullptr;
-    renderer::set_drop_callback(m_window, [&](int count, const char** paths) {
+    renderer::detail::set_drop_callback(m_window, [&](int count, const char** paths) {
         receivedDropCount = count;
         receivedDropPaths = paths;
     });
@@ -138,7 +140,7 @@ TEST_F(GlfwWindowFixture, TrampolinesForwardRegisteredCallbacks) {
 
     std::uint32_t framebufferWidth = 0;
     std::uint32_t framebufferHeight = 0;
-    renderer::set_framebuffer_size_callback(m_window, [&](std::uint32_t width, std::uint32_t height) {
+    renderer::detail::set_framebuffer_size_callback(m_window, [&](std::uint32_t width, std::uint32_t height) {
         framebufferWidth = width;
         framebufferHeight = height;
     });
@@ -150,17 +152,17 @@ TEST_F(GlfwWindowFixture, TrampolinesForwardRegisteredCallbacks) {
 }
 
 TEST_F(GlfwWindowFixture, InputStateStoragePersistsUntilCleared) {
-    renderer::InputState* firstState = renderer::get_input_state(m_window);
+    renderer::InputState* firstState = renderer::detail::get_input_state(m_window);
     ASSERT_NE(nullptr, firstState);
     firstState->cursorPosState = renderer::CursorPosState{10.0, 20.0};
 
-    renderer::InputState* secondState = renderer::get_input_state(m_window);
+    renderer::InputState* secondState = renderer::detail::get_input_state(m_window);
     EXPECT_EQ(firstState, secondState);
     EXPECT_DOUBLE_EQ(10.0, secondState->cursorPosState.xpos);
     EXPECT_DOUBLE_EQ(20.0, secondState->cursorPosState.ypos);
 
-    renderer::clear_callbacks(m_window);
-    renderer::InputState* resetState = renderer::get_input_state(m_window);
+    renderer::detail::clear_callbacks(m_window);
+    renderer::InputState* resetState = renderer::detail::get_input_state(m_window);
     ASSERT_NE(nullptr, resetState);
     EXPECT_DOUBLE_EQ(0.0, resetState->cursorPosState.xpos);
     EXPECT_DOUBLE_EQ(0.0, resetState->cursorPosState.ypos);

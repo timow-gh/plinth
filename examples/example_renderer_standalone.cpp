@@ -1,4 +1,3 @@
-#include <OpenGL/LineType.hpp>
 #include <array>
 #include <cstdint>
 #include <plinth/Renderer.hpp>
@@ -38,7 +37,7 @@ int main() {
     const std::array<float, 16>
         lineColors{1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F};
     const std::array<std::uint32_t, 4> lineIndices{0, 1, 2, 3};
-    renderer->add_line_drawable(lineVertices, lineIndices, lineColors, opengl::LineType::lines(), standaloneLineWidth);
+    renderer->add_line_drawable(lineVertices, lineIndices, lineColors, renderer::LineType::lines(), standaloneLineWidth);
 
     // Tab toggles between orbit navigation and fly (WASD+QE) navigation, proving the new
     // CameraInteractor::NavigationStyle switch works end-to-end.

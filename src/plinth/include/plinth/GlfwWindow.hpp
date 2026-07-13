@@ -41,6 +41,8 @@ class GlfwWindow {
     std::pair<int, int> get_framebuffer_size() const;
     [[nodiscard]]
     std::pair<double, double> get_framebuffer_scale() const;
+    [[nodiscard]]
+    bool is_srgb_capable() const;
 
     [[nodiscard]]
     InputState& get_input_state() const;

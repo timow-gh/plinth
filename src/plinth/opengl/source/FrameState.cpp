@@ -3,7 +3,12 @@
 
 namespace opengl {
 
-void begin_frame(const ClearColor& clearColor, const ViewportRect& viewport) {
+void begin_frame(const ClearColor& clearColor, const ViewportRect& viewport, bool srgbFramebuffer) {
+    if (srgbFramebuffer) {
+        glEnable(GL_FRAMEBUFFER_SRGB);
+    } else {
+        glDisable(GL_FRAMEBUFFER_SRGB);
+    }
     glClearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_CULL_FACE);

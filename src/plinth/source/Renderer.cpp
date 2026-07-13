@@ -419,7 +419,7 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
     }
 
     update_scene_viewport();
-    opengl::begin_frame(clearColor, m_sceneViewport.framebuffer);
+    opengl::begin_frame(clearColor, m_sceneViewport.framebuffer, m_window.is_srgb_capable());
 }
 
 void Renderer::draw() {

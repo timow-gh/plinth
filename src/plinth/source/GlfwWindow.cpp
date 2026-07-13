@@ -1,31 +1,59 @@
+#include "InputStateInternal.hpp"
+#include <GLFW/glfw3.h>
 #include <OpenGL/ErrorReporting.hpp>
-#include <OpenGL/GpuCapabilities.hpp>
+#include <glad/glad.h>
 #include <plinth/Assert.hpp>
 #include <plinth/GlfwWindow.hpp>
 #include <print>
 
 namespace renderer {
 
+struct GlfwWindow::Impl {
+    GLFWwindow* window{nullptr};
+};
+
+GlfwWindow::GlfwWindow() = default;
+GlfwWindow::GlfwWindow(GlfwWindow&&) noexcept = default;
+
+GlfwWindow& GlfwWindow::operator=(GlfwWindow&& other) noexcept {
+    if (this != &other) {
+        if (m_impl && m_impl->window != nullptr) {
+            detail::clear_callbacks(m_impl->window);
+            glfwDestroyWindow(m_impl->window);
+            glfwTerminate();
+        }
+        m_impl = std::move(other.m_impl);
+    }
+    return *this;
+}
+
+GlfwWindow::~GlfwWindow() {
+    if (m_impl && m_impl->window != nullptr) {
+        detail::clear_callbacks(m_impl->window);
+        glfwDestroyWindow(m_impl->window);
+        glfwTerminate();
+    }
+}
+
+bool GlfwWindow::is_initialized() const {
+    return m_impl && m_impl->window != nullptr;
+}
+
+void* GlfwWindow::get_native_handle() const {
+    if (!m_impl) {
+        return nullptr;
+    }
+    return static_cast<void*>(m_impl->window);
+}
+
 namespace {
 
 void* load_glfw_proc(const char* procName) {
-    // GLAD v1 expects void* while GLFW returns an opaque function pointer.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     return reinterpret_cast<void*>(glfwGetProcAddress(procName));
 }
 
 } // namespace
-
-GlfwWindow::~GlfwWindow() {
-    if (m_glfwWindow == nullptr) {
-        return;
-    }
-
-    clear_callbacks(m_glfwWindow);
-    glfwDestroyWindow(m_glfwWindow);
-    m_glfwWindow = nullptr;
-    glfwTerminate();
-}
 
 std::optional<GlfwWindow> GlfwWindow::create(const WindowSettings& settings) {
     if (glfwInit() == 0) {
@@ -58,15 +86,14 @@ std::optional<GlfwWindow> GlfwWindow::create(const WindowSettings& settings) {
     }
 
     GlfwWindow window;
-    window.m_glfwWindow = glfwWindow;
+    window.m_impl = std::make_unique<Impl>();
+    window.m_impl->window = glfwWindow;
 
     window.make_context_current();
     if (gladLoadGLLoader(load_glfw_proc) == 0) {
         std::print("Failed to initialize OpenGL context\n");
         return std::nullopt;
     }
-
-    window.m_capabilities = opengl::query_gpu_capabilities();
 
     if (settings.debug_context) {
         if (!opengl::install_debug_callback()) {
@@ -81,8 +108,8 @@ std::optional<GlfwWindow> GlfwWindow::create(const WindowSettings& settings) {
 }
 
 void GlfwWindow::make_context_current() const {
-    RENDERER_ASSERT(m_glfwWindow);
-    glfwMakeContextCurrent(m_glfwWindow);
+    RENDERER_ASSERT(m_impl && m_impl->window);
+    glfwMakeContextCurrent(m_impl->window);
 }
 
 void GlfwWindow::poll_events() {
@@ -90,41 +117,41 @@ void GlfwWindow::poll_events() {
 }
 
 void GlfwWindow::swap_buffers() const {
-    RENDERER_ASSERT(m_glfwWindow);
-    glfwSwapBuffers(m_glfwWindow);
+    RENDERER_ASSERT(m_impl && m_impl->window);
+    glfwSwapBuffers(m_impl->window);
 }
 
 bool GlfwWindow::should_close() const {
-    RENDERER_ASSERT(m_glfwWindow);
-    return glfwWindowShouldClose(m_glfwWindow) != 0;
+    RENDERER_ASSERT(m_impl && m_impl->window);
+    return glfwWindowShouldClose(m_impl->window) != 0;
 }
 
 bool GlfwWindow::is_escape_pressed() const {
-    RENDERER_ASSERT(m_glfwWindow);
-    return glfwGetKey(m_glfwWindow, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+    RENDERER_ASSERT(m_impl && m_impl->window);
+    return glfwGetKey(m_impl->window, GLFW_KEY_ESCAPE) == GLFW_PRESS;
 }
 
 bool GlfwWindow::is_key_pressed(Key key) const {
-    RENDERER_ASSERT(m_glfwWindow);
-    return glfwGetKey(m_glfwWindow, static_cast<int>(key)) == GLFW_PRESS;
+    RENDERER_ASSERT(m_impl && m_impl->window);
+    return glfwGetKey(m_impl->window, static_cast<int>(key)) == GLFW_PRESS;
 }
 
 std::pair<int, int> GlfwWindow::get_window_size() const {
-    RENDERER_ASSERT(m_glfwWindow);
+    RENDERER_ASSERT(m_impl && m_impl->window);
 
     int windowWidth{0};
     int windowHeight{0};
-    glfwGetWindowSize(m_glfwWindow, &windowWidth, &windowHeight);
+    glfwGetWindowSize(m_impl->window, &windowWidth, &windowHeight);
 
     return {windowWidth, windowHeight};
 }
 
 std::pair<int, int> GlfwWindow::get_framebuffer_size() const {
-    RENDERER_ASSERT(m_glfwWindow);
+    RENDERER_ASSERT(m_impl && m_impl->window);
 
     int framebufferWidth{0};
     int framebufferHeight{0};
-    glfwGetFramebufferSize(m_glfwWindow, &framebufferWidth, &framebufferHeight);
+    glfwGetFramebufferSize(m_impl->window, &framebufferWidth, &framebufferHeight);
 
     return {framebufferWidth, framebufferHeight};
 }
@@ -139,38 +166,38 @@ std::pair<double, double> GlfwWindow::get_framebuffer_scale() const {
 }
 
 InputState& GlfwWindow::get_input_state() const {
-    RENDERER_ASSERT(m_glfwWindow);
-    return *renderer::get_input_state(m_glfwWindow);
+    RENDERER_ASSERT(m_impl && m_impl->window);
+    return *detail::get_input_state(m_impl->window);
 }
 
 void GlfwWindow::set_key_callback(KeyCB cb) {
-    RENDERER_ASSERT(m_glfwWindow);
-    renderer::set_key_callback(m_glfwWindow, std::move(cb));
+    RENDERER_ASSERT(m_impl && m_impl->window);
+    detail::set_key_callback(m_impl->window, std::move(cb));
 }
 
 void GlfwWindow::set_char_callback(CharCB cb) {
-    RENDERER_ASSERT(m_glfwWindow);
-    renderer::set_char_callback(m_glfwWindow, std::move(cb));
+    RENDERER_ASSERT(m_impl && m_impl->window);
+    detail::set_char_callback(m_impl->window, std::move(cb));
 }
 
 void GlfwWindow::set_cursor_pos_callback(CursorPosCB cb) {
-    RENDERER_ASSERT(m_glfwWindow);
-    renderer::set_cursor_pos_callback(m_glfwWindow, std::move(cb));
+    RENDERER_ASSERT(m_impl && m_impl->window);
+    detail::set_cursor_pos_callback(m_impl->window, std::move(cb));
 }
 
 void GlfwWindow::set_scroll_callback(ScrollCB cb) {
-    RENDERER_ASSERT(m_glfwWindow);
-    renderer::set_scroll_callback(m_glfwWindow, std::move(cb));
+    RENDERER_ASSERT(m_impl && m_impl->window);
+    detail::set_scroll_callback(m_impl->window, std::move(cb));
 }
 
 void GlfwWindow::set_mouse_button_callback(MouseBtnCB cb) {
-    RENDERER_ASSERT(m_glfwWindow);
-    renderer::set_mouse_button_callback(m_glfwWindow, std::move(cb));
+    RENDERER_ASSERT(m_impl && m_impl->window);
+    detail::set_mouse_button_callback(m_impl->window, std::move(cb));
 }
 
 void GlfwWindow::set_framebuffer_size_callback(FramebufferSizeCB cb) {
-    RENDERER_ASSERT(m_glfwWindow);
-    renderer::set_framebuffer_size_callback(m_glfwWindow, std::move(cb));
+    RENDERER_ASSERT(m_impl && m_impl->window);
+    detail::set_framebuffer_size_callback(m_impl->window, std::move(cb));
 }
 
 void GlfwWindow::set_window_hints(const WindowSettings& hints) {

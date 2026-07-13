@@ -2,7 +2,10 @@ set(plinth_HEADER_FILES
         include/plinth/Assert.hpp
         include/plinth/Warnings.hpp
         include/plinth/DLLWarnings.hpp
-        include/plinth/RendererGlfw.hpp
+        include/plinth/BufferAccessPattern.hpp
+        include/plinth/LineType.hpp
+        include/plinth/FrameState.hpp
+        include/plinth/LightingConfig.hpp
         include/plinth/WindowSettings.hpp
         include/plinth/InputState.hpp
         include/plinth/InputCaptureState.hpp
@@ -52,8 +55,9 @@ target_include_directories(${TARGET_NAME}
         PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/export_header_includes>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/opengl/include>
-        $<INSTALL_INTERFACE:include>)
+        $<INSTALL_INTERFACE:include>
+        PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/opengl/include>)
 
 target_compile_definitions(${TARGET_NAME} PUBLIC RENDERER_STATIC_DEFINE)
 target_compile_features(${TARGET_NAME} PUBLIC cxx_std_23)
@@ -62,11 +66,13 @@ add_library(plinth::plinth ALIAS ${TARGET_NAME})
 
 target_link_libraries(${TARGET_NAME}
         PUBLIC
+        $<BUILD_INTERFACE:linal::linal>
+        $<INSTALL_INTERFACE:LinAl::LinAl_TARGET_NAME>
+        glm::glm
+        PRIVATE
         plinth::opengl
         glad::glad
         glfw
-        $<BUILD_LOCAL_INTERFACE:linal::linal>
-        PRIVATE
         imgui::imgui
 )
 

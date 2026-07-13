@@ -137,9 +137,9 @@ TEST(CameraInteractorTest, MiddleMouseDragPansCamera) {
     const linal::double3 initialPosition = interactor.get_position();
     const linal::double3 initialTarget = interactor.get_target();
 
-    interactor.on_mouse_button(GLFW_MOUSE_BUTTON_MIDDLE, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_mouse_button(2, renderer::Action::PRESS, renderer::Mods::NONE);
     interactor.on_cursor_position(460.0, 300.0);
-    interactor.on_mouse_button(GLFW_MOUSE_BUTTON_MIDDLE, renderer::Action::RELEASE, renderer::Mods::NONE);
+    interactor.on_mouse_button(2, renderer::Action::RELEASE, renderer::Mods::NONE);
 
     EXPECT_TRUE(interactor.get_was_blocking());
     EXPECT_NE(interactor.get_position(), initialPosition);
@@ -152,7 +152,7 @@ TEST(CameraInteractorTest, PanAsFirstCursorEventDoesNotMoveOrCorruptCamera) {
 
     const linal::double3 initialPosition = interactor.get_position();
 
-    interactor.on_mouse_button(GLFW_MOUSE_BUTTON_MIDDLE, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_mouse_button(2, renderer::Action::PRESS, renderer::Mods::NONE);
     interactor.on_cursor_position(460.0, 300.0);
 
     EXPECT_EQ(interactor.get_position(), initialPosition);
@@ -173,9 +173,9 @@ TEST(CameraInteractorTest, MiddleMouseDragPansOrthographicCamera) {
     interactor.on_cursor_position(400.0, 300.0);
     const linal::double3 initialPosition = interactor.get_position();
 
-    interactor.on_mouse_button(GLFW_MOUSE_BUTTON_MIDDLE, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_mouse_button(2, renderer::Action::PRESS, renderer::Mods::NONE);
     interactor.on_cursor_position(460.0, 300.0);
-    interactor.on_mouse_button(GLFW_MOUSE_BUTTON_MIDDLE, renderer::Action::RELEASE, renderer::Mods::NONE);
+    interactor.on_mouse_button(2, renderer::Action::RELEASE, renderer::Mods::NONE);
 
     EXPECT_TRUE(interactor.get_was_blocking());
     EXPECT_NE(interactor.get_position(), initialPosition);
@@ -186,7 +186,7 @@ TEST(CameraInteractorTest, TinyCursorMoveDoesNotBlock) {
     renderer::CameraInteractor interactor = make_interactor(inputState);
 
     interactor.on_cursor_position(400.0, 300.0);
-    interactor.on_mouse_button(GLFW_MOUSE_BUTTON_MIDDLE, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_mouse_button(2, renderer::Action::PRESS, renderer::Mods::NONE);
     interactor.on_cursor_position(400.0001, 300.0001);
 
     EXPECT_FALSE(interactor.get_was_blocking());
@@ -199,10 +199,10 @@ TEST(CameraInteractorTest, RightMouseDragOrbitsCamera) {
     interactor.on_cursor_position(400.0, 300.0);
     const linal::double3 initialPosition = interactor.get_position();
 
-    interactor.on_mouse_button(GLFW_MOUSE_BUTTON_RIGHT, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_mouse_button(1, renderer::Action::PRESS, renderer::Mods::NONE);
     interactor.on_cursor_position(410.0, 300.0);
     interactor.on_cursor_position(440.0, 300.0);
-    interactor.on_mouse_button(GLFW_MOUSE_BUTTON_RIGHT, renderer::Action::RELEASE, renderer::Mods::NONE);
+    interactor.on_mouse_button(1, renderer::Action::RELEASE, renderer::Mods::NONE);
 
     EXPECT_TRUE(interactor.get_was_blocking());
     EXPECT_NE(interactor.get_position(), initialPosition);
@@ -212,7 +212,7 @@ TEST(CameraInteractorTest, UnsupportedMouseButtonDoesNotBlock) {
     renderer::InputState inputState;
     renderer::CameraInteractor interactor = make_interactor(inputState);
 
-    interactor.on_mouse_button(GLFW_MOUSE_BUTTON_LEFT, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_mouse_button(0, renderer::Action::PRESS, renderer::Mods::NONE);
 
     EXPECT_FALSE(interactor.get_was_blocking());
 }
@@ -315,10 +315,10 @@ TEST(CameraInteractorTest, FlyModeMouseLookRotatesWithoutGroundPlane) {
     const linal::double3 initialPosition = interactor.get_position();
     const linal::double3 initialGaze = linal::normalize(interactor.get_target() - initialPosition);
 
-    interactor.on_mouse_button(GLFW_MOUSE_BUTTON_RIGHT, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_mouse_button(1, renderer::Action::PRESS, renderer::Mods::NONE);
     interactor.on_cursor_position(410.0, 300.0);
     interactor.on_cursor_position(440.0, 300.0);
-    interactor.on_mouse_button(GLFW_MOUSE_BUTTON_RIGHT, renderer::Action::RELEASE, renderer::Mods::NONE);
+    interactor.on_mouse_button(1, renderer::Action::RELEASE, renderer::Mods::NONE);
 
     const linal::double3 newGaze = linal::normalize(interactor.get_target() - interactor.get_position());
 

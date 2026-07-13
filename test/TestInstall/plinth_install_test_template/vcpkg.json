@@ -3,8 +3,12 @@
   "name": "plinth-install-test",
   "version": "0.1.0",
   "dependencies": [
+    "glm",
     "glad",
     "glfw3",
-    "imgui"
+    {
+      "name": "imgui",
+      "features": [ "glfw-binding", "opengl3-binding" ]
+    }
   ]
 }

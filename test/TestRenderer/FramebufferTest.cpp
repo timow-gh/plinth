@@ -2,6 +2,7 @@
 #include <OpenGL/Framebuffer.hpp>
 #include <OpenGL/OpenGL.hpp>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <gtest/gtest.h>

@@ -12,6 +12,7 @@ set(opengl_HEADER_FILES
         include/OpenGL/Drawable/DrawableTransparencyInfo.hpp
         include/OpenGL/VertexBuffer.hpp
         include/OpenGL/BufferId.hpp
+        include/OpenGL/Framebuffer.hpp
         include/OpenGL/FrameState.hpp
         include/OpenGL/BufferAccessPattern.hpp
         include/OpenGL/ErrorReporting.hpp
@@ -33,6 +34,7 @@ set(opengl_SOURCE_FILES
         source/ErrorReporting.cpp
         source/GpuCapabilities.cpp
         source/IndexBuffer.cpp
+        source/Framebuffer.cpp
         source/FrameState.cpp
         source/Programs/CreateProgram.cpp
         source/Programs/ProgramOpenGL.cpp

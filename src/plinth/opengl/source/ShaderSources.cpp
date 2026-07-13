@@ -139,4 +139,30 @@ std::string mesh_fragment_shader_source() {
     })";
 }
 
+std::string post_processing_vertex_shader_source() {
+    return
+        R"(#version 330
+
+out vec2 v_texCoord;
+
+void main() {
+    const vec2 positions[3] = vec2[](vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
+    gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+    v_texCoord = gl_Position.xy * 0.5 + 0.5;
+})";
+}
+
+std::string post_processing_fragment_shader_source() {
+    return
+        R"(#version 330
+
+in vec2 v_texCoord;
+out vec4 FragColor;
+uniform sampler2D u_sceneTexture;
+
+void main() {
+    FragColor = texture(u_sceneTexture, v_texCoord);
+})";
+}
+
 } // namespace opengl

@@ -5,6 +5,7 @@ set(opengl_HEADER_FILES
         include/OpenGL/Programs/ProgramId.hpp
         include/OpenGL/Programs/ProgramManager.hpp
         include/OpenGL/Programs/PointProgram.hpp
+        include/OpenGL/Programs/PostProcessingProgram.hpp
         include/OpenGL/Drawable/LineDrawable.hpp
         include/OpenGL/Drawable/MeshDrawable.hpp
         include/OpenGL/Drawable/PointDrawable.hpp
@@ -41,6 +42,7 @@ set(opengl_SOURCE_FILES
         source/Programs/LineProgram.cpp
         source/Programs/MeshProgram.cpp
         source/Programs/PointProgram.cpp
+        source/Programs/PostProcessingProgram.cpp
         source/Programs/ProgramId.cpp
         source/Programs/ProgramOpenGL.hpp
         source/Programs/ProgramManager.cpp

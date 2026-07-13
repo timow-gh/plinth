@@ -209,6 +209,7 @@ class Renderer {
              bool srgbCapable);
 
     void wire_callbacks();
+    void ensure_framebuffer_created(int sceneWidth, int sceneHeight);
     void update_scene_viewport();
     void on_cursor_pos(double xpos, double ypos);
     void on_scroll(double xoff, double yoff);

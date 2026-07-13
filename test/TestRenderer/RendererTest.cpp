@@ -231,7 +231,9 @@ TEST_F(RendererTest, EndFrameHandlesAutoFitAndHomeRequest) {
     m_renderer->end_frame(autoFit, homeRequested);
 }
 
-TEST_F(RendererTest, OneSampleFrameDoesNotCrash) {
+TEST(OneSampleRendererTest, OneSampleFrameDoesNotCrash) {
+    ASSERT_EQ(GLFW_TRUE, glfwInit());
+
     renderer::WindowSettings settings;
     settings.title = "plinth renderer test";
     settings.width = 64;
@@ -243,10 +245,14 @@ TEST_F(RendererTest, OneSampleFrameDoesNotCrash) {
 
     auto renderer = renderer::Renderer::create(settings);
     if (!renderer) {
+        glfwTerminate();
         GTEST_SKIP() << "GL context creation not available in this environment";
     }
 
     renderer->begin_frame();
     renderer->draw();
     renderer->end_frame();
+
+    renderer.reset();
+    glfwTerminate();
 }

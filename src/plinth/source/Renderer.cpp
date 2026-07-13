@@ -1,7 +1,7 @@
 #include <OpenGL/Drawable/DrawablesManager.hpp>
 #include <OpenGL/ErrorReporting.hpp>
-#include <OpenGL/Framebuffer.hpp>
 #include <OpenGL/FrameState.hpp>
+#include <OpenGL/Framebuffer.hpp>
 #include <OpenGL/VertexArray.hpp>
 #include <algorithm>
 #include <cmath>
@@ -437,6 +437,23 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
     const int sceneWidth = m_sceneViewport.framebuffer.width;
     const int sceneHeight = m_sceneViewport.framebuffer.height;
 
+    ensure_framebuffer_created(sceneWidth, sceneHeight);
+
+    if (m_useFramebuffer) {
+        opengl::Framebuffer::unbind();
+        glEnable(GL_FRAMEBUFFER_SRGB);
+        glClearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        m_sceneFramebuffer->bind();
+        renderer::ViewportRect localViewport{0, 0, sceneWidth, sceneHeight};
+        opengl::begin_frame(clearColor, localViewport, m_srgbCapable);
+    } else {
+        opengl::begin_frame(clearColor, m_sceneViewport.framebuffer, m_window.is_srgb_capable());
+    }
+}
+
+void Renderer::ensure_framebuffer_created(int sceneWidth, int sceneHeight) {
     if (m_sceneFramebuffer &&
         (m_sceneFramebuffer->get_width() != sceneWidth || m_sceneFramebuffer->get_height() != sceneHeight)) {
         m_sceneFramebuffer.reset();
@@ -461,19 +478,6 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
                 m_useFramebuffer = true;
             }
         }
-    }
-
-    if (m_useFramebuffer) {
-        opengl::Framebuffer::unbind();
-        glEnable(GL_FRAMEBUFFER_SRGB);
-        glClearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        m_sceneFramebuffer->bind();
-        renderer::ViewportRect localViewport{0, 0, sceneWidth, sceneHeight};
-        opengl::begin_frame(clearColor, localViewport, m_srgbCapable);
-    } else {
-        opengl::begin_frame(clearColor, m_sceneViewport.framebuffer, m_window.is_srgb_capable());
     }
 }
 

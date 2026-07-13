@@ -32,7 +32,7 @@ struct PLINTH_EXPORT WindowSettings {
     int samples = 8;                      ///< Number of samples for multisampling.
     int refresh_rate = -1;                ///< Refresh rate of the window, -1 for default.
     bool stereo = false;                  ///< Whether to use stereo rendering.
-    bool srgb_capable = false;            ///< Whether the framebuffer should be sRGB capable.
+    bool srgb_capable = true;             ///< Whether the framebuffer should be sRGB capable.
     bool double_buffer = true;            ///< Whether to use double buffering.
     bool resizable = true;                ///< Whether the window is resizable.
     bool visible = true;                  ///< Whether the window is initially visible.

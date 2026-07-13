@@ -68,6 +68,7 @@ class CaptureWindow {
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         // Deliberately no GLFW_SAMPLES hint -> 0 samples / MSAA disabled. This is the whole
         // point of this type: there is no setter, parameter, or flag that could turn this on.
+        glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_FALSE);
 
         m_window = glfwCreateWindow(width, height, "plinth capture window", nullptr, nullptr);
         if (m_window != nullptr) {

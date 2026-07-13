@@ -46,7 +46,7 @@ TEST_F(GoldenImageTest, PointSceneMatchesGolden) {
     // Known clear color: opaque dark blue.
     const opengl::ClearColor clearColor{0.0F, 0.0F, 0.5F, 1.0F};
     const opengl::ViewportRect viewport{0, 0, captureWidth, captureHeight};
-    opengl::begin_frame(clearColor, viewport);
+    opengl::begin_frame(clearColor, viewport, false); // capture is pixel-exact; use a linear framebuffer
 
     // One large point at the origin -> projects to the center of the viewport under
     // an identity MVP.

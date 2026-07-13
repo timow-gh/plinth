@@ -165,6 +165,11 @@ std::pair<double, double> GlfwWindow::get_framebuffer_scale() const {
     return {xScale, yScale};
 }
 
+bool GlfwWindow::is_srgb_capable() const {
+    RENDERER_ASSERT(m_impl && m_impl->window);
+    return glfwGetWindowAttrib(m_impl->window, GLFW_SRGB_CAPABLE) == GLFW_TRUE;
+}
+
 InputState& GlfwWindow::get_input_state() const {
     RENDERER_ASSERT(m_impl && m_impl->window);
     return *detail::get_input_state(m_impl->window);

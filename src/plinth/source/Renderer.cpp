@@ -103,12 +103,13 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
     }
 
     // Use raw new because the constructor is private and Renderer is non-movable.
+    const bool srgbCapable = window->is_srgb_capable();
     std::unique_ptr<Renderer> renderer(new Renderer(std::move(window.value()),
-                                                      std::move(drawablesManager),
-                                                      std::move(camera),
-                                                      std::move(imgui),
-                                                      std::max(1, settings.samples),
-                                                      window->is_srgb_capable()));
+                                                       std::move(drawablesManager),
+                                                       std::move(camera),
+                                                       std::move(imgui),
+                                                       std::max(1, settings.samples),
+                                                       srgbCapable));
 
     renderer->update_scene_viewport();
     renderer->wire_callbacks();

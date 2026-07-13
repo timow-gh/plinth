@@ -21,6 +21,8 @@
 
 namespace opengl {
 class DrawablesManager;
+class Framebuffer;
+class VertexArray;
 }
 
 namespace renderer {
@@ -202,9 +204,12 @@ class Renderer {
     Renderer(GlfwWindow window,
              std::unique_ptr<opengl::DrawablesManager> drawablesManager,
              std::shared_ptr<CameraInteractor> camera,
-             std::shared_ptr<ImGuiOverlay> imgui);
+             std::shared_ptr<ImGuiOverlay> imgui,
+             int samples,
+             bool srgbCapable);
 
     void wire_callbacks();
+    void ensure_framebuffer_created(int sceneWidth, int sceneHeight);
     void update_scene_viewport();
     void on_cursor_pos(double xpos, double ypos);
     void on_scroll(double xoff, double yoff);
@@ -229,6 +234,13 @@ class Renderer {
     std::shared_ptr<CameraInteractor> m_camera;
     std::shared_ptr<ImGuiOverlay> m_imgui;
     SceneViewport m_sceneViewport;
+    int m_samples{1};
+    bool m_srgbCapable{false};
+    bool m_framebufferCreationAttempted{false};
+    bool m_useFramebuffer{false};
+    std::unique_ptr<opengl::Framebuffer> m_sceneFramebuffer;
+    std::unique_ptr<opengl::Framebuffer> m_resolveFramebuffer;
+    std::unique_ptr<opengl::VertexArray> m_postProcessVertexArray;
     CursorPosState m_lastWindowCursorPos;
     bool m_cameraMouseInteractionActive{false};
     std::chrono::steady_clock::time_point m_lastFrameTime;

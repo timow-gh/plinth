@@ -97,6 +97,11 @@ class DrawablesManager {
     }
 
     [[nodiscard]]
+    ProgramManager& get_program_manager() {
+        return programManager;
+    }
+
+    [[nodiscard]]
     bool has_drawables() const {
         return !m_pointDrawables.empty() || !m_lineDrawables.empty() || !m_meshDrawables.empty() ||
                !m_meshSegmentDrawables.empty() || !m_meshVertexDrawables.empty();

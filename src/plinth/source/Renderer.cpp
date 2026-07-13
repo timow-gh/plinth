@@ -1,6 +1,8 @@
 #include <OpenGL/Drawable/DrawablesManager.hpp>
 #include <OpenGL/ErrorReporting.hpp>
 #include <OpenGL/FrameState.hpp>
+#include <OpenGL/Framebuffer.hpp>
+#include <OpenGL/VertexArray.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -101,10 +103,13 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
     }
 
     // Use raw new because the constructor is private and Renderer is non-movable.
+    const bool srgbCapable = window->is_srgb_capable();
     std::unique_ptr<Renderer> renderer(new Renderer(std::move(window.value()),
-                                                     std::move(drawablesManager),
-                                                     std::move(camera),
-                                                     std::move(imgui)));
+                                                       std::move(drawablesManager),
+                                                       std::move(camera),
+                                                       std::move(imgui),
+                                                       std::max(1, settings.samples),
+                                                       srgbCapable));
 
     renderer->update_scene_viewport();
     renderer->wire_callbacks();
@@ -115,11 +120,15 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 Renderer::Renderer(GlfwWindow window,
                    std::unique_ptr<opengl::DrawablesManager> drawables,
                    std::shared_ptr<CameraInteractor> camera,
-                   std::shared_ptr<ImGuiOverlay> imgui)
+                   std::shared_ptr<ImGuiOverlay> imgui,
+                   int samples,
+                   bool srgbCapable)
     : m_window(std::move(window))
     , m_drawablesManager(std::move(drawables))
     , m_camera(std::move(camera))
     , m_imgui(std::move(imgui))
+    , m_samples(samples)
+    , m_srgbCapable(srgbCapable)
     , m_lastFrameTime(std::chrono::steady_clock::now())
     , m_lastCameraInteractionTime(m_lastFrameTime) {
 }
@@ -205,7 +214,13 @@ void Renderer::wire_callbacks() {
 
     m_window.set_framebuffer_size_callback([this]([[maybe_unused]] std::uint32_t width,
                                                   [[maybe_unused]]
-                                                  std::uint32_t height) { update_scene_viewport(); });
+                                                  std::uint32_t height) {
+        update_scene_viewport();
+        m_sceneFramebuffer.reset();
+        m_resolveFramebuffer.reset();
+        m_framebufferCreationAttempted = false;
+        m_useFramebuffer = false;
+    });
 }
 
 // --- Geometry ---
@@ -419,7 +434,52 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
     }
 
     update_scene_viewport();
-    opengl::begin_frame(clearColor, m_sceneViewport.framebuffer, m_window.is_srgb_capable());
+
+    const int sceneWidth = m_sceneViewport.framebuffer.width;
+    const int sceneHeight = m_sceneViewport.framebuffer.height;
+
+    ensure_framebuffer_created(sceneWidth, sceneHeight);
+
+    if (m_useFramebuffer) {
+        opengl::Framebuffer::unbind();
+        glEnable(GL_FRAMEBUFFER_SRGB);
+        glClearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        m_sceneFramebuffer->bind();
+        renderer::ViewportRect localViewport{0, 0, sceneWidth, sceneHeight};
+        opengl::begin_frame(clearColor, localViewport, m_srgbCapable);
+    } else {
+        opengl::begin_frame(clearColor, m_sceneViewport.framebuffer, m_window.is_srgb_capable());
+    }
+}
+
+void Renderer::ensure_framebuffer_created(int sceneWidth, int sceneHeight) {
+    if (m_sceneFramebuffer &&
+        (m_sceneFramebuffer->get_width() != sceneWidth || m_sceneFramebuffer->get_height() != sceneHeight)) {
+        m_sceneFramebuffer.reset();
+        m_resolveFramebuffer.reset();
+        m_framebufferCreationAttempted = false;
+        m_useFramebuffer = false;
+    }
+
+    if (!m_framebufferCreationAttempted) {
+        m_framebufferCreationAttempted = true;
+        auto scene = opengl::Framebuffer::create(sceneWidth, sceneHeight, m_samples, m_srgbCapable);
+        if (scene.has_value()) {
+            m_resolveFramebuffer.reset();
+            auto resolve = m_samples > 1
+                               ? opengl::Framebuffer::create(sceneWidth, sceneHeight, 1, m_srgbCapable)
+                               : std::optional<opengl::Framebuffer>{};
+            if (m_samples == 1 || resolve.has_value()) {
+                m_sceneFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*scene));
+                if (resolve.has_value()) {
+                    m_resolveFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*resolve));
+                }
+                m_useFramebuffer = true;
+            }
+        }
+    }
 }
 
 void Renderer::draw() {
@@ -452,6 +512,50 @@ void Renderer::draw(const renderer::LightingConfig& lighting) {
     if (m_drawablesManager->has_mesh_vertex_drawables()) {
         m_drawablesManager->draw_mesh_vertex_overlays(m_camera->get_current_MVP());
     }
+
+    if (!m_useFramebuffer) {
+        return;
+    }
+
+    const opengl::Framebuffer* sourceFbo = m_sceneFramebuffer.get();
+    if (m_resolveFramebuffer) {
+        if (!m_sceneFramebuffer->resolve_to(*m_resolveFramebuffer)) {
+            opengl::report_error("Error: Resolving MSAA framebuffer failed");
+            return;
+        }
+        sourceFbo = m_resolveFramebuffer.get();
+    }
+
+    opengl::Framebuffer::unbind();
+    glViewport(m_sceneViewport.framebuffer.x,
+               m_sceneViewport.framebuffer.y,
+               m_sceneViewport.framebuffer.width,
+               m_sceneViewport.framebuffer.height);
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_BLEND);
+
+    auto& program = m_drawablesManager->get_program_manager().get_post_processing_program();
+    program.use();
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, sourceFbo->get_color_texture());
+    glUniform1i(program.get_scene_texture_location().get_value(), 0);
+
+    if (!m_postProcessVertexArray) {
+        auto vao = opengl::VertexArray::create();
+        if (!vao.has_value()) {
+            opengl::report_error("Error: Post-processing VAO creation failed");
+            return;
+        }
+        m_postProcessVertexArray = std::make_unique<opengl::VertexArray>(std::move(*vao));
+    }
+    m_postProcessVertexArray->bind();
+
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    opengl::VertexArray::unbind();
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void Renderer::end_frame() {

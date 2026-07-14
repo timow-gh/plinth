@@ -237,7 +237,10 @@ void Renderer::wire_callbacks() {
         [this](int button, Action action, Mods mods) { on_mouse_button(button, action, mods); });
 
     m_window.set_key_callback([this](Key key, Scancode scancode, Action action, Mods mods) {
-        (void)m_imgui->handle_key(key, scancode, action, mods);
+        const bool forward = m_imgui->handle_key(key, scancode, action, mods);
+        if (!forward) {
+            return;
+        }
         // Built-in library shortcut: H triggers the same "go home" behavior as the ImGui Home
         // button, edge-triggered on physical key-press (not polled) so it fires once per press.
         if (key == Key::KEY_H && action == Action::PRESS && !m_imgui->wants_keyboard()) {
@@ -488,9 +491,7 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
     }
 
     m_sceneFramebuffer->bind();
-    opengl::begin_frame(clearColor,
-                        renderer::ViewportRect{0, 0, m_sceneFramebuffer->get_width(), m_sceneFramebuffer->get_height()},
-                        m_window.is_srgb_capable());
+    opengl::begin_frame(clearColor, m_sceneViewport.framebuffer, m_window.is_srgb_capable());
 }
 
 void Renderer::draw() {

@@ -58,3 +58,18 @@ TEST_F(FrameStateBeginFrameTest, DefaultWindowSettingsRequestsSrgbCapable) {
     const renderer::WindowSettings settings;
     EXPECT_TRUE(settings.srgb_capable);
 }
+
+TEST_F(FrameStateBeginFrameTest, BeginFrameSetsNonZeroViewportOrigin) {
+    const opengl::ClearColor clearColor{0.2F, 0.4F, 0.6F, 1.0F};
+    const opengl::ViewportRect viewport{16, 0, 48, 64};
+
+    opengl::begin_frame(clearColor, viewport);
+
+    GLint params[4]{0, 0, 0, 0};
+    glGetIntegerv(GL_VIEWPORT, params);
+    EXPECT_EQ(16, params[0]);
+    EXPECT_EQ(0, params[1]);
+    EXPECT_EQ(48, params[2]);
+    EXPECT_EQ(64, params[3]);
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}

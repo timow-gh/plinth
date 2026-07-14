@@ -5,7 +5,6 @@
 #include "OpenGL/Programs/LineProgram.hpp"
 #include "OpenGL/Programs/MeshProgram.hpp"
 #include "OpenGL/Programs/PointProgram.hpp"
-#include "OpenGL/Programs/PostProcessingProgram.hpp"
 #include "OpenGL/opengl_export.h"
 
 namespace opengl {
@@ -17,7 +16,6 @@ class OPENGL_EXPORT ProgramManager {
     LineProgram m_lineProgram;
     PointProgram m_pointProgram;
     MeshProgram m_meshProgram;
-    PostProcessingProgram m_postProcessingProgram;
 
   public:
     ProgramManager() = default;
@@ -29,8 +27,7 @@ class OPENGL_EXPORT ProgramManager {
 
     [[nodiscard]]
     bool is_compiled() const {
-        return m_lineProgram.is_valid() && m_pointProgram.is_valid() && m_meshProgram.is_valid() &&
-               m_postProcessingProgram.is_valid();
+        return m_lineProgram.is_valid() && m_pointProgram.is_valid() && m_meshProgram.is_valid();
     }
 
     void compile();
@@ -42,11 +39,6 @@ class OPENGL_EXPORT ProgramManager {
     [[nodiscard]]
     PointProgram& get_point_program() {
         return m_pointProgram;
-    }
-
-    [[nodiscard]]
-    PostProcessingProgram& get_post_processing_program() {
-        return m_postProcessingProgram;
     }
 
   private:

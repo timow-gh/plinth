@@ -1,8 +1,8 @@
 #include <OpenGL/Drawable/DrawablesManager.hpp>
 #include <OpenGL/ErrorReporting.hpp>
 #include <OpenGL/FrameState.hpp>
-#include <OpenGL/GpuCapabilities.hpp>
 #include <OpenGL/Framebuffer.hpp>
+#include <OpenGL/GpuCapabilities.hpp>
 #include <OpenGL/OpenGL.hpp>
 #include <OpenGL/PresentationPass.hpp>
 #include <algorithm>

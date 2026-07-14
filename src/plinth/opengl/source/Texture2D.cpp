@@ -1,5 +1,5 @@
-#include <OpenGL/Texture2D.hpp>
 #include <OpenGL/ErrorReporting.hpp>
+#include <OpenGL/Texture2D.hpp>
 #include <cstddef>
 #include <limits>
 #include <utility>
@@ -52,7 +52,14 @@ std::optional<Texture2D> Texture2D::create(const renderer::TextureData& data, in
     return Texture2D{id, static_cast<int>(data.width), static_cast<int>(data.height)};
 }
 
-void Texture2D::reset() noexcept { if (m_id != 0) glDeleteTextures(1, &m_id); m_id = 0; m_width = 0; m_height = 0; }
+void Texture2D::reset() noexcept {
+    if (m_id != 0) {
+        glDeleteTextures(1, &m_id);
+    }
+    m_id = 0;
+    m_width = 0;
+    m_height = 0;
+}
 void Texture2D::bind(GLuint unit) const { glActiveTexture(GL_TEXTURE0 + unit); glBindTexture(GL_TEXTURE_2D, m_id); }
 bool Texture2D::is_valid() const noexcept { return m_id != 0; }
 GLuint Texture2D::get_id() const noexcept { return m_id; }

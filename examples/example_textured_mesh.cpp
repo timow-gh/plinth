@@ -8,7 +8,9 @@ int main() {
     renderer::WindowSettings settings;
     settings.title = "textured mesh example";
     auto renderer = renderer::Renderer::create(settings);
-    if (!renderer) return 1;
+    if (!renderer) {
+        return 1;
+    }
     const std::array<std::uint8_t, 16> checkerboard{255, 255, 255, 255, 32, 32, 32, 255, 32, 32, 32, 255, 255, 255, 255, 255};
     const auto texture = renderer->create_texture_2d({2, 2, checkerboard});
     const std::array<float, 12> vertices{-1.0F, -1.0F, 0.0F, 1.0F, -1.0F, 0.0F, 1.0F, 1.0F, 0.0F, -1.0F, 1.0F, 0.0F};

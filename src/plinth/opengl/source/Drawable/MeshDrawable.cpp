@@ -107,7 +107,11 @@ void MeshDrawable::draw(const linal::hmatf& modelMatrix,
     glUniform1f(prog.get_shininess_location().get_value(), shininess);
     glUniform1i(prog.get_has_albedo_texture_location().get_value(), m_texture ? GL_TRUE : GL_FALSE);
     glActiveTexture(GL_TEXTURE0);
-    if (m_texture) m_texture->bind(0); else glBindTexture(GL_TEXTURE_2D, 0);
+    if (m_texture) {
+        m_texture->bind(0);
+    } else {
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
     glUniform1i(prog.get_albedo_texture_location().get_value(), 0);
 
     m_vertexArray.bind();
@@ -124,7 +128,9 @@ std::optional<MeshDrawable> make_mesh_soup(MeshProgram& program,
                                             std::int32_t colorDimension,
                                             std::span<const std::uint32_t> triangleIndices,
                                             BufferAccessPattern accessPattern) {
-    if (vertexDimension <= 0) return make_failed_drawable<MeshDrawable>();
+    if (vertexDimension <= 0) {
+        return make_failed_drawable<MeshDrawable>();
+    }
     std::vector<float> textureCoordinates((vertices.size() / static_cast<std::size_t>(vertexDimension)) * 2U, 0.0F);
     return make_mesh_soup(program, vertices, vertexDimension, normals, textureCoordinates, colors, colorDimension,
                           triangleIndices, accessPattern);
@@ -142,7 +148,9 @@ std::optional<MeshDrawable> make_mesh_soup(MeshProgram& program,
                                             std::shared_ptr<Texture2D> texture) {
     const std::size_t vertexCount = vertices.size() / static_cast<std::size_t>(vertexDimension);
     if (vertexDimension <= 0 || vertices.size() % static_cast<std::size_t>(vertexDimension) != 0 ||
-        textureCoordinates.size() != vertexCount * 2U) return make_failed_drawable<MeshDrawable>();
+        textureCoordinates.size() != vertexCount * 2U) {
+        return make_failed_drawable<MeshDrawable>();
+    }
     // Order of creation matters! Create the vertex array first, then the buffers.
     auto vertexArray = VertexArray::create();
     if (!vertexArray.has_value()) {
@@ -162,7 +170,9 @@ std::optional<MeshDrawable> make_mesh_soup(MeshProgram& program,
         return make_failed_drawable<MeshDrawable>();
     }
     auto textureCoordinateBuffer = VertexBuffer::create(textureCoordinates, 2, program.get_tex_coord_location(), accessPattern);
-    if (!textureCoordinateBuffer.has_value()) return make_failed_drawable<MeshDrawable>();
+    if (!textureCoordinateBuffer.has_value()) {
+        return make_failed_drawable<MeshDrawable>();
+    }
     auto triangleIndicesBuffer = IndexBuffer::create(triangleIndices, accessPattern);
     if (!triangleIndicesBuffer.has_value()) {
         return make_failed_drawable<MeshDrawable>();

@@ -7,4 +7,4 @@ leak:opengl::LineDrawable::draw_index_buffer
 leak:opengl::MeshDrawable::draw
 leak:opengl::Framebuffer::resolve_to
 leak:ImGui_ImplOpenGL3_RenderDrawData
-leak:PostProcessingPipelineTest
+leak:opengl::PresentationPass::present

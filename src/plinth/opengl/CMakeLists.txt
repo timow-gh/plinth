@@ -5,7 +5,6 @@ set(opengl_HEADER_FILES
         include/OpenGL/Programs/ProgramId.hpp
         include/OpenGL/Programs/ProgramManager.hpp
         include/OpenGL/Programs/PointProgram.hpp
-        include/OpenGL/Programs/PostProcessingProgram.hpp
         include/OpenGL/Drawable/LineDrawable.hpp
         include/OpenGL/Drawable/MeshDrawable.hpp
         include/OpenGL/Drawable/PointDrawable.hpp
@@ -14,6 +13,7 @@ set(opengl_HEADER_FILES
         include/OpenGL/VertexBuffer.hpp
         include/OpenGL/BufferId.hpp
         include/OpenGL/Framebuffer.hpp
+        include/OpenGL/PresentationPass.hpp
         include/OpenGL/FrameState.hpp
         include/OpenGL/BufferAccessPattern.hpp
         include/OpenGL/ErrorReporting.hpp
@@ -36,13 +36,13 @@ set(opengl_SOURCE_FILES
         source/GpuCapabilities.cpp
         source/IndexBuffer.cpp
         source/Framebuffer.cpp
+        source/PresentationPass.cpp
         source/FrameState.cpp
         source/Programs/CreateProgram.cpp
         source/Programs/ProgramOpenGL.cpp
         source/Programs/LineProgram.cpp
         source/Programs/MeshProgram.cpp
         source/Programs/PointProgram.cpp
-        source/Programs/PostProcessingProgram.cpp
         source/Programs/ProgramId.cpp
         source/Programs/ProgramOpenGL.hpp
         source/Programs/ProgramManager.cpp

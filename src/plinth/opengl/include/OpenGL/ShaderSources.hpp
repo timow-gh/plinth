@@ -14,8 +14,8 @@ std::string point_color_fragment_shader_source();
 std::string mesh_vertex_shader_source();
 std::string mesh_fragment_shader_source();
 
-std::string post_processing_vertex_shader_source();
-std::string post_processing_fragment_shader_source();
+std::string presentation_vertex_shader_source();
+std::string presentation_fragment_shader_source();
 
 } // namespace opengl
 

@@ -8,3 +8,4 @@ leak:opengl::MeshDrawable::draw
 leak:opengl::Framebuffer::resolve_to
 leak:ImGui_ImplOpenGL3_RenderDrawData
 leak:opengl::PresentationPass::present
+leak:opengl::Texture2D::create

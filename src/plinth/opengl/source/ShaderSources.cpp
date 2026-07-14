@@ -76,16 +76,19 @@ std::string mesh_vertex_shader_source() {
     in vec3 a_vertex;
     in vec4 a_color;
     in vec3 a_normal;
+    in vec2 a_texCoord;
 
     out vec4 v_color;
     out vec3 v_normal;
     out vec3 v_position;
+    out vec2 v_texCoord;
 
     void main() {
         gl_Position = u_projection * u_view * u_model * vec4(a_vertex, 1.0);
         v_color = a_color;
         v_normal = mat3(u_normalMatrix) * a_normal;
         v_position = vec3(u_model * vec4(a_vertex, 1.0));
+        v_texCoord = a_texCoord;
     })";
 }
 
@@ -96,6 +99,7 @@ std::string mesh_fragment_shader_source() {
     in vec4 v_color;
     in vec3 v_normal;
     in vec3 v_position;
+    in vec2 v_texCoord;
 
     out vec4 FragColor;
 
@@ -108,6 +112,8 @@ std::string mesh_fragment_shader_source() {
     uniform vec3 u_fillLightColor;
     uniform vec3 u_ambientColor;
     uniform float u_shininess;
+    uniform bool u_hasAlbedoTexture;
+    uniform sampler2D u_albedoTexture;
 
     void main() {
         // Normalize input vectors
@@ -115,18 +121,23 @@ std::string mesh_fragment_shader_source() {
         vec3 lightDir = normalize(u_lightPos - v_position);
         vec3 viewDir = normalize(u_viewPos - v_position);
 
+        vec3 albedo = v_color.rgb;
+        if (u_hasAlbedoTexture) {
+            albedo *= texture(u_albedoTexture, v_texCoord).rgb;
+        }
+
         // Ambient lighting
-        vec3 ambient = u_ambientColor * v_color.rgb;
+        vec3 ambient = u_ambientColor * albedo;
 
         // Diffuse lighting
         float diff = max(dot(norm, lightDir), 0.0);
-        vec3 diffuse = u_lightColor * diff * v_color.rgb;
+        vec3 diffuse = u_lightColor * diff * albedo;
 
         // Directional fill lighting
         float fillDirLength = length(u_fillLightDirection);
         vec3 fillDir = fillDirLength > 0.0 ? u_fillLightDirection / fillDirLength : vec3(0.0);
         float fillDiff = max(dot(norm, fillDir), 0.0);
-        vec3 fillDiffuse = u_fillLightColor * fillDiff * v_color.rgb;
+        vec3 fillDiffuse = u_fillLightColor * fillDiff * albedo;
 
         // Specular lighting
         vec3 reflectDir = reflect(-lightDir, norm);

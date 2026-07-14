@@ -13,6 +13,7 @@ set(opengl_HEADER_FILES
         include/OpenGL/VertexBuffer.hpp
         include/OpenGL/BufferId.hpp
         include/OpenGL/Framebuffer.hpp
+        include/OpenGL/Texture2D.hpp
         include/OpenGL/FrameState.hpp
         include/OpenGL/BufferAccessPattern.hpp
         include/OpenGL/ErrorReporting.hpp
@@ -35,6 +36,7 @@ set(opengl_SOURCE_FILES
         source/GpuCapabilities.cpp
         source/IndexBuffer.cpp
         source/Framebuffer.cpp
+        source/Texture2D.cpp
         source/FrameState.cpp
         source/Programs/CreateProgram.cpp
         source/Programs/ProgramOpenGL.cpp
@@ -70,6 +72,7 @@ file(REMOVE ${CMAKE_CURRENT_BINARY_DIR}/${GENERATED_TARGET_EXPORTS_FILE_NAME})
 target_include_directories(${TARGET_NAME}
         PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/export_header_includes>
+        $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src/plinth/export_header_includes>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/../include>)
 

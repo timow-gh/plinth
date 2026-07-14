@@ -1,6 +1,7 @@
 #include <OpenGL/Drawable/DrawablesManager.hpp>
 #include <OpenGL/ErrorReporting.hpp>
 #include <OpenGL/FrameState.hpp>
+#include <OpenGL/GpuCapabilities.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -80,6 +81,7 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
         return nullptr;
     }
 
+    const auto capabilities = opengl::query_gpu_capabilities();
     const auto [fbWidth, fbHeight] = window->get_framebuffer_size();
     CameraSettings cameraSettings;
     cameraSettings.m_defaultPosition = defaultCameraPosition;
@@ -102,9 +104,9 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 
     // Use raw new because the constructor is private and Renderer is non-movable.
     std::unique_ptr<Renderer> renderer(new Renderer(std::move(window.value()),
-                                                     std::move(drawablesManager),
-                                                     std::move(camera),
-                                                     std::move(imgui)));
+                                                      std::move(drawablesManager),
+                                                      std::move(camera),
+                                                      std::move(imgui), capabilities.maxTextureSize));
 
     renderer->update_scene_viewport();
     renderer->wire_callbacks();
@@ -113,15 +115,16 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 }
 
 Renderer::Renderer(GlfwWindow window,
-                   std::unique_ptr<opengl::DrawablesManager> drawables,
-                   std::shared_ptr<CameraInteractor> camera,
-                   std::shared_ptr<ImGuiOverlay> imgui)
+                    std::unique_ptr<opengl::DrawablesManager> drawables,
+                    std::shared_ptr<CameraInteractor> camera,
+                    std::shared_ptr<ImGuiOverlay> imgui, int maxTextureSize)
     : m_window(std::move(window))
     , m_drawablesManager(std::move(drawables))
     , m_camera(std::move(camera))
     , m_imgui(std::move(imgui))
     , m_lastFrameTime(std::chrono::steady_clock::now())
-    , m_lastCameraInteractionTime(m_lastFrameTime) {
+    , m_lastCameraInteractionTime(m_lastFrameTime)
+    , m_maxTextureSize(maxTextureSize) {
 }
 
 void Renderer::on_cursor_pos(double xpos, double ypos) {
@@ -248,6 +251,22 @@ DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
         return DrawableHandle{};
     }
     return DrawableHandle{DrawableKind::mesh, *id};
+}
+
+TextureHandle Renderer::create_texture_2d(TextureData data) {
+    const auto id = m_drawablesManager->create_texture_2d(data, m_maxTextureSize);
+    return id ? TextureHandle{*id} : TextureHandle{};
+}
+
+bool Renderer::remove_texture(TextureHandle texture) { return texture.is_valid() && m_drawablesManager->remove_texture(texture.id); }
+
+DrawableHandle Renderer::add_textured_mesh_drawable(std::span<const float> vertices, std::span<const float> normals,
+                                                     std::span<const float> textureCoordinates, std::span<const float> colors,
+                                                     std::span<const std::uint32_t> triangleIndices, TextureHandle texture,
+                                                     renderer::BufferAccessPattern accessPattern) {
+    const auto id = m_drawablesManager->add_textured_mesh_drawable(vertices, 3, normals, textureCoordinates, colors, 4,
+                                                                    triangleIndices, texture.id, accessPattern);
+    return id ? DrawableHandle{DrawableKind::mesh, *id} : DrawableHandle{};
 }
 
 DrawableHandle Renderer::add_mesh_segment_drawable(std::span<const float> positions,

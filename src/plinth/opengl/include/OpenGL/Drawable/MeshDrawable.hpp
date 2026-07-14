@@ -6,11 +6,13 @@
 #include "OpenGL/Programs/MeshProgram.hpp"
 #include "OpenGL/VertexArray.hpp"
 #include "OpenGL/VertexBuffer.hpp"
+#include "OpenGL/Texture2D.hpp"
 #include "OpenGL/opengl_export.h"
 #include <plinth/Warnings.hpp>
 #include <cstdint>
 #include <linal/hmat.hpp>
 #include <linal/vec.hpp>
+#include <memory>
 #include <span>
 #include <vector>
 RENDERER_DISABLE_ALL_WARNINGS
@@ -23,7 +25,9 @@ class OPENGL_EXPORT MeshDrawable {
     VertexBuffer m_vertexBuffer;
     VertexBuffer m_vertexNormalsBuffer;
     VertexBuffer m_colorBuffer;
+    VertexBuffer m_textureCoordinateBuffer;
     IndexBuffer m_triangleIndicesBuffer;
+    std::shared_ptr<Texture2D> m_texture;
     std::int32_t m_vertexDimension{0};
     std::int32_t m_colorDimension{0};
     DrawableTransparencyInfo m_transparencyInfo;
@@ -35,8 +39,10 @@ class OPENGL_EXPORT MeshDrawable {
                  VertexArray vertexArray,
                  VertexBuffer vertexBuffer,
                  VertexBuffer vertexNormalsBuffer,
-                 VertexBuffer colorBuffer,
-                 IndexBuffer triangleIndicesBuffer,
+                  VertexBuffer colorBuffer,
+                  VertexBuffer textureCoordinateBuffer,
+                  IndexBuffer triangleIndicesBuffer,
+                  std::shared_ptr<Texture2D> texture = {},
                  DrawableTransparencyInfo transparencyInfo = {},
                  std::int32_t vertexDimension = 3,
                  std::int32_t colorDimension = 4,
@@ -99,13 +105,24 @@ class OPENGL_EXPORT MeshDrawable {
 };
 
 OPENGL_EXPORT std::optional<MeshDrawable> make_mesh_soup(MeshProgram& program,
-                                                         std::span<const float> vertices,
+                                                          std::span<const float> vertices,
+                                                          std::int32_t vertexDimension,
+                                                          std::span<const float> normals,
+                                                          std::span<const float> colors,
+                                                          std::int32_t colorDimension,
+                                                          std::span<const std::uint32_t> triangleIndices,
+                                                          BufferAccessPattern accessPattern);
+
+OPENGL_EXPORT std::optional<MeshDrawable> make_mesh_soup(MeshProgram& program,
+                                                          std::span<const float> vertices,
                                                          std::int32_t vertexDimension,
-                                                         std::span<const float> normals,
-                                                         std::span<const float> colors,
+                                                          std::span<const float> normals,
+                                                          std::span<const float> textureCoordinates,
+                                                          std::span<const float> colors,
                                                          std::int32_t colorDimension,
                                                          std::span<const std::uint32_t> triangleIndices,
-                                                         BufferAccessPattern accessPattern);
+                                                          BufferAccessPattern accessPattern,
+                                                          std::shared_ptr<Texture2D> texture = {});
 
 RENDERER_ENABLE_ALL_WARNINGS
 

@@ -1,6 +1,9 @@
 #include <OpenGL/Drawable/DrawablesManager.hpp>
 #include <OpenGL/ErrorReporting.hpp>
+#include <OpenGL/Framebuffer.hpp>
 #include <OpenGL/FrameState.hpp>
+#include <OpenGL/OpenGL.hpp>
+#include <OpenGL/PresentationPass.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -100,11 +103,47 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
         return nullptr;
     }
 
+    GLint maxSamples{0};
+    glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+    if (maxSamples < 1) {
+        opengl::report_error("Error: Renderer::create failed - GL_MAX_SAMPLES is less than one");
+        return nullptr;
+    }
+    const int sceneSamples = std::clamp(settings.samples, 1, maxSamples);
+    const int framebufferWidth = static_cast<int>(valid_framebuffer_dimension(fbWidth));
+    const int framebufferHeight = static_cast<int>(valid_framebuffer_dimension(fbHeight));
+    const bool srgb = window->is_srgb_capable();
+    auto sceneFramebuffer = opengl::Framebuffer::create(framebufferWidth, framebufferHeight, sceneSamples, srgb);
+    if (!sceneFramebuffer.has_value()) {
+        opengl::report_error("Error: Renderer::create failed - scene framebuffer creation failed");
+        return nullptr;
+    }
+
+    std::unique_ptr<opengl::Framebuffer> resolveFramebuffer;
+    if (sceneSamples > 1) {
+        auto resolve = opengl::Framebuffer::create(framebufferWidth, framebufferHeight, 1, srgb);
+        if (!resolve.has_value()) {
+            opengl::report_error("Error: Renderer::create failed - resolve framebuffer creation failed");
+            return nullptr;
+        }
+        resolveFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*resolve));
+    }
+
+    auto presentationPass = opengl::PresentationPass::create();
+    if (!presentationPass.has_value()) {
+        opengl::report_error("Error: Renderer::create failed - presentation pass creation failed");
+        return nullptr;
+    }
+
     // Use raw new because the constructor is private and Renderer is non-movable.
     std::unique_ptr<Renderer> renderer(new Renderer(std::move(window.value()),
-                                                     std::move(drawablesManager),
-                                                     std::move(camera),
-                                                     std::move(imgui)));
+                                                      std::move(drawablesManager),
+                                                      std::move(camera),
+                                                      std::move(imgui),
+                                                      std::make_unique<opengl::Framebuffer>(std::move(*sceneFramebuffer)),
+                                                      std::move(resolveFramebuffer),
+                                                      std::make_unique<opengl::PresentationPass>(std::move(*presentationPass)),
+                                                      sceneSamples));
 
     renderer->update_scene_viewport();
     renderer->wire_callbacks();
@@ -113,13 +152,21 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 }
 
 Renderer::Renderer(GlfwWindow window,
-                   std::unique_ptr<opengl::DrawablesManager> drawables,
-                   std::shared_ptr<CameraInteractor> camera,
-                   std::shared_ptr<ImGuiOverlay> imgui)
+                    std::unique_ptr<opengl::DrawablesManager> drawables,
+                    std::shared_ptr<CameraInteractor> camera,
+                    std::shared_ptr<ImGuiOverlay> imgui,
+                    std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
+                    std::unique_ptr<opengl::Framebuffer> resolveFramebuffer,
+                    std::unique_ptr<opengl::PresentationPass> presentationPass,
+                    int sceneSamples)
     : m_window(std::move(window))
     , m_drawablesManager(std::move(drawables))
     , m_camera(std::move(camera))
     , m_imgui(std::move(imgui))
+    , m_sceneFramebuffer(std::move(sceneFramebuffer))
+    , m_resolveFramebuffer(std::move(resolveFramebuffer))
+    , m_presentationPass(std::move(presentationPass))
+    , m_sceneSamples(sceneSamples)
     , m_lastFrameTime(std::chrono::steady_clock::now())
     , m_lastCameraInteractionTime(m_lastFrameTime) {
 }
@@ -419,7 +466,31 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
     }
 
     update_scene_viewport();
-    opengl::begin_frame(clearColor, m_sceneViewport.framebuffer, m_window.is_srgb_capable());
+
+    const auto [windowFramebufferWidth, windowFramebufferHeight] = m_window.get_framebuffer_size();
+    const int framebufferWidth = static_cast<int>(valid_framebuffer_dimension(windowFramebufferWidth));
+    const int framebufferHeight = static_cast<int>(valid_framebuffer_dimension(windowFramebufferHeight));
+    if (m_sceneFramebuffer->get_width() != framebufferWidth || m_sceneFramebuffer->get_height() != framebufferHeight) {
+        auto scene = opengl::Framebuffer::create(
+            framebufferWidth, framebufferHeight, m_sceneSamples, m_window.is_srgb_capable());
+        std::optional<opengl::Framebuffer> resolve;
+        if (scene.has_value() && m_sceneSamples > 1) {
+            resolve = opengl::Framebuffer::create(framebufferWidth, framebufferHeight, 1, m_window.is_srgb_capable());
+        }
+        if (!scene.has_value() || (m_sceneSamples > 1 && !resolve.has_value())) {
+            opengl::report_error("Error: Renderer::begin_frame failed to resize scene framebuffer targets");
+        } else {
+            m_sceneFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*scene));
+            if (m_sceneSamples > 1) {
+                m_resolveFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*resolve));
+            }
+        }
+    }
+
+    m_sceneFramebuffer->bind();
+    opengl::begin_frame(clearColor,
+                        renderer::ViewportRect{0, 0, m_sceneFramebuffer->get_width(), m_sceneFramebuffer->get_height()},
+                        m_window.is_srgb_capable());
 }
 
 void Renderer::draw() {
@@ -466,6 +537,7 @@ void Renderer::end_frame(bool& autoFitEnabled) {
 }
 
 void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
+    present_scene();
     m_imgui->new_frame();
     CameraProjectionType projectionType = m_camera->get_projection_type();
     m_imgui->add_camera_controls(autoFitEnabled, projectionType, homeRequested);
@@ -484,6 +556,23 @@ void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
     }
 
     m_window.swap_buffers();
+}
+
+void Renderer::present_scene() {
+    GLuint colorTexture = m_sceneFramebuffer->get_color_texture();
+    if (m_sceneSamples > 1) {
+        if (!m_sceneFramebuffer->resolve_to(*m_resolveFramebuffer)) {
+            opengl::report_error("Error: Renderer::present_scene failed to resolve scene framebuffer");
+            return;
+        }
+        colorTexture = m_resolveFramebuffer->get_color_texture();
+    }
+
+    opengl::Framebuffer::unbind();
+    const auto [framebufferWidth, framebufferHeight] = m_window.get_framebuffer_size();
+    m_presentationPass->present(colorTexture,
+                                static_cast<int>(valid_framebuffer_dimension(framebufferWidth)),
+                                static_cast<int>(valid_framebuffer_dimension(framebufferHeight)));
 }
 
 // --- Camera navigation (geometry-fit aware) ---

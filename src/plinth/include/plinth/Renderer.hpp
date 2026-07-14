@@ -22,6 +22,8 @@
 
 namespace opengl {
 class DrawablesManager;
+class Framebuffer;
+class PresentationPass;
 }
 
 namespace renderer {
@@ -209,10 +211,16 @@ class Renderer {
     Renderer(GlfwWindow window,
               std::unique_ptr<opengl::DrawablesManager> drawablesManager,
               std::shared_ptr<CameraInteractor> camera,
-              std::shared_ptr<ImGuiOverlay> imgui, int maxTextureSize);
+               std::shared_ptr<ImGuiOverlay> imgui,
+               std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
+               std::unique_ptr<opengl::Framebuffer> resolveFramebuffer,
+               std::unique_ptr<opengl::PresentationPass> presentationPass,
+               int sceneSamples,
+               int maxTextureSize);
 
     void wire_callbacks();
     void update_scene_viewport();
+    void present_scene();
     void on_cursor_pos(double xpos, double ypos);
     void on_scroll(double xoff, double yoff);
     void on_mouse_button(int button, Action action, Mods mods);
@@ -235,6 +243,10 @@ class Renderer {
     std::unique_ptr<opengl::DrawablesManager> m_drawablesManager;
     std::shared_ptr<CameraInteractor> m_camera;
     std::shared_ptr<ImGuiOverlay> m_imgui;
+    std::unique_ptr<opengl::Framebuffer> m_sceneFramebuffer;
+    std::unique_ptr<opengl::Framebuffer> m_resolveFramebuffer;
+    std::unique_ptr<opengl::PresentationPass> m_presentationPass;
+    int m_sceneSamples{1};
     SceneViewport m_sceneViewport;
     CursorPosState m_lastWindowCursorPos;
     bool m_cameraMouseInteractionActive{false};

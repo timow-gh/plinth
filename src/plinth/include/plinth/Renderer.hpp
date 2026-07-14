@@ -5,6 +5,7 @@
 #include <plinth/CameraAutoFit.hpp>
 #include <plinth/FrameState.hpp>
 #include <plinth/LightingConfig.hpp>
+#include <plinth/Texture.hpp>
 #include <plinth/LineType.hpp>
 #include <plinth/CameraInteractor.hpp>
 #include <plinth/GlfwWindow.hpp>
@@ -106,7 +107,13 @@ class Renderer {
                       std::span<const float> normals,
                       std::span<const float> colors,
                       std::span<const std::uint32_t> triangleIndices,
-                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::STATIC_DRAW);
+                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::STATIC_DRAW);
+    TextureHandle create_texture_2d(TextureData data);
+    bool remove_texture(TextureHandle texture);
+    DrawableHandle add_textured_mesh_drawable(std::span<const float> vertices, std::span<const float> normals,
+                                              std::span<const float> textureCoordinates, std::span<const float> colors,
+                                              std::span<const std::uint32_t> triangleIndices, TextureHandle texture,
+                                              renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::STATIC_DRAW);
 
     DrawableHandle add_mesh_segment_drawable(std::span<const float> positions,
                                              std::span<const std::uint32_t> indices,
@@ -204,11 +211,12 @@ class Renderer {
     Renderer(GlfwWindow window,
               std::unique_ptr<opengl::DrawablesManager> drawablesManager,
               std::shared_ptr<CameraInteractor> camera,
-              std::shared_ptr<ImGuiOverlay> imgui,
-              std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
-              std::unique_ptr<opengl::Framebuffer> resolveFramebuffer,
-              std::unique_ptr<opengl::PresentationPass> presentationPass,
-              int sceneSamples);
+               std::shared_ptr<ImGuiOverlay> imgui,
+               std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
+               std::unique_ptr<opengl::Framebuffer> resolveFramebuffer,
+               std::unique_ptr<opengl::PresentationPass> presentationPass,
+               int sceneSamples,
+               int maxTextureSize);
 
     void wire_callbacks();
     void update_scene_viewport();
@@ -249,6 +257,7 @@ class Renderer {
     // needs to see this to decide whether to run the auto-zoom-when-settled check, but has no
     // access to end_frame's by-reference parameter (a different call each frame).
     bool m_autoFitEnabled{false};
+    int m_maxTextureSize{0};
 
     std::vector<CursorPosCB> m_cursorPosCallbacks;
     std::vector<ScrollCB> m_scrollCallbacks;

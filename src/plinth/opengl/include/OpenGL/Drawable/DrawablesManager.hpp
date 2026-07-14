@@ -6,6 +6,7 @@
 #include <OpenGL/Drawable/PointDrawable.hpp>
 #include <OpenGL/OpenGL.hpp>
 #include <OpenGL/Programs/ProgramManager.hpp>
+#include <OpenGL/Texture2D.hpp>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -66,6 +67,8 @@ class DrawablesManager {
 
     ProgramManager programManager;
     DrawableId m_nextDrawableId{1U};
+    DrawableId m_nextTextureId{1U};
+    std::unordered_map<DrawableId, std::shared_ptr<Texture2D>> m_textures;
 
     std::vector<DrawableEntry<opengl::PointDrawable>> m_pointDrawables;
     std::vector<DrawableEntry<opengl::LineDrawable>> m_lineDrawables;
@@ -214,11 +217,13 @@ class DrawablesManager {
                                                 std::int32_t colorDimension,
                                                 std::span<const std::uint32_t> triangleIndices,
                                                 opengl::BufferAccessPattern accessPattern) {
+        std::vector<float> textureCoordinates((vertices.size() / static_cast<std::size_t>(vertexDimension)) * 2U, 0.0F);
         auto drawable = opengl::make_mesh_soup(get_mesh_program(),
-                                               vertices,
-                                               vertexDimension,
-                                               normals,
-                                               colors,
+                                                vertices,
+                                                vertexDimension,
+                                                normals,
+                                                textureCoordinates,
+                                                colors,
                                                colorDimension,
                                                triangleIndices,
                                                accessPattern);
@@ -228,6 +233,45 @@ class DrawablesManager {
 
         const DrawableId id = next_drawable_id();
         m_meshDrawables.emplace_back(DrawableEntry<opengl::MeshDrawable>{id, std::move(drawable.value())});
+        return id;
+    }
+
+    std::optional<DrawableId> create_texture_2d(const renderer::TextureData& data, int maxTextureSize) {
+        auto texture = Texture2D::create(data, maxTextureSize);
+        if (!texture) return std::nullopt;
+        const DrawableId id = m_nextTextureId++;
+        m_textures.emplace(id, std::make_shared<Texture2D>(std::move(*texture)));
+        return id;
+    }
+
+    std::shared_ptr<Texture2D> get_texture(DrawableId id) const {
+        const auto it = m_textures.find(id);
+        return it == m_textures.end() ? nullptr : it->second;
+    }
+
+    bool remove_texture(DrawableId id) {
+        const auto it = m_textures.find(id);
+        if (it == m_textures.end() || it->second.use_count() > 1) return false;
+        m_textures.erase(it);
+        return true;
+    }
+
+    std::optional<DrawableId> add_textured_mesh_drawable(std::span<const float> vertices,
+                                                          std::int32_t vertexDimension,
+                                                          std::span<const float> normals,
+                                                          std::span<const float> textureCoordinates,
+                                                          std::span<const float> colors,
+                                                          std::int32_t colorDimension,
+                                                          std::span<const std::uint32_t> triangleIndices,
+                                                          DrawableId textureId,
+                                                          opengl::BufferAccessPattern accessPattern) {
+        const auto texture = get_texture(textureId);
+        if (!texture) return std::nullopt;
+        auto drawable = opengl::make_mesh_soup(get_mesh_program(), vertices, vertexDimension, normals, textureCoordinates,
+                                                colors, colorDimension, triangleIndices, accessPattern, texture);
+        if (!drawable) return std::nullopt;
+        const DrawableId id = next_drawable_id();
+        m_meshDrawables.emplace_back(DrawableEntry<opengl::MeshDrawable>{id, std::move(*drawable)});
         return id;
     }
 

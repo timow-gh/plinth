@@ -6,6 +6,7 @@ set(plinth_HEADER_FILES
         include/plinth/LineType.hpp
         include/plinth/FrameState.hpp
         include/plinth/LightingConfig.hpp
+        include/plinth/Texture.hpp
         include/plinth/WindowSettings.hpp
         include/plinth/InputState.hpp
         include/plinth/InputCaptureState.hpp

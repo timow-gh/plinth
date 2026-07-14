@@ -18,6 +18,7 @@ struct OPENGL_EXPORT MeshProgramInput {
     Attribute m_posLocation;    // Position of the vertices attribute
     Attribute m_colorLocation;  // Position of the color attribute
     Attribute m_normalLocation; // Position of the normal attribute for phong lighting
+    Attribute m_texCoordLocation;
 
     // Fragment shader uniforms and attributes
     Uniform m_lightPos; // Position of the light source
@@ -27,6 +28,8 @@ struct OPENGL_EXPORT MeshProgramInput {
     Uniform fillLightColor;
     Uniform ambientColor;
     Uniform shininess;
+    Uniform hasAlbedoTexture;
+    Uniform albedoTexture;
 };
 
 constexpr void assert_mesh_program_input([[maybe_unused]] const MeshProgramInput& input) noexcept {
@@ -37,6 +40,7 @@ constexpr void assert_mesh_program_input([[maybe_unused]] const MeshProgramInput
     RENDERER_ASSERT(input.m_posLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(input.m_colorLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(input.m_normalLocation.get_location().get_value() != -1);
+    RENDERER_ASSERT(input.m_texCoordLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(input.m_lightPos.get_location().get_value() != -1);
     RENDERER_ASSERT(input.viewPos.get_location().get_value() != -1);
     RENDERER_ASSERT(input.lightColor.get_location().get_value() != -1);
@@ -44,6 +48,8 @@ constexpr void assert_mesh_program_input([[maybe_unused]] const MeshProgramInput
     RENDERER_ASSERT(input.fillLightColor.get_location().get_value() != -1);
     RENDERER_ASSERT(input.ambientColor.get_location().get_value() != -1);
     RENDERER_ASSERT(input.shininess.get_location().get_value() != -1);
+    RENDERER_ASSERT(input.hasAlbedoTexture.get_location().get_value() != -1);
+    RENDERER_ASSERT(input.albedoTexture.get_location().get_value() != -1);
 }
 
 class OPENGL_EXPORT MeshProgram {
@@ -106,6 +112,7 @@ class OPENGL_EXPORT MeshProgram {
     constexpr Location get_normal_location() const noexcept {
         return m_input.m_normalLocation.get_location();
     }
+    [[nodiscard]] constexpr Location get_tex_coord_location() const noexcept { return m_input.m_texCoordLocation.get_location(); }
 
     [[nodiscard]]
     constexpr Location get_light_pos_location() const noexcept {
@@ -135,6 +142,8 @@ class OPENGL_EXPORT MeshProgram {
     constexpr Location get_shininess_location() const noexcept {
         return m_input.shininess.get_location();
     }
+    [[nodiscard]] constexpr Location get_has_albedo_texture_location() const noexcept { return m_input.hasAlbedoTexture.get_location(); }
+    [[nodiscard]] constexpr Location get_albedo_texture_location() const noexcept { return m_input.albedoTexture.get_location(); }
 
     void use() const;
 };

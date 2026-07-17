@@ -14,15 +14,18 @@ int main() {
     }
     constexpr std::uint32_t textureSize = 64U;
     constexpr std::uint32_t checkerSize = 16U;
+    constexpr std::uint8_t lightShade = 255U;
+    constexpr std::uint8_t darkShade = 32U;
+    constexpr std::uint8_t opaqueAlpha = 255U;
     std::array<std::uint8_t, textureSize * textureSize * 4U> checkerboard{};
     for (std::uint32_t y = 0; y < textureSize; ++y) {
         for (std::uint32_t x = 0; x < textureSize; ++x) {
-            const auto shade = static_cast<std::uint8_t>(((x / checkerSize + y / checkerSize) % 2U == 0U) ? 255U : 32U);
+            const auto shade = ((x / checkerSize + y / checkerSize) % 2U == 0U) ? lightShade : darkShade;
             const auto pixel = static_cast<std::size_t>((y * textureSize + x) * 4U);
             checkerboard[pixel] = shade;
             checkerboard[pixel + 1U] = shade;
             checkerboard[pixel + 2U] = shade;
-            checkerboard[pixel + 3U] = 255U;
+            checkerboard[pixel + 3U] = opaqueAlpha;
         }
     }
     const auto texture = renderer->create_texture_2d(

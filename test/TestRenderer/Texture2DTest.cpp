@@ -34,10 +34,27 @@ TEST_F(Texture2DTest, ValidatesUploadsMipmapsAndMoves) {
     glBindTexture(GL_TEXTURE_2D, id);
     GLint format = 0;
     GLint mipWidth = 0;
+    GLint minificationFilter = 0;
+    GLint magnificationFilter = 0;
     glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &format);
     glGetTexLevelParameteriv(GL_TEXTURE_2D, 1, GL_TEXTURE_WIDTH, &mipWidth);
+    glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, &minificationFilter);
+    glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, &magnificationFilter);
     EXPECT_EQ(GL_SRGB8_ALPHA8, format);
     EXPECT_EQ(1, mipWidth);
+    EXPECT_EQ(GL_LINEAR_MIPMAP_LINEAR, minificationFilter);
+    EXPECT_EQ(GL_LINEAR, magnificationFilter);
+
+    auto nearestTexture =
+        opengl::Texture2D::create({2, 2, pixels, renderer::TextureColorSpace::srgb, renderer::TextureFilter::nearest},
+                                  16);
+    ASSERT_TRUE(nearestTexture);
+    glBindTexture(GL_TEXTURE_2D, nearestTexture->get_id());
+    glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, &minificationFilter);
+    glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, &magnificationFilter);
+    EXPECT_EQ(GL_LINEAR_MIPMAP_LINEAR, minificationFilter);
+    EXPECT_EQ(GL_NEAREST, magnificationFilter);
+
     texture->bind(0);
     GLint binding = 0;
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &binding);

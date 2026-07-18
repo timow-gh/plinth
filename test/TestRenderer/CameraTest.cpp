@@ -14,7 +14,38 @@ renderer::Camera make_camera() {
     return camera;
 }
 
+bool matrices_near(const glm::mat4& lhs, const glm::mat4& rhs, float matrixTolerance) {
+    for (int column = 0; column < 4; ++column) {
+        for (int row = 0; row < 4; ++row) {
+            if (std::abs(lhs[column][row] - rhs[column][row]) > matrixTolerance) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 } // namespace
+
+TEST(CameraTest, SetTargetInvalidatesCachedViewMatrix) {
+    renderer::Camera camera = make_camera();
+    const glm::mat4 cachedView = camera.get_view_matrix();
+
+    camera.set_target(glm::dvec3{1.0, 0.0, 0.0});
+    const glm::mat4 updatedView = camera.get_view_matrix();
+
+    EXPECT_FALSE(matrices_near(cachedView, updatedView, 1.0e-6F));
+}
+
+TEST(CameraTest, SetVerticalInvalidatesCachedViewMatrix) {
+    renderer::Camera camera = make_camera();
+    const glm::mat4 cachedView = camera.get_view_matrix();
+
+    camera.set_vertical(glm::dvec3{1.0, 1.0, 0.0});
+    const glm::mat4 updatedView = camera.get_view_matrix();
+
+    EXPECT_FALSE(matrices_near(cachedView, updatedView, 1.0e-6F));
+}
 
 TEST(CameraTest, CreatesPerspectiveRaysThroughViewport) {
     renderer::Camera camera = make_camera();

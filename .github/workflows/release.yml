@@ -23,8 +23,10 @@ jobs:
           echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
       - name: Verify CMake version matches tag
+        env:
+          TAG_VERSION: ${{ steps.get_version.outputs.version }}
         run: |
-          tag_version="${{ steps.get_version.outputs.version }}"
+          tag_version="$TAG_VERSION"
           cmake_version="$(
             awk '
               /^[[:space:]]*project[[:space:]]*\([[:space:]]*plinth/ { in_project = 1 }

@@ -244,11 +244,13 @@ class Camera {
     Camera& set_target(const glm::dvec3& target) {
         RENDERER_ASSERT(target != m_position);
         m_target = target;
+        m_viewDirty = true;
         return *this;
     }
 
     Camera& set_vertical(const glm::dvec3& vertical) {
         m_vertical = glm::normalize(vertical);
+        m_viewDirty = true;
         return *this;
     }
 

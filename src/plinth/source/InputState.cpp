@@ -32,16 +32,11 @@ static std::unordered_map<GLFWwindow*, WindowCallbacks>& window_callbacks_storag
 
 static WindowCallbacks* get_window_callbacks(GLFWwindow* glfwWindow) {
     RENDERER_ASSERT(glfwWindow);
-    if (auto* wCallbacks = static_cast<WindowCallbacks*>(glfwGetWindowUserPointer(glfwWindow)); wCallbacks) {
-        return wCallbacks;
+    auto [iterator, inserted] = window_callbacks_storage().try_emplace(glfwWindow);
+    if (inserted) {
+        set_window_callbacks(glfwWindow);
     }
-
-    auto& callbacks = window_callbacks_storage();
-    auto result = callbacks.try_emplace(glfwWindow);
-    auto* windowCallbacks = &result.first->second;
-    glfwSetWindowUserPointer(glfwWindow, windowCallbacks);
-    set_window_callbacks(glfwWindow);
-    return windowCallbacks;
+    return &iterator->second;
 }
 
 } // namespace detail
@@ -155,7 +150,6 @@ void set_framebuffer_size_callback(GLFWwindow* glfwWindow, FramebufferSizeCB cb)
 void clear_callbacks(GLFWwindow* glfwWindow) {
     RENDERER_ASSERT(glfwWindow);
     window_callbacks_storage().erase(glfwWindow);
-    glfwSetWindowUserPointer(glfwWindow, nullptr);
 }
 
 } // namespace detail

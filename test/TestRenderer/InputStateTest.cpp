@@ -151,6 +151,30 @@ TEST_F(GlfwWindowFixture, TrampolinesForwardRegisteredCallbacks) {
     EXPECT_EQ(240U, framebufferHeight);
 }
 
+TEST_F(GlfwWindowFixture, PreservesConsumerWindowUserPointer) {
+    int sentinel = 0;
+    glfwSetWindowUserPointer(m_window, &sentinel);
+
+    renderer::Key receivedKey = renderer::Key::KEY_UNKNOWN;
+    renderer::Action receivedAction = renderer::Action::UNDEFINED;
+    renderer::detail::set_key_callback(
+        m_window,
+        [&](renderer::Key key, renderer::Scancode, renderer::Action action, renderer::Mods) {
+            receivedKey = key;
+            receivedAction = action;
+        });
+    EXPECT_EQ(&sentinel, glfwGetWindowUserPointer(m_window));
+
+    GLFWkeyfun keyCallback = glfwSetKeyCallback(m_window, nullptr);
+    ASSERT_NE(nullptr, keyCallback);
+    keyCallback(m_window, GLFW_KEY_A, 12, GLFW_PRESS, GLFW_MOD_SHIFT);
+    EXPECT_EQ(renderer::Key::KEY_A, receivedKey);
+    EXPECT_EQ(renderer::Action::PRESS, receivedAction);
+
+    renderer::detail::clear_callbacks(m_window);
+    EXPECT_EQ(&sentinel, glfwGetWindowUserPointer(m_window));
+}
+
 TEST_F(GlfwWindowFixture, InputStateStoragePersistsUntilCleared) {
     renderer::InputState* firstState = renderer::detail::get_input_state(m_window);
     ASSERT_NE(nullptr, firstState);

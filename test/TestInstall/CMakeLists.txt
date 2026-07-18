@@ -58,6 +58,7 @@ add_custom_target(test_geoqik_install_clean
 option(${PROJECT_NAME}_INSTALL_SMOKE_TEST "Register installed package smoke test with CTest." ON)
 if (${PROJECT_NAME}_INSTALL_SMOKE_TEST)
     add_test(NAME TestGeoqikInstall COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target test_geoqik_install)
+    set_tests_properties(TestGeoqikInstall PROPERTIES LABELS install)
 else ()
     message(STATUS "Skipping TestGeoqikInstall CTest registration because ${PROJECT_NAME}_INSTALL_SMOKE_TEST=OFF")
 endif ()

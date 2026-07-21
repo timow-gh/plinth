@@ -15,6 +15,8 @@ set(opengl_HEADER_FILES
         include/OpenGL/Framebuffer.hpp
         include/OpenGL/Texture2D.hpp
         include/OpenGL/PresentationPass.hpp
+        include/OpenGL/PostProcessingPass.hpp
+        include/OpenGL/FXAAPass.hpp
         include/OpenGL/FrameState.hpp
         include/OpenGL/BufferAccessPattern.hpp
         include/OpenGL/ErrorReporting.hpp
@@ -39,6 +41,8 @@ set(opengl_SOURCE_FILES
         source/Framebuffer.cpp
         source/Texture2D.cpp
         source/PresentationPass.cpp
+        source/PostProcessingPass.cpp
+        source/FXAAPass.cpp
         source/FrameState.cpp
         source/Programs/CreateProgram.cpp
         source/Programs/ProgramOpenGL.cpp

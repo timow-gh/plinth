@@ -67,6 +67,22 @@ struct SceneViewport {
     renderer::ViewportRect framebuffer;
 };
 
+class ImGuiOverlayView {
+  public:
+    [[nodiscard]]
+    ImGuiOverlay* lock() const {
+        return m_lifetime.expired() ? nullptr : m_overlay;
+    }
+
+  private:
+    friend class Renderer;
+    ImGuiOverlayView(ImGuiOverlay* overlay, std::weak_ptr<void> lifetime)
+        : m_overlay(overlay), m_lifetime(std::move(lifetime)) {}
+
+    ImGuiOverlay* m_overlay{nullptr};
+    std::weak_ptr<void> m_lifetime;
+};
+
 class Renderer {
   public:
     Renderer() = delete;
@@ -183,6 +199,8 @@ class Renderer {
     void set_fxaa_subpixel_amount(float amount);
 
     // --- Frame lifecycle ---
+    // Renderer owns one GLFW/OpenGL context. All frame methods must be called
+    // on its creating thread; each makes that context current before GL work.
     static void poll_events();
     [[nodiscard]]
     bool should_close() const;
@@ -196,6 +214,9 @@ class Renderer {
     void end_frame(bool& autoFitEnabled);
     void end_frame(bool& autoFitEnabled, bool& homeRequested);
 
+    // Makes the renderer-owned context current on the calling thread.
+    void make_context_current() const;
+
     // --- Camera navigation (geometry-fit aware) ---
     void go_to_preset_view(PresetView view);
     void go_to_home_view();
@@ -208,9 +229,6 @@ class Renderer {
 
     // --- Accessors ---
     [[nodiscard]]
-    GlfwWindow& window() {
-        return m_window;
-    }
     [[nodiscard]]
     const GlfwWindow& window() const {
         return m_window;
@@ -224,9 +242,12 @@ class Renderer {
         return m_camera;
     }
     [[nodiscard]]
-    std::weak_ptr<ImGuiOverlay> get_imgui() {
-        return m_imgui;
-    }
+    // The returned overlay is owned by this Renderer and must not be used
+    // after the Renderer is destroyed. It cannot extend backend lifetime.
+    [[nodiscard]]
+    ImGuiOverlay& imgui() { return *m_imgui; }
+    [[nodiscard]]
+    ImGuiOverlayView get_imgui() { return ImGuiOverlayView{m_imgui.get(), m_imguiLifetime}; }
 
     static constexpr renderer::ClearColor defaultClearColor{0.05F, 0.05F, 0.08F, 1.0F};
 
@@ -234,7 +255,7 @@ class Renderer {
     Renderer(GlfwWindow window,
              std::unique_ptr<opengl::DrawablesManager> drawablesManager,
              std::shared_ptr<CameraInteractor> camera,
-             std::shared_ptr<ImGuiOverlay> imgui,
+             std::unique_ptr<ImGuiOverlay> imgui,
              std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
              std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
              std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
@@ -263,7 +284,8 @@ class Renderer {
     GlfwWindow m_window;
     std::unique_ptr<opengl::DrawablesManager> m_drawablesManager;
     std::shared_ptr<CameraInteractor> m_camera;
-    std::shared_ptr<ImGuiOverlay> m_imgui;
+    std::shared_ptr<void> m_imguiLifetime{std::make_shared<int>(0)};
+    std::unique_ptr<ImGuiOverlay> m_imgui;
     std::unique_ptr<opengl::Framebuffer> m_sceneFramebuffer;
     std::unique_ptr<opengl::Framebuffer> m_hdrResolveFramebuffer;
     std::unique_ptr<opengl::Framebuffer> m_ldrIntermediate;

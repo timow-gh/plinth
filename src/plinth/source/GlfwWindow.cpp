@@ -27,19 +27,6 @@ bool hasLivePlinthWindow{false};
 GlfwWindow::GlfwWindow() = default;
 GlfwWindow::GlfwWindow(GlfwWindow&&) noexcept = default;
 
-GlfwWindow& GlfwWindow::operator=(GlfwWindow&& other) noexcept {
-    if (this != &other) {
-        if (m_impl && m_impl->window != nullptr) {
-            detail::clear_callbacks(m_impl->window);
-            glfwDestroyWindow(m_impl->window);
-            glfwTerminate();
-            hasLivePlinthWindow = false;
-        }
-        m_impl = std::move(other.m_impl);
-    }
-    return *this;
-}
-
 GlfwWindow::~GlfwWindow() {
     if (m_impl && m_impl->window != nullptr) {
         detail::clear_callbacks(m_impl->window);

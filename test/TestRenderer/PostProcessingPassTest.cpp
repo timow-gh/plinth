@@ -79,7 +79,18 @@ TEST_F(PostProcessingPassTest, ProcessesHdrToLdr) {
     pass->set_grayscale(false);
 
     ldrFb->bind();
+    glViewport(3, 4, 5, 6);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
     pass->process(hdrFb->get_color_texture(), hdrFb->get_depth_texture(), 16, 16);
+
+    std::array<GLint, 4> viewport{};
+    glGetIntegerv(GL_VIEWPORT, viewport.data());
+    EXPECT_EQ((std::array<GLint, 4>{3, 4, 5, 6}), viewport);
+    EXPECT_TRUE(glIsEnabled(GL_DEPTH_TEST));
+    EXPECT_TRUE(glIsEnabled(GL_CULL_FACE));
+    EXPECT_TRUE(glIsEnabled(GL_BLEND));
 
     std::array<unsigned char, 4> pixel{0, 0, 0, 0};
     glReadPixels(8, 8, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());

@@ -15,7 +15,18 @@
 
 namespace renderer {
 
-Renderer::~Renderer() = default;
+Renderer::~Renderer() {
+    m_window.make_context_current();
+    m_imgui.reset();
+    m_imguiLifetime.reset();
+    m_fxaaPass.reset();
+    m_postProcessingPass.reset();
+    m_presentationPass.reset();
+    m_ldrIntermediate.reset();
+    m_hdrResolveFramebuffer.reset();
+    m_sceneFramebuffer.reset();
+    m_drawablesManager.reset();
+}
 
 namespace {
 
@@ -91,7 +102,7 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
                                          valid_framebuffer_dimension(fbHeight));
     auto camera = std::make_shared<CameraInteractor>(window->get_input_state(), cameraSettings);
 
-    auto imgui = std::make_shared<ImGuiOverlay>(window->get_native_handle());
+    auto imgui = std::make_unique<ImGuiOverlay>(window->get_native_handle());
 
     auto drawablesManager = opengl::DrawablesManager::create();
     if (!drawablesManager) {
@@ -174,7 +185,7 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 Renderer::Renderer(GlfwWindow window,
                     std::unique_ptr<opengl::DrawablesManager> drawables,
                     std::shared_ptr<CameraInteractor> camera,
-                    std::shared_ptr<ImGuiOverlay> imgui,
+                    std::unique_ptr<ImGuiOverlay> imgui,
                     std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
                     std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
                     std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
@@ -475,6 +486,7 @@ bool Renderer::is_escape_pressed() const {
 }
 
 void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
+    make_context_current();
     const auto now = std::chrono::steady_clock::now();
     const double deltaSeconds =
         std::min(maxFrameDeltaSeconds, std::chrono::duration<double>(now - m_lastFrameTime).count());
@@ -547,6 +559,7 @@ void Renderer::draw() {
 }
 
 void Renderer::draw(const renderer::LightingConfig& lighting) {
+    make_context_current();
     const auto [windowFramebufferWidth, windowFramebufferHeight] = m_window.get_framebuffer_size();
     if (m_sceneFramebuffer->get_width() != static_cast<int>(valid_framebuffer_dimension(windowFramebufferWidth)) ||
         m_sceneFramebuffer->get_height() != static_cast<int>(valid_framebuffer_dimension(windowFramebufferHeight))) {
@@ -589,6 +602,7 @@ void Renderer::end_frame(bool& autoFitEnabled) {
 }
 
 void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
+    make_context_current();
     const auto [windowFramebufferWidth, windowFramebufferHeight] = m_window.get_framebuffer_size();
     if (m_sceneFramebuffer->get_width() != static_cast<int>(valid_framebuffer_dimension(windowFramebufferWidth)) ||
         m_sceneFramebuffer->get_height() != static_cast<int>(valid_framebuffer_dimension(windowFramebufferHeight))) {
@@ -630,6 +644,10 @@ void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
     }
 
     m_window.swap_buffers();
+}
+
+void Renderer::make_context_current() const {
+    m_window.make_context_current();
 }
 
 void Renderer::present_scene() {

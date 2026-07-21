@@ -231,6 +231,29 @@ TEST_F(RendererTest, EndFrameHandlesAutoFitAndHomeRequest) {
     m_renderer->end_frame(autoFit, homeRequested);
 }
 
+TEST_F(RendererTest, RetainedImGuiViewDoesNotKeepBackendAlive) {
+    const renderer::ImGuiOverlayView view = m_renderer->get_imgui();
+    ASSERT_NE(nullptr, view.lock());
+
+    m_renderer.reset();
+
+    EXPECT_EQ(nullptr, view.lock());
+}
+
+TEST_F(RendererTest, FrameBoundaryRestoresRendererContext) {
+    glfwDefaultWindowHints();
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    GLFWwindow* other = glfwCreateWindow(64, 64, "plinth alternate context", nullptr, nullptr);
+    ASSERT_NE(nullptr, other);
+
+    glfwMakeContextCurrent(other);
+    ASSERT_EQ(other, glfwGetCurrentContext());
+    m_renderer->begin_frame();
+
+    EXPECT_EQ(m_renderer->window().get_native_handle(), glfwGetCurrentContext());
+    glfwDestroyWindow(other);
+}
+
 TEST(OneSampleRendererTest, OneSampleFrameDoesNotCrash) {
     ASSERT_EQ(GLFW_TRUE, glfwInit());
 
@@ -311,24 +334,6 @@ TEST(GlfwWindowSingletonTest, MoveTransferPreservesGuard) {
         auto second = renderer::GlfwWindow::create(settings);
         EXPECT_FALSE(second.has_value());
     }
-}
-
-TEST(GlfwWindowSingletonTest, MoveAssignIntoActiveReleasesGuard) {
-    renderer::WindowSettings settings;
-    settings.title = "plinth singleton test";
-    settings.width = 64;
-    settings.height = 64;
-    settings.visible = false;
-    settings.resizable = false;
-
-    auto active = renderer::GlfwWindow::create(settings);
-    ASSERT_TRUE(active.has_value());
-
-    renderer::GlfwWindow empty;
-    active = std::move(empty);
-
-    auto replacement = renderer::GlfwWindow::create(settings);
-    EXPECT_TRUE(replacement.has_value());
 }
 
 TEST(RendererSingletonTest, RejectsSecondLiveRendererAndAllowsReplacement) {

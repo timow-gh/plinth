@@ -5,6 +5,39 @@
 
 namespace opengl {
 
+namespace {
+
+class ScopedFramebufferState {
+  public:
+    ScopedFramebufferState() {
+        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &m_readFramebuffer);
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &m_drawFramebuffer);
+        glGetIntegerv(GL_RENDERBUFFER_BINDING, &m_renderbuffer);
+        glGetIntegerv(GL_ACTIVE_TEXTURE, &m_activeTexture);
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &m_texture2d);
+        glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &m_texture2dMultisample);
+    }
+
+    ~ScopedFramebufferState() {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(m_readFramebuffer));
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(m_drawFramebuffer));
+        glBindRenderbuffer(GL_RENDERBUFFER, static_cast<GLuint>(m_renderbuffer));
+        glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(m_texture2d));
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, static_cast<GLuint>(m_texture2dMultisample));
+        glActiveTexture(static_cast<GLenum>(m_activeTexture));
+    }
+
+  private:
+    GLint m_readFramebuffer{0};
+    GLint m_drawFramebuffer{0};
+    GLint m_renderbuffer{0};
+    GLint m_activeTexture{GL_TEXTURE0};
+    GLint m_texture2d{0};
+    GLint m_texture2dMultisample{0};
+};
+
+} // namespace
+
 Framebuffer::Framebuffer(GLuint framebuffer, GLuint colorTexture, GLuint colorRenderbuffer,
                           GLuint depthStencilRenderbuffer, GLuint depthTexture, bool hasDepthTexture,
                           int width, int height, int samples, bool srgb, CreationDescriptor descriptor)
@@ -92,6 +125,7 @@ std::optional<Framebuffer> Framebuffer::create(int width, int height, int sample
         return std::nullopt;
     }
 
+    ScopedFramebufferState state;
     GLuint framebuffer{0};
     GLuint colorTexture{0};
     GLuint colorRenderbuffer{0};
@@ -187,6 +221,7 @@ std::optional<Framebuffer> Framebuffer::create_hdr(const HdrConfig& config) {
         return std::nullopt;
     }
 
+    ScopedFramebufferState state;
     GLuint framebuffer{0};
     GLuint colorTexture{0};
     GLuint colorRenderbuffer{0};
@@ -329,6 +364,7 @@ std::optional<Framebuffer> Framebuffer::create_ldr_intermediate(int width, int h
         return std::nullopt;
     }
 
+    ScopedFramebufferState state;
     GLuint framebuffer{0};
     GLuint colorTexture{0};
 
@@ -415,12 +451,13 @@ bool Framebuffer::resolve_to(Framebuffer& destination, GLbitfield mask) const {
         return false;
     }
 
+    ScopedFramebufferState state;
+    // Stale errors belong to the caller, not to this blit operation.
+    check_gl_errors("Framebuffer::resolve_to pre-existing");
     glBindFramebuffer(GL_READ_FRAMEBUFFER, m_framebuffer);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, destination.m_framebuffer);
     glBlitFramebuffer(0, 0, m_width, m_height, 0, 0, destination.m_width, destination.m_height,
                       mask, GL_NEAREST);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
     return !check_gl_errors("Framebuffer::resolve_to");
 }
 

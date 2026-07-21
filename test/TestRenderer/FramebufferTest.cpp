@@ -95,6 +95,49 @@ TEST_F(FramebufferTest, BindUnbindChangesBinding) {
     EXPECT_EQ(0, currentBinding);
 }
 
+TEST_F(FramebufferTest, FactoryAndResizePreserveBindingsTheyTouch) {
+    auto read = opengl::Framebuffer::create(64, 64, 1, false);
+    auto draw = opengl::Framebuffer::create(64, 64, 1, false);
+    auto resized = opengl::Framebuffer::create(64, 64, 1, false);
+    ASSERT_TRUE(read.has_value());
+    ASSERT_TRUE(draw.has_value());
+    ASSERT_TRUE(resized.has_value());
+
+    GLuint renderbuffer = 0;
+    GLuint texture = 0;
+    glGenRenderbuffers(1, &renderbuffer);
+    glGenTextures(1, &texture);
+    ASSERT_NE(0U, renderbuffer);
+    ASSERT_NE(0U, texture);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, read->get_id());
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw->get_id());
+    glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    ASSERT_TRUE(opengl::Framebuffer::create(32, 32, 1, false).has_value());
+    ASSERT_TRUE(resized->resize(32, 32));
+
+    GLint readBinding = 0;
+    GLint drawBinding = 0;
+    GLint renderbufferBinding = 0;
+    GLint activeTexture = 0;
+    GLint textureBinding = 0;
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readBinding);
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawBinding);
+    glGetIntegerv(GL_RENDERBUFFER_BINDING, &renderbufferBinding);
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &textureBinding);
+    EXPECT_EQ(static_cast<GLint>(read->get_id()), readBinding);
+    EXPECT_EQ(static_cast<GLint>(draw->get_id()), drawBinding);
+    EXPECT_EQ(static_cast<GLint>(renderbuffer), renderbufferBinding);
+    EXPECT_EQ(GL_TEXTURE1, activeTexture);
+    EXPECT_EQ(static_cast<GLint>(texture), textureBinding);
+
+    glDeleteRenderbuffers(1, &renderbuffer);
+    glDeleteTextures(1, &texture);
+}
+
 TEST_F(FramebufferTest, MultisampleIsValidAndHasNoTexture) {
     GLint maxSamples = 0;
     glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
@@ -135,8 +178,18 @@ TEST_F(FramebufferTest, ResolveBlitsColor) {
     glClear(GL_COLOR_BUFFER_BIT);
     opengl::Framebuffer::unbind();
 
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, dst->get_id());
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, src->get_id());
+    glBindTexture(GL_RENDERBUFFER, 0); // Deliberately leave an unrelated GL error pending.
     const bool resolved = src->resolve_to(*dst);
     EXPECT_TRUE(resolved);
+
+    GLint readBinding = 0;
+    GLint drawBinding = 0;
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readBinding);
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawBinding);
+    EXPECT_EQ(static_cast<GLint>(dst->get_id()), readBinding);
+    EXPECT_EQ(static_cast<GLint>(src->get_id()), drawBinding);
 
     dst->bind();
     std::array<unsigned char, 4> pixel{0, 0, 0, 0};

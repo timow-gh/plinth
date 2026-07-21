@@ -14,7 +14,7 @@ class GlfwWindow {
     GlfwWindow(const GlfwWindow&) = delete;
     GlfwWindow& operator=(const GlfwWindow&) = delete;
     GlfwWindow(GlfwWindow&&) noexcept;
-    GlfwWindow& operator=(GlfwWindow&&) noexcept;
+    GlfwWindow& operator=(GlfwWindow&&) noexcept = delete;
     ~GlfwWindow();
 
     // Only one live plinth GlfwWindow may exist at a time. A second call to

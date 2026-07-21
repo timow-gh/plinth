@@ -650,6 +650,7 @@ void Renderer::present_scene() {
     m_postProcessingPass->process(hdrColorTex, depthTex, w, h);
 
     opengl::Framebuffer::unbind();
+    glDisable(GL_FRAMEBUFFER_SRGB);
 
     m_fxaaPass->set_enabled(m_fxaaEnabled);
     m_fxaaPass->set_edge_threshold(m_fxaaEdgeThreshold);

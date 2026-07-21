@@ -17,7 +17,10 @@ class ScopedFullscreenState {
         glGetIntegerv(GL_CURRENT_PROGRAM, &m_program);
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &m_vertexArray);
         glGetIntegerv(GL_ACTIVE_TEXTURE, &m_activeTexture);
-        glGetIntegerv(GL_TEXTURE_BINDING_2D, &m_texture);
+        glActiveTexture(GL_TEXTURE0);
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &m_texture0);
+        glActiveTexture(static_cast<GLenum>(m_activeTexture));
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &m_activeTextureBinding);
         m_depthTest = glIsEnabled(GL_DEPTH_TEST);
         m_cullFace = glIsEnabled(GL_CULL_FACE);
         m_blend = glIsEnabled(GL_BLEND);
@@ -27,8 +30,10 @@ class ScopedFullscreenState {
         glViewport(m_viewport[0], m_viewport[1], m_viewport[2], m_viewport[3]);
         glUseProgram(static_cast<GLuint>(m_program));
         glBindVertexArray(static_cast<GLuint>(m_vertexArray));
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(m_texture0));
         glActiveTexture(static_cast<GLenum>(m_activeTexture));
-        glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(m_texture));
+        glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(m_activeTextureBinding));
         m_depthTest ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
         m_cullFace ? glEnable(GL_CULL_FACE) : glDisable(GL_CULL_FACE);
         m_blend ? glEnable(GL_BLEND) : glDisable(GL_BLEND);
@@ -39,7 +44,8 @@ class ScopedFullscreenState {
     GLint m_program{0};
     GLint m_vertexArray{0};
     GLint m_activeTexture{GL_TEXTURE0};
-    GLint m_texture{0};
+    GLint m_texture0{0};
+    GLint m_activeTextureBinding{0};
     GLboolean m_depthTest{GL_FALSE};
     GLboolean m_cullFace{GL_FALSE};
     GLboolean m_blend{GL_FALSE};

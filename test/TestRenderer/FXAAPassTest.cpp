@@ -69,6 +69,13 @@ TEST_F(FXAAPassTest, PassThroughUniformColor) {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glEnable(GL_BLEND);
+    GLuint texture0 = 0;
+    glGenTextures(1, &texture0);
+    ASSERT_NE(0U, texture0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture0);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, source->get_color_texture());
     pass->process(source->get_color_texture(), 16, 16);
 
     std::array<GLint, 4> viewport{};
@@ -77,6 +84,16 @@ TEST_F(FXAAPassTest, PassThroughUniformColor) {
     EXPECT_TRUE(glIsEnabled(GL_DEPTH_TEST));
     EXPECT_TRUE(glIsEnabled(GL_CULL_FACE));
     EXPECT_TRUE(glIsEnabled(GL_BLEND));
+    GLint activeTexture = 0;
+    GLint texture0Binding = 0;
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
+    glActiveTexture(GL_TEXTURE0);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture0Binding);
+    EXPECT_EQ(GL_TEXTURE1, activeTexture);
+    EXPECT_EQ(static_cast<GLint>(texture0), texture0Binding);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDeleteTextures(1, &texture0);
+    glActiveTexture(GL_TEXTURE1);
 
     std::array<unsigned char, 4> pixel{0, 0, 0, 0};
     glReadPixels(8, 8, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());

@@ -12,6 +12,18 @@ struct GlfwWindow::Impl {
     GLFWwindow* window{nullptr};
 };
 
+namespace {
+
+void* load_glfw_proc(const char* procName) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    return reinterpret_cast<void*>(glfwGetProcAddress(procName));
+}
+
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+bool hasLivePlinthWindow{false};
+
+} // namespace
+
 GlfwWindow::GlfwWindow() = default;
 GlfwWindow::GlfwWindow(GlfwWindow&&) noexcept = default;
 
@@ -21,6 +33,7 @@ GlfwWindow& GlfwWindow::operator=(GlfwWindow&& other) noexcept {
             detail::clear_callbacks(m_impl->window);
             glfwDestroyWindow(m_impl->window);
             glfwTerminate();
+            hasLivePlinthWindow = false;
         }
         m_impl = std::move(other.m_impl);
     }
@@ -32,6 +45,7 @@ GlfwWindow::~GlfwWindow() {
         detail::clear_callbacks(m_impl->window);
         glfwDestroyWindow(m_impl->window);
         glfwTerminate();
+        hasLivePlinthWindow = false;
     }
 }
 
@@ -46,16 +60,12 @@ void* GlfwWindow::get_native_handle() const {
     return static_cast<void*>(m_impl->window);
 }
 
-namespace {
-
-void* load_glfw_proc(const char* procName) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    return reinterpret_cast<void*>(glfwGetProcAddress(procName));
-}
-
-} // namespace
-
 std::optional<GlfwWindow> GlfwWindow::create(const WindowSettings& settings) {
+    if (hasLivePlinthWindow) {
+        std::print("Error: A plinth GlfwWindow is already active; only one live window is supported.\n");
+        return std::nullopt;
+    }
+
     if (glfwInit() == 0) {
         const char* description = nullptr;
         glfwGetError(&description);
@@ -104,6 +114,7 @@ std::optional<GlfwWindow> GlfwWindow::create(const WindowSettings& settings) {
         }
     }
 
+    hasLivePlinthWindow = true;
     return window;
 }
 

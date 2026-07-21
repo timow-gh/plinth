@@ -19,24 +19,52 @@ jobs:
     name: Build - msvc - ${{ matrix.build_type }}
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set VCPKG_ROOT
         run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
         shell: pwsh
-      
+
       - name: Setup MSVC
         uses: microsoft/setup-msbuild@v2
-      
+
       - name: Configure
         run: |
           cmake --preset conf-msvc-${{ matrix.build_type }} -DBUILD_SHARED_LIBS=ON
         shell: pwsh
-      
+
       - name: Build
         run: |
           cmake --build --preset build-msvc-${{ matrix.build_type }}
         shell: pwsh
-      
+
+      - name: Test
+        run: |
+          ctest --preset test-msvc-${{ matrix.build_type }} --label-regex "unit|install"
+        shell: pwsh
+
+  windows-graphics:
+    runs-on: windows-latest
+    name: Graphics - msvc - debug
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set VCPKG_ROOT
+        run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Setup MSVC
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Configure
+        run: |
+          cmake --preset conf-msvc-debug -DBUILD_SHARED_LIBS=ON
+        shell: pwsh
+
+      - name: Build
+        run: |
+          cmake --build --preset build-msvc-debug
+        shell: pwsh
+
       - name: Install Mesa3D (software OpenGL for headless tests)
         # windows-latest runners have no GPU. The system opengl32.dll in
         # System32 only implements OpenGL 1.1, so glfwCreateWindow fails when
@@ -60,25 +88,25 @@ jobs:
           # the actual LLVMpipe implementation lives in libgallium_wgl.dll
           # (and related DLLs).  All of them must be co-located with the
           # executable for Mesa to initialise successfully.
-          Get-ChildItem -Path "out/build/conf-msvc-${{ matrix.build_type }}" `
+          Get-ChildItem -Path "out/build/conf-msvc-debug" `
             -Filter "*.exe" -Recurse |
             Select-Object -ExpandProperty DirectoryName -Unique |
             ForEach-Object { Copy-Item "Mesa\x64\*.dll" "$_\" -Force }
         shell: pwsh
-      
+
       - name: Test
         run: |
-          ctest --preset test-msvc-${{ matrix.build_type }}
+          ctest --preset test-msvc-debug --label-regex "graphics"
         shell: pwsh
-  
+
   windows-build-summary:
     runs-on: ubuntu-latest
-    needs: windows-build
+    needs: [windows-build, windows-graphics]
     if: always()
     steps:
       - name: Check build status
         run: |
-          if [ "${{ needs.windows-build.result }}" != "success" ]; then
+          if [ "${{ needs.windows-build.result }}" != "success" ] || [ "${{ needs.windows-graphics.result }}" != "success" ]; then
             echo "Windows build failed"
             exit 1
           fi

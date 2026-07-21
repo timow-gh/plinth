@@ -73,6 +73,9 @@ class Renderer {
     Renderer& operator=(Renderer&&) = delete;
     ~Renderer();
 
+    // Only one live Renderer is supported at a time. A second call to create()
+    // while another Renderer is alive returns nullptr. A new instance may be
+    // created after the previous owner is destroyed.
     [[nodiscard]]
     static std::unique_ptr<Renderer> create(const WindowSettings& settings);
     [[nodiscard]]

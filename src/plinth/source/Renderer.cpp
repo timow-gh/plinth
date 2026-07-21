@@ -20,7 +20,6 @@ Renderer::~Renderer() {
     m_imguiLifetime.reset();
     m_fxaaPass.reset();
     m_postProcessingPass.reset();
-    m_presentationPass.reset();
     m_ldrIntermediate.reset();
     m_hdrResolveFramebuffer.reset();
     m_sceneFramebuffer.reset();

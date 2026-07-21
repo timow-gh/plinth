@@ -106,8 +106,8 @@ void FXAAPass::process(GLuint inputTexture, int width, int height) const {
     glBindTexture(GL_TEXTURE_2D, inputTexture);
     glUniform1i(m_inputTexture.get_location().get_value(), 0);
 
-    float invSize[2] = {1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height)};
-    glUniform2fv(m_invTextureSize.get_location().get_value(), 1, invSize);
+    const std::array<float, 2> invSize{1.0F / static_cast<float>(width), 1.0F / static_cast<float>(height)};
+    glUniform2fv(m_invTextureSize.get_location().get_value(), 1, invSize.data());
 
     glBindVertexArray(m_vertexArray);
     glDrawArrays(GL_TRIANGLES, 0, 3);

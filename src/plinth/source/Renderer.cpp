@@ -1,8 +1,8 @@
 #include <OpenGL/Drawable/DrawablesManager.hpp>
 #include <OpenGL/ErrorReporting.hpp>
+#include <OpenGL/FXAAPass.hpp>
 #include <OpenGL/FrameState.hpp>
 #include <OpenGL/Framebuffer.hpp>
-#include <OpenGL/FXAAPass.hpp>
 #include <OpenGL/GpuCapabilities.hpp>
 #include <OpenGL/OpenGL.hpp>
 #include <OpenGL/PostProcessingPass.hpp>
@@ -584,15 +584,18 @@ void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
     CameraProjectionType projectionType = m_camera->get_projection_type();
     m_imgui->add_camera_controls(autoFitEnabled, projectionType, homeRequested);
 
-    float fogColor[3] = {m_fogColorR, m_fogColorG, m_fogColorB};
+    std::array<float, 3> fogColorArr{m_fogColorR, m_fogColorG, m_fogColorB};
     m_imgui->add_post_processing_controls(
         m_exposureStops,
         m_toneMapMode,
         m_fogEnabled, m_fogMode, m_fogStart, m_fogEnd, m_fogDensity,
-        fogColor,
+        fogColorArr,
         m_visualizationMode, m_hdrDisplayMax,
         m_grayscale,
         m_fxaaEnabled, m_fxaaEdgeThreshold, m_fxaaEdgeThresholdMin, m_fxaaSubpixelAmount);
+    m_fogColorR = fogColorArr[0];
+    m_fogColorG = fogColorArr[1];
+    m_fogColorB = fogColorArr[2];
 
     m_imgui->render();
     m_imgui->end_frame();
@@ -612,8 +615,8 @@ void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
 }
 
 void Renderer::present_scene() {
-    GLuint hdrColorTex;
-    GLuint depthTex;
+    GLuint hdrColorTex{0};
+    GLuint depthTex{0};
     if (m_sceneSamples > 1) {
         if (!m_sceneFramebuffer->resolve_to(*m_hdrResolveFramebuffer, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)) {
             opengl::report_error("Error: present_scene failed to resolve HDR framebuffer");

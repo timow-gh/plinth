@@ -5,6 +5,7 @@
 #include <plinth/InputCaptureState.hpp>
 #include <plinth/InputState.hpp>
 #include <plinth/PostProcessingEnums.hpp>
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <vector>
@@ -34,7 +35,7 @@ class ImGuiOverlay {
         float& fogStart,
         float& fogEnd,
         float& fogDensity,
-        float fogColor[3],
+        std::array<float, 3>& fogColor,
         renderer::VisualizationMode& visualizationMode,
         float& hdrDisplayMax,
         bool& grayscale,

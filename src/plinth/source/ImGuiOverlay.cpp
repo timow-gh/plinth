@@ -138,7 +138,7 @@ void ImGuiOverlay::add_post_processing_controls(
     float& fogStart,
     float& fogEnd,
     float& fogDensity,
-    float fogColor[3],
+    std::array<float, 3>& fogColor,
     renderer::VisualizationMode& visualizationMode,
     float& hdrDisplayMax,
     bool& grayscale,
@@ -147,16 +147,17 @@ void ImGuiOverlay::add_post_processing_controls(
     float& fxaaEdgeThresholdMin,
     float& fxaaSubpixelAmount) {
 
+    float* fogColorPtr = fogColor.data();
     m_controls.emplace_back([&exposureStops, &toneMapMode,
-                             &fogEnabled, &fogMode, &fogStart, &fogEnd, &fogDensity, &fogColor,
+                             &fogEnabled, &fogMode, &fogStart, &fogEnd, &fogDensity, fogColorPtr,
                              &visualizationMode, &hdrDisplayMax, &grayscale,
                              &fxaaEnabled, &fxaaEdgeThreshold, &fxaaEdgeThresholdMin, &fxaaSubpixelAmount]() {
         if (!ImGui::CollapsingHeader("Post Processing", ImGuiTreeNodeFlags_DefaultOpen)) {
             return;
         }
 
-        ImGui::SliderFloat("Exposure (stops)", &exposureStops, -10.0f, 10.0f, "%.1f");
-        ImGui::Text("  -1 = half, 0 = unchanged, +1 = twice");
+        ImGui::SliderFloat("Exposure (stops)", &exposureStops, -10.0F, 10.0F, "%.1F");  // NOLINT(readability-magic-numbers)
+        ImGui::Text("%s", "  -1 = half, 0 = unchanged, +1 = twice");  // NOLINT(cppcoreguidelines-pro-type-vararg)
 
         constexpr std::array<const char*, 2> toneMapItems = {"None (clamp)", "Reinhard"};
         int currentTM = static_cast<int>(toneMapMode);
@@ -171,12 +172,17 @@ void ImGuiOverlay::add_post_processing_controls(
             fogMode = static_cast<renderer::FogMode>(currentFog);
 
             if (fogMode == renderer::FogMode::Linear) {
-                ImGui::SliderFloat("Start", &fogStart, 0.0f, fogEnd - 0.1f);
-                ImGui::SliderFloat("End", &fogEnd, fogStart + 0.1f, 500.0f);
+                constexpr float fogStartStep{0.1F};
+                constexpr float fogEndMin{0.1F};
+                constexpr float fogEndMax{500.0F};
+                ImGui::SliderFloat("Start", &fogStart, 0.0F, fogEnd - fogStartStep);  // NOLINT(readability-magic-numbers)
+                ImGui::SliderFloat("End", &fogEnd, fogStart + fogEndMin, fogEndMax);  // NOLINT(readability-magic-numbers)
             } else {
-                ImGui::SliderFloat("Density", &fogDensity, 0.001f, 1.0f, "%.4f");
+                constexpr float fogDensityMin{0.001F};
+                constexpr float fogDensityMax{1.0F};
+                ImGui::SliderFloat("Density", &fogDensity, fogDensityMin, fogDensityMax, "%.4F");
             }
-            ImGui::ColorEdit3("Color", fogColor);
+            ImGui::ColorEdit3("Color", fogColorPtr);
             ImGui::TreePop();
         }
 
@@ -191,7 +197,9 @@ void ImGuiOverlay::add_post_processing_controls(
 
         if (visualizationMode == renderer::VisualizationMode::RawHdr ||
             visualizationMode == renderer::VisualizationMode::Luminance) {
-            ImGui::SliderFloat("HDR Max", &hdrDisplayMax, 0.1f, 100.0f, "%.1f");
+            constexpr float hdrMin{0.1F};
+            constexpr float hdrMax{100.0F};
+            ImGui::SliderFloat("HDR Max", &hdrDisplayMax, hdrMin, hdrMax, "%.1F");
         }
 
         ImGui::Checkbox("Grayscale", &grayscale);
@@ -199,9 +207,15 @@ void ImGuiOverlay::add_post_processing_controls(
         ImGui::Separator();
         ImGui::Checkbox("FXAA", &fxaaEnabled);
         if (fxaaEnabled) {
-            ImGui::SliderFloat("Edge Threshold", &fxaaEdgeThreshold, 0.0f, 0.5f, "%.3f");
-            ImGui::SliderFloat("Edge Threshold Min", &fxaaEdgeThresholdMin, 0.0f, 0.25f, "%.4f");
-            ImGui::SliderFloat("Subpixel Amount", &fxaaSubpixelAmount, 0.0f, 1.0f, "%.2f");
+            constexpr float edgeMin{0.0F};
+            constexpr float edgeMax{0.5F};
+            constexpr float edgeMinMin{0.0F};
+            constexpr float edgeMinMax{0.25F};
+            constexpr float subpixMin{0.0F};
+            constexpr float subpixMax{1.0F};
+            ImGui::SliderFloat("Edge Threshold", &fxaaEdgeThreshold, edgeMin, edgeMax, "%.3F");
+            ImGui::SliderFloat("Edge Threshold Min", &fxaaEdgeThresholdMin, edgeMinMin, edgeMinMax, "%.4F");
+            ImGui::SliderFloat("Subpixel Amount", &fxaaSubpixelAmount, subpixMin, subpixMax, "%.2F");
         }
     });
 }

@@ -41,10 +41,10 @@ int main() {
 
     // Tab toggles between orbit navigation and fly (WASD+QE) navigation, proving the new
     // CameraInteractor::NavigationStyle switch works end-to-end.
-    renderer->add_key_callback([&renderer](renderer::Key key,
-                                           renderer::Scancode /*scancode*/,
-                                           renderer::Action action,
-                                           renderer::Mods /*mods*/) {
+    const auto navigationStyleSubscription = renderer->add_key_callback([&renderer](renderer::Key key,
+                                                                                     renderer::Scancode /*scancode*/,
+                                                                                     renderer::Action action,
+                                                                                     renderer::Mods /*mods*/) {
         if (key == renderer::Key::KEY_TAB && action == renderer::Action::PRESS) {
             auto camera = renderer->get_camera().lock();
             if (camera) {
@@ -60,10 +60,10 @@ int main() {
     // to whatever geometry currently exists in the scene. Routed through Renderer::go_to_preset_view
     // (not CameraInteractor::go_to_preset_view directly) so the jump actually frames current
     // geometry instead of just rotating around whatever pivot/distance the camera happened to have.
-    renderer->add_key_callback([&renderer](renderer::Key key,
-                                           renderer::Scancode /*scancode*/,
-                                           renderer::Action action,
-                                           renderer::Mods /*mods*/) {
+    const auto presetViewSubscription = renderer->add_key_callback([&renderer](renderer::Key key,
+                                                                                renderer::Scancode /*scancode*/,
+                                                                                renderer::Action action,
+                                                                                renderer::Mods /*mods*/) {
         if (action != renderer::Action::PRESS) {
             return;
         }
@@ -79,11 +79,6 @@ int main() {
         }
     });
 
-    // Persistent across frames so the ImGui "Auto Zoom" checkbox and Home button actually work -
-    // the zero-arg end_frame() overload would otherwise discard this state every frame.
-    bool autoFitEnabled = false;
-    bool homeRequested = false;
-
     while (!renderer->should_close()) {
         renderer::Renderer::poll_events();
         if (renderer->is_escape_pressed()) {
@@ -91,7 +86,8 @@ int main() {
         }
         renderer->begin_frame();
         renderer->draw();
-        renderer->end_frame(autoFitEnabled, homeRequested);
+        // This overload retains the renderer-owned Auto Zoom state across frames.
+        renderer->end_frame();
     }
 
     return 0;

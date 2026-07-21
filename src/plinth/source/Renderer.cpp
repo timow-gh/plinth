@@ -7,12 +7,44 @@
 #include <OpenGL/OpenGL.hpp>
 #include <OpenGL/PostProcessingPass.hpp>
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <plinth/Renderer.hpp>
+#include <string>
+#include <string_view>
 
 namespace renderer {
+
+struct CallbackConnection {
+    bool connected{true};
+};
+
+CallbackSubscription::CallbackSubscription(std::shared_ptr<CallbackConnection> connection)
+    : m_connection(std::move(connection)) {}
+
+CallbackSubscription::CallbackSubscription(CallbackSubscription&& other) noexcept = default;
+CallbackSubscription& CallbackSubscription::operator=(CallbackSubscription&& other) noexcept {
+    if (this != &other) {
+        disconnect();
+        m_connection = std::move(other.m_connection);
+    }
+    return *this;
+}
+CallbackSubscription::~CallbackSubscription() { disconnect(); }
+
+void CallbackSubscription::disconnect() noexcept {
+    if (m_connection) {
+        m_connection->connected = false;
+        m_connection.reset();
+    }
+}
+
+bool CallbackSubscription::is_connected() const noexcept {
+    return m_connection && m_connection->connected;
+}
 
 Renderer::~Renderer() {
     m_window.make_context_current();
@@ -32,6 +64,37 @@ constexpr linal::double3 defaultCameraPosition{5.0, 5.0, 5.0};
 constexpr double minimumFitDistance = 1.0;
 constexpr double maxFrameDeltaSeconds = 0.1;
 constexpr CameraAutoFitSettings defaultAutoFitSettings{};
+
+std::optional<std::uint64_t> next_renderer_instance() {
+    static std::atomic<std::uint64_t> next{1U};
+    std::uint64_t current = next.load(std::memory_order_relaxed);
+    while (current != std::numeric_limits<std::uint64_t>::max()) {
+        if (next.compare_exchange_weak(current, current + 1U, std::memory_order_relaxed)) {
+            return current;
+        }
+    }
+    return std::nullopt;
+}
+
+bool is_finite(float value) {
+    return std::isfinite(value);
+}
+
+bool is_valid_tone_map_mode(ToneMapMode mode) {
+    return mode == ToneMapMode::None || mode == ToneMapMode::Reinhard;
+}
+
+bool is_valid_fog_mode(FogMode mode) {
+    return mode == FogMode::Linear || mode == FogMode::Exponential;
+}
+
+bool is_valid_visualization_mode(VisualizationMode mode) {
+    return mode >= VisualizationMode::Final && mode <= VisualizationMode::Grayscale;
+}
+
+void report_invalid_argument(std::string_view setter) {
+    opengl::report_error(std::string{"Error: Renderer::"} + std::string{setter} + " rejected an invalid value");
+}
 
 std::uint32_t valid_framebuffer_dimension(int dimension) {
     return static_cast<std::uint32_t>(dimension > 0 ? dimension : 1);
@@ -155,6 +218,12 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
         return nullptr;
     }
 
+    const auto rendererInstance = next_renderer_instance();
+    if (!rendererInstance) {
+        opengl::report_error("Error: Renderer::create failed - renderer instance IDs exhausted");
+        return nullptr;
+    }
+
     std::unique_ptr<Renderer> renderer(new Renderer(std::move(window.value()),
                                                        std::move(drawablesManager),
                                                        std::move(camera),
@@ -165,7 +234,8 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
                                                         std::make_unique<opengl::PostProcessingPass>(std::move(*postProcess)),
                                                        std::make_unique<opengl::FXAAPass>(std::move(*fxaa)),
                                                        sceneSamples,
-                                                       capabilities.maxTextureSize));
+                                                        capabilities.maxTextureSize,
+                                                        *rendererInstance));
 
     renderer->update_scene_viewport();
     renderer->wire_callbacks();
@@ -181,9 +251,10 @@ Renderer::Renderer(GlfwWindow window,
                     std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
                      std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
                      std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
-                    std::unique_ptr<opengl::FXAAPass> fxaaPass,
-                    int sceneSamples,
-                    int maxTextureSize)
+                     std::unique_ptr<opengl::FXAAPass> fxaaPass,
+                     int sceneSamples,
+                     int maxTextureSize,
+                     std::uint64_t rendererInstance)
     : m_window(std::move(window))
     , m_drawablesManager(std::move(drawables))
     , m_camera(std::move(camera))
@@ -196,7 +267,8 @@ Renderer::Renderer(GlfwWindow window,
     , m_sceneSamples(sceneSamples)
     , m_lastFrameTime(std::chrono::steady_clock::now())
     , m_lastCameraInteractionTime(m_lastFrameTime)
-    , m_maxTextureSize(maxTextureSize) {
+    , m_maxTextureSize(maxTextureSize)
+    , m_rendererInstance(rendererInstance) {
 }
 
 void Renderer::on_cursor_pos(double xpos, double ypos) {
@@ -211,9 +283,7 @@ void Renderer::on_cursor_pos(double xpos, double ypos) {
     const auto [sceneX, sceneY] = *sceneCoordinates;
     m_window.get_input_state().cursorPosState = CursorPosState{sceneX, sceneY};
     m_camera->on_cursor_position(sceneX, sceneY);
-    for (const auto& cb: m_cursorPosCallbacks) {
-        cb(sceneX, sceneY);
-    }
+    dispatch_callbacks(m_cursorPosCallbacks, sceneX, sceneY);
 }
 
 void Renderer::on_scroll(double xoff, double yoff) {
@@ -226,9 +296,7 @@ void Renderer::on_scroll(double xoff, double yoff) {
     const auto [sceneX, sceneY] = *current_scene_framebuffer_coordinates();
     m_window.get_input_state().cursorPosState = CursorPosState{sceneX, sceneY};
     m_camera->on_scroll(xoff, yoff);
-    for (const auto& cb: m_scrollCallbacks) {
-        cb(xoff, yoff);
-    }
+    dispatch_callbacks(m_scrollCallbacks, xoff, yoff);
 }
 
 void Renderer::on_mouse_button(int button, Action action, Mods mods) {
@@ -251,9 +319,7 @@ void Renderer::on_mouse_button(int button, Action action, Mods mods) {
     if (action == Action::RELEASE) {
         m_cameraMouseInteractionActive = false;
     }
-    for (const auto& cb: m_mouseButtonCallbacks) {
-        cb(button, action, mods);
-    }
+    dispatch_callbacks(m_mouseButtonCallbacks, button, action, mods);
 }
 
 void Renderer::wire_callbacks() {
@@ -272,9 +338,7 @@ void Renderer::wire_callbacks() {
         if (key == Key::KEY_H && action == Action::PRESS && !m_imgui->wants_keyboard()) {
             go_to_home_view();
         }
-        for (const auto& cb: m_keyCallbacks) {
-            cb(key, scancode, action, mods);
-        }
+        dispatch_callbacks(m_keyCallbacks, key, scancode, action, mods);
     });
 
     m_window.set_char_callback([this](std::uint32_t codepoint) { m_imgui->handle_char(codepoint); });
@@ -295,7 +359,7 @@ DrawableHandle Renderer::add_point_drawable(std::span<const float> vertices,
     if (!id.has_value()) {
         return DrawableHandle{};
     }
-    return DrawableHandle{DrawableKind::point, *id};
+    return DrawableHandle{DrawableKind::point, *id, m_rendererInstance};
 }
 
 DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
@@ -310,7 +374,7 @@ DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
     if (!id.has_value()) {
         return DrawableHandle{};
     }
-    return DrawableHandle{DrawableKind::line, *id};
+    return DrawableHandle{DrawableKind::line, *id, m_rendererInstance};
 }
 
 DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
@@ -323,23 +387,29 @@ DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
     if (!id.has_value()) {
         return DrawableHandle{};
     }
-    return DrawableHandle{DrawableKind::mesh, *id};
+    return DrawableHandle{DrawableKind::mesh, *id, m_rendererInstance};
 }
 
 TextureHandle Renderer::create_texture_2d(TextureData data) {
     const auto id = m_drawablesManager->create_texture_2d(data, m_maxTextureSize);
-    return id ? TextureHandle{*id} : TextureHandle{};
+    return id ? TextureHandle{*id, m_rendererInstance} : TextureHandle{};
 }
 
-bool Renderer::remove_texture(TextureHandle texture) { return texture.is_valid() && m_drawablesManager->remove_texture(texture.id); }
+bool Renderer::remove_texture(TextureHandle texture) {
+    return texture.is_valid() && texture.rendererInstance == m_rendererInstance &&
+           m_drawablesManager->remove_texture(texture.id);
+}
 
 DrawableHandle Renderer::add_textured_mesh_drawable(std::span<const float> vertices, std::span<const float> normals,
                                                      std::span<const float> textureCoordinates, std::span<const float> colors,
                                                      std::span<const std::uint32_t> triangleIndices, TextureHandle texture,
                                                      renderer::BufferAccessPattern accessPattern) {
+    if (!texture.is_valid() || texture.rendererInstance != m_rendererInstance) {
+        return {};
+    }
     const auto id = m_drawablesManager->add_textured_mesh_drawable(vertices, 3, normals, textureCoordinates, colors, 4,
-                                                                     triangleIndices, texture.id, accessPattern);
-    return id ? DrawableHandle{DrawableKind::mesh, *id} : DrawableHandle{};
+                                                                      triangleIndices, texture.id, accessPattern);
+    return id ? DrawableHandle{DrawableKind::mesh, *id, m_rendererInstance} : DrawableHandle{};
 }
 
 DrawableHandle Renderer::add_mesh_segment_drawable(std::span<const float> positions,
@@ -350,7 +420,7 @@ DrawableHandle Renderer::add_mesh_segment_drawable(std::span<const float> positi
     if (!id.has_value()) {
         return DrawableHandle{};
     }
-    return DrawableHandle{DrawableKind::meshSegment, *id};
+    return DrawableHandle{DrawableKind::meshSegment, *id, m_rendererInstance};
 }
 
 DrawableHandle
@@ -359,17 +429,17 @@ Renderer::add_mesh_vertex_drawable(std::span<const float> positions, std::span<c
     if (!id.has_value()) {
         return DrawableHandle{};
     }
-    return DrawableHandle{DrawableKind::meshVertex, *id};
+    return DrawableHandle{DrawableKind::meshVertex, *id, m_rendererInstance};
 }
 
 void Renderer::set_mesh_drawable_cull_mode(DrawableHandle handle, renderer::MeshCullFaceMode mode) {
-    if (handle.kind == DrawableKind::mesh && handle.id != 0U) {
+    if (handle.kind == DrawableKind::mesh && handle.is_valid() && handle.rendererInstance == m_rendererInstance) {
         m_drawablesManager->set_mesh_drawable_cull_mode(handle.id, mode);
     }
 }
 
 bool Renderer::remove_drawable(DrawableHandle handle) {
-    if (!handle.is_valid()) {
+    if (!handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
         return false;
     }
 
@@ -386,7 +456,7 @@ bool Renderer::remove_drawable(DrawableHandle handle) {
 }
 
 bool Renderer::set_drawable_transform(DrawableHandle handle, const linal::hmatf& transform) {
-    if (!handle.is_valid()) {
+    if (!handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
         return false;
     }
 
@@ -403,7 +473,7 @@ bool Renderer::set_drawable_transform(DrawableHandle handle, const linal::hmatf&
 }
 
 std::optional<linal::hmatf> Renderer::get_drawable_transform(DrawableHandle handle) const {
-    if (!handle.is_valid()) {
+    if (!handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
         return std::nullopt;
     }
 
@@ -580,9 +650,8 @@ void Renderer::draw(const renderer::LightingConfig& lighting) {
 }
 
 void Renderer::end_frame() {
-    bool autoFitEnabled = false;
     bool homeRequested = false;
-    end_frame(autoFitEnabled, homeRequested);
+    end_frame(m_autoFitEnabled, homeRequested);
 }
 
 void Renderer::end_frame(bool& autoFitEnabled) {
@@ -689,10 +758,18 @@ void Renderer::present_scene() {
 // --- Post-processing setters ---
 
 void Renderer::set_exposure_stops(float stops) {
+    if (!is_finite(stops)) {
+        report_invalid_argument("set_exposure_stops");
+        return;
+    }
     m_exposureStops = stops;
 }
 
 void Renderer::set_tone_map_mode(renderer::ToneMapMode mode) {
+    if (!is_valid_tone_map_mode(mode)) {
+        report_invalid_argument("set_tone_map_mode");
+        return;
+    }
     m_toneMapMode = mode;
 }
 
@@ -701,32 +778,60 @@ void Renderer::set_fog_enabled(bool enabled) {
 }
 
 void Renderer::set_fog_mode(renderer::FogMode mode) {
+    if (!is_valid_fog_mode(mode)) {
+        report_invalid_argument("set_fog_mode");
+        return;
+    }
     m_fogMode = mode;
 }
 
 void Renderer::set_fog_start(float start) {
+    if (!is_finite(start) || start >= m_fogEnd) {
+        report_invalid_argument("set_fog_start");
+        return;
+    }
     m_fogStart = start;
 }
 
 void Renderer::set_fog_end(float end) {
+    if (!is_finite(end) || end <= m_fogStart) {
+        report_invalid_argument("set_fog_end");
+        return;
+    }
     m_fogEnd = end;
 }
 
 void Renderer::set_fog_density(float density) {
+    if (!is_finite(density) || density < 0.0F) {
+        report_invalid_argument("set_fog_density");
+        return;
+    }
     m_fogDensity = density;
 }
 
 void Renderer::set_fog_color(float r, float g, float b) {
+    if (!is_finite(r) || !is_finite(g) || !is_finite(b)) {
+        report_invalid_argument("set_fog_color");
+        return;
+    }
     m_fogColorR = r;
     m_fogColorG = g;
     m_fogColorB = b;
 }
 
 void Renderer::set_visualization_mode(renderer::VisualizationMode mode) {
+    if (!is_valid_visualization_mode(mode)) {
+        report_invalid_argument("set_visualization_mode");
+        return;
+    }
     m_visualizationMode = mode;
 }
 
 void Renderer::set_hdr_display_max(float maxVal) {
+    if (!is_finite(maxVal) || maxVal <= 0.0F) {
+        report_invalid_argument("set_hdr_display_max");
+        return;
+    }
     m_hdrDisplayMax = maxVal;
 }
 
@@ -739,14 +844,26 @@ void Renderer::set_fxaa_enabled(bool enabled) {
 }
 
 void Renderer::set_fxaa_edge_threshold(float threshold) {
+    if (!is_finite(threshold) || threshold < 0.0F || threshold > 0.5F) {
+        report_invalid_argument("set_fxaa_edge_threshold");
+        return;
+    }
     m_fxaaEdgeThreshold = threshold;
 }
 
 void Renderer::set_fxaa_edge_threshold_min(float threshold) {
+    if (!is_finite(threshold) || threshold < 0.0F || threshold > 0.25F) {
+        report_invalid_argument("set_fxaa_edge_threshold_min");
+        return;
+    }
     m_fxaaEdgeThresholdMin = threshold;
 }
 
 void Renderer::set_fxaa_subpixel_amount(float amount) {
+    if (!is_finite(amount) || amount < 0.0F || amount > 1.0F) {
+        report_invalid_argument("set_fxaa_subpixel_amount");
+        return;
+    }
     m_fxaaSubpixelAmount = amount;
 }
 
@@ -823,17 +940,35 @@ void Renderer::go_to_home_view() {
 
 // --- Callback extension ---
 
-void Renderer::add_cursor_pos_callback(CursorPosCB cb) {
-    m_cursorPosCallbacks.push_back(std::move(cb));
+template <typename Callback>
+CallbackSubscription Renderer::add_callback(std::vector<CallbackEntry<Callback>>& callbacks, Callback callback) {
+    auto connection = std::make_shared<CallbackConnection>();
+    callbacks.push_back(CallbackEntry<Callback>{std::move(callback), connection});
+    return CallbackSubscription{std::move(connection)};
 }
-void Renderer::add_scroll_callback(ScrollCB cb) {
-    m_scrollCallbacks.push_back(std::move(cb));
+
+template <typename Callback, typename... Args>
+void Renderer::dispatch_callbacks(std::vector<CallbackEntry<Callback>>& callbacks, Args&&... args) {
+    const auto snapshot = callbacks;
+    for (const auto& entry: snapshot) {
+        if (entry.connection->connected) {
+            entry.callback(std::forward<Args>(args)...);
+        }
+    }
+    std::erase_if(callbacks, [](const CallbackEntry<Callback>& entry) { return !entry.connection->connected; });
 }
-void Renderer::add_mouse_button_callback(MouseBtnCB cb) {
-    m_mouseButtonCallbacks.push_back(std::move(cb));
+
+CallbackSubscription Renderer::add_cursor_pos_callback(CursorPosCB cb) {
+    return add_callback(m_cursorPosCallbacks, std::move(cb));
 }
-void Renderer::add_key_callback(KeyCB cb) {
-    m_keyCallbacks.push_back(std::move(cb));
+CallbackSubscription Renderer::add_scroll_callback(ScrollCB cb) {
+    return add_callback(m_scrollCallbacks, std::move(cb));
+}
+CallbackSubscription Renderer::add_mouse_button_callback(MouseBtnCB cb) {
+    return add_callback(m_mouseButtonCallbacks, std::move(cb));
+}
+CallbackSubscription Renderer::add_key_callback(KeyCB cb) {
+    return add_callback(m_keyCallbacks, std::move(cb));
 }
 
 void Renderer::update_scene_viewport() {

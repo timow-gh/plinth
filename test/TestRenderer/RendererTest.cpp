@@ -39,6 +39,15 @@ linal::hmatf make_translation(float x, float y, float z) {
     return result;
 }
 
+void dispatch_cursor(renderer::Renderer& renderer, double xpos) {
+    auto* window = static_cast<GLFWwindow*>(renderer.window().get_native_handle());
+    ASSERT_NE(nullptr, window);
+    const GLFWcursorposfun callback = glfwSetCursorPosCallback(window, nullptr);
+    ASSERT_NE(nullptr, callback);
+    glfwSetCursorPosCallback(window, callback);
+    callback(window, xpos, 32.0);
+}
+
 } // namespace
 
 // --- Drawable lifecycle ---
@@ -194,6 +203,85 @@ TEST_F(RendererTest, ResetTransformSetsIdentity) {
     EXPECT_TRUE(m_renderer->get_drawable_transform(handle)->is_identity());
 }
 
+TEST_F(RendererTest, DrawableKindsSupportTransformAndRemoval) {
+    const std::array<float, 9> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F,
+    };
+    const std::array<float, 9> normals = {
+        0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F,
+    };
+    const std::array<float, 12> colors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+    };
+    const std::array<float, 4> color = {1.0F, 1.0F, 1.0F, 1.0F};
+    const std::array<std::uint32_t, 3> indices = {0U, 1U, 2U};
+
+    const std::array handles = {
+        m_renderer->add_point_drawable(vertices, colors, indices, 1.0F),
+        m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), 1.0F),
+        m_renderer->add_mesh_drawable(vertices, normals, colors, indices),
+        m_renderer->add_mesh_segment_drawable(vertices, indices, color, 1.0F),
+        m_renderer->add_mesh_vertex_drawable(vertices, color, 1.0F),
+    };
+
+    for (const renderer::DrawableHandle handle: handles) {
+        ASSERT_TRUE(handle.is_valid());
+        EXPECT_TRUE(m_renderer->set_drawable_transform(handle, make_translation(1.0F, 2.0F, 3.0F)));
+        EXPECT_TRUE(m_renderer->get_drawable_transform(handle).has_value());
+        EXPECT_TRUE(m_renderer->reset_drawable_transform(handle));
+        EXPECT_TRUE(m_renderer->remove_drawable(handle));
+    }
+}
+
+TEST_F(RendererTest, StaleHandlesCannotAffectReplacementRenderer) {
+    const std::array<float, 9> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F,
+    };
+    const std::array<float, 9> normals = {
+        0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F,
+    };
+    const std::array<float, 12> colors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+    };
+    const std::array<std::uint32_t, 3> indices = {0U, 1U, 2U};
+    const std::array<std::uint8_t, 4> pixels = {255U, 255U, 255U, 255U};
+
+    const renderer::DrawableHandle staleDrawable = m_renderer->add_mesh_drawable(vertices, normals, colors, indices);
+    const renderer::TextureHandle staleTexture = m_renderer->create_texture_2d({1U, 1U, pixels});
+    ASSERT_TRUE(staleDrawable.is_valid());
+    ASSERT_TRUE(staleTexture.is_valid());
+    m_renderer.reset();
+
+    renderer::WindowSettings settings;
+    settings.title = "plinth replacement renderer test";
+    settings.width = 64;
+    settings.height = 64;
+    settings.visible = false;
+    settings.resizable = false;
+    settings.double_buffer = true;
+    m_renderer = renderer::Renderer::create(settings);
+    ASSERT_NE(nullptr, m_renderer);
+
+    const renderer::DrawableHandle replacement = m_renderer->add_mesh_drawable(vertices, normals, colors, indices);
+    const renderer::TextureHandle replacementTexture = m_renderer->create_texture_2d({1U, 1U, pixels});
+    ASSERT_TRUE(replacement.is_valid());
+    ASSERT_TRUE(replacementTexture.is_valid());
+    ASSERT_NE(staleDrawable.rendererInstance, replacement.rendererInstance);
+    ASSERT_NE(staleTexture.rendererInstance, replacementTexture.rendererInstance);
+
+    EXPECT_FALSE(m_renderer->remove_texture(staleTexture));
+    EXPECT_FALSE(m_renderer->add_textured_mesh_drawable(vertices, normals, {}, colors, indices, staleTexture).is_valid());
+    EXPECT_FALSE(m_renderer->remove_drawable(staleDrawable));
+    EXPECT_FALSE(m_renderer->set_drawable_transform(staleDrawable, make_translation(1.0F, 2.0F, 3.0F)));
+    EXPECT_FALSE(m_renderer->get_drawable_transform(staleDrawable).has_value());
+    EXPECT_FALSE(m_renderer->reset_drawable_transform(staleDrawable));
+    m_renderer->set_mesh_drawable_cull_mode(staleDrawable, renderer::MeshCullFaceMode::none);
+
+    EXPECT_TRUE(m_renderer->get_drawable_transform(replacement)->is_identity());
+    EXPECT_TRUE(m_renderer->remove_drawable(replacement));
+    EXPECT_TRUE(m_renderer->remove_texture(replacementTexture));
+}
+
 // --- Frame lifecycle ---
 
 TEST_F(RendererTest, BeginDrawEndFrameDoesNotCrash) {
@@ -229,6 +317,50 @@ TEST_F(RendererTest, EndFrameHandlesAutoFitAndHomeRequest) {
     m_renderer->begin_frame();
     m_renderer->draw();
     m_renderer->end_frame(autoFit, homeRequested);
+}
+
+TEST_F(RendererTest, NoArgumentEndFrameRetainsRendererOwnedAutoFitState) {
+    bool autoFit = true;
+    m_renderer->begin_frame();
+    m_renderer->draw();
+    m_renderer->end_frame(autoFit);
+    ASSERT_TRUE(m_renderer->is_auto_fit_enabled());
+
+    m_renderer->begin_frame();
+    m_renderer->draw();
+    m_renderer->end_frame();
+    EXPECT_TRUE(m_renderer->is_auto_fit_enabled());
+}
+
+TEST_F(RendererTest, CallbackSubscriptionDisconnectsOnDestruction) {
+    int calls = 0;
+    {
+        const auto subscription = m_renderer->add_cursor_pos_callback([&calls](double, double) { ++calls; });
+        dispatch_cursor(*m_renderer, 63.0);
+        EXPECT_EQ(1, calls);
+        EXPECT_TRUE(subscription.is_connected());
+    }
+    dispatch_cursor(*m_renderer, 63.5);
+    EXPECT_EQ(1, calls);
+}
+
+TEST_F(RendererTest, CallbackSubscriptionCanDisconnectExplicitlyAndDuringDispatch) {
+    int explicitCalls = 0;
+    auto explicitSubscription = m_renderer->add_cursor_pos_callback([&explicitCalls](double, double) { ++explicitCalls; });
+    explicitSubscription.disconnect();
+    EXPECT_FALSE(explicitSubscription.is_connected());
+    dispatch_cursor(*m_renderer, 63.0);
+    EXPECT_EQ(0, explicitCalls);
+
+    int selfCalls = 0;
+    renderer::CallbackSubscription selfSubscription;
+    selfSubscription = m_renderer->add_cursor_pos_callback([&selfCalls, &selfSubscription](double, double) {
+        ++selfCalls;
+        selfSubscription.disconnect();
+    });
+    dispatch_cursor(*m_renderer, 63.5);
+    dispatch_cursor(*m_renderer, 63.0);
+    EXPECT_EQ(1, selfCalls);
 }
 
 TEST_F(RendererTest, RetainedImGuiViewDoesNotKeepBackendAlive) {

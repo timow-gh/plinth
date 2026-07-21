@@ -42,11 +42,34 @@ enum class DrawableKind {
 struct DrawableHandle {
     DrawableKind kind{DrawableKind::invalid};
     std::uint64_t id{0U};
+    // Opaque identity of the Renderer that created this handle.
+    std::uint64_t rendererInstance{0U};
 
     [[nodiscard]]
     constexpr bool is_valid() const {
-        return kind != DrawableKind::invalid && id != 0U;
+        return kind != DrawableKind::invalid && id != 0U && rendererInstance != 0U;
     }
+};
+
+struct CallbackConnection;
+
+class CallbackSubscription {
+  public:
+    CallbackSubscription() = default;
+    CallbackSubscription(const CallbackSubscription&) = delete;
+    CallbackSubscription& operator=(const CallbackSubscription&) = delete;
+    CallbackSubscription(CallbackSubscription&& other) noexcept;
+    CallbackSubscription& operator=(CallbackSubscription&& other) noexcept;
+    ~CallbackSubscription();
+
+    void disconnect() noexcept;
+    [[nodiscard]] bool is_connected() const noexcept;
+
+  private:
+    friend class Renderer;
+    explicit CallbackSubscription(std::shared_ptr<CallbackConnection> connection);
+
+    std::shared_ptr<CallbackConnection> m_connection;
 };
 
 struct LogicalViewportRect {
@@ -181,6 +204,11 @@ class Renderer {
     bool has_mesh_drawables() const;
 
     // --- Post-processing controls ---
+    // Numeric values must be finite. HDR display max must be positive; fog
+    // density must be non-negative; linear fog requires end > start. FXAA edge
+    // threshold, minimum edge contrast, and subpixel amount are respectively
+    // constrained to [0, 0.5], [0, 0.25], and [0, 1]. Invalid inputs are
+    // rejected without changing state and reported through the renderer error sink.
     void set_exposure_stops(float stops);
     void set_tone_map_mode(renderer::ToneMapMode mode);
     void set_fog_enabled(bool enabled);
@@ -210,6 +238,8 @@ class Renderer {
     void draw();
     void draw(const renderer::LightingConfig& lighting);
     void end_frame();
+    // Caller owns auto-fit state for these overloads. A Home request is consumed
+    // before return. The no-argument overload retains renderer-owned auto-fit state.
     void end_frame(bool& autoFitEnabled);
     void end_frame(bool& autoFitEnabled, bool& homeRequested);
 
@@ -221,10 +251,13 @@ class Renderer {
     void go_to_home_view();
 
     // --- Callback extension points ---
-    void add_cursor_pos_callback(CursorPosCB cb);
-    void add_scroll_callback(ScrollCB cb);
-    void add_mouse_button_callback(MouseBtnCB cb);
-    void add_key_callback(KeyCB cb);
+    // Keep the returned subscription alive for the callback lifetime. Destroying
+    // or disconnecting it removes the callback. During dispatch, disconnected
+    // callbacks are skipped and callbacks added during dispatch wait until later.
+    [[nodiscard]] CallbackSubscription add_cursor_pos_callback(CursorPosCB cb);
+    [[nodiscard]] CallbackSubscription add_scroll_callback(ScrollCB cb);
+    [[nodiscard]] CallbackSubscription add_mouse_button_callback(MouseBtnCB cb);
+    [[nodiscard]] CallbackSubscription add_key_callback(KeyCB cb);
 
     // --- Accessors ---
     [[nodiscard]]
@@ -240,6 +273,7 @@ class Renderer {
     std::weak_ptr<const CameraInteractor> get_camera() const {
         return m_camera;
     }
+    [[nodiscard]] bool is_auto_fit_enabled() const noexcept { return m_autoFitEnabled; }
     [[nodiscard]]
     // The returned overlay is owned by this Renderer and must not be used
     // after the Renderer is destroyed. It cannot extend backend lifetime.
@@ -259,9 +293,10 @@ class Renderer {
              std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
               std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
               std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
-             std::unique_ptr<opengl::FXAAPass> fxaaPass,
-             int sceneSamples,
-             int maxTextureSize);
+              std::unique_ptr<opengl::FXAAPass> fxaaPass,
+              int sceneSamples,
+              int maxTextureSize,
+              std::uint64_t rendererInstance);
 
     void wire_callbacks();
     void update_scene_viewport();
@@ -278,6 +313,17 @@ class Renderer {
                                                 const linal::double3& targetHint,
                                                 double currentDistance) const;
     void apply_fit_result(const CameraAutoFitResult& result);
+
+    template <typename Callback>
+    struct CallbackEntry {
+        Callback callback;
+        std::shared_ptr<CallbackConnection> connection;
+    };
+
+    template <typename Callback>
+    CallbackSubscription add_callback(std::vector<CallbackEntry<Callback>>& callbacks, Callback callback);
+    template <typename Callback, typename... Args>
+    void dispatch_callbacks(std::vector<CallbackEntry<Callback>>& callbacks, Args&&... args);
 
     GlfwWindow m_window;
     std::unique_ptr<opengl::DrawablesManager> m_drawablesManager;
@@ -298,11 +344,12 @@ class Renderer {
     bool m_autoFitPending{false};
     bool m_autoFitEnabled{false};
     int m_maxTextureSize{0};
+    std::uint64_t m_rendererInstance{0U};
 
-    std::vector<CursorPosCB> m_cursorPosCallbacks;
-    std::vector<ScrollCB> m_scrollCallbacks;
-    std::vector<MouseBtnCB> m_mouseButtonCallbacks;
-    std::vector<KeyCB> m_keyCallbacks;
+    std::vector<CallbackEntry<CursorPosCB>> m_cursorPosCallbacks;
+    std::vector<CallbackEntry<ScrollCB>> m_scrollCallbacks;
+    std::vector<CallbackEntry<MouseBtnCB>> m_mouseButtonCallbacks;
+    std::vector<CallbackEntry<KeyCB>> m_keyCallbacks;
 
     float m_exposureStops{0.0f};
     renderer::ToneMapMode m_toneMapMode{renderer::ToneMapMode::None};

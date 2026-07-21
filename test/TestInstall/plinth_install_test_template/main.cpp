@@ -3,8 +3,8 @@
 int main() {
     renderer::ClearColor clearColor{0.05F, 0.05F, 0.08F, 1.0F};
     renderer::LineType lineType = renderer::LineType::lines();
-    (void)lineType.get_gl_type();
-    renderer::BufferAccessPattern pattern = renderer::BufferAccessPattern::STATIC_DRAW;
+    (void)lineType;
+    renderer::BufferAccessPattern pattern = renderer::BufferAccessPattern::Static;
     (void)pattern;
     renderer::LightingConfig lighting;
     (void)lighting.lightPosition[0];

@@ -1,4 +1,5 @@
 #include "PlinthTestMatchers.hpp"
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <gtest/gtest.h>
 #include <linal/hmat.hpp>
@@ -8,6 +9,15 @@
 #include <cstdint>
 
 namespace {
+
+template <typename T>
+concept HasQueryOnlyBufferPattern = requires { T::READ_ONLY; };
+
+template <typename T>
+concept HasTriangleLineType = requires { T::triangles(); };
+
+static_assert(!HasQueryOnlyBufferPattern<renderer::BufferAccessPattern>);
+static_assert(!HasTriangleLineType<renderer::LineType>);
 
 class RendererTest : public ::testing::Test {
   protected:
@@ -81,6 +91,49 @@ TEST_F(RendererTest, AddLineDrawableReturnsValidHandle) {
 
     EXPECT_TRUE(handle.is_valid());
     EXPECT_EQ(renderer::DrawableKind::line, handle.kind);
+}
+
+TEST_F(RendererTest, BufferAccessPatternsCreateBuffersWithoutGlErrors) {
+    const std::array<float, 9> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F,
+    };
+    const std::array<float, 12> colors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+    };
+    const std::array<std::uint32_t, 3> indices = {0U, 1U, 2U};
+
+    for (const renderer::BufferAccessPattern accessPattern: {renderer::BufferAccessPattern::Stream,
+                                                               renderer::BufferAccessPattern::Static,
+                                                               renderer::BufferAccessPattern::Dynamic}) {
+        while (glGetError() != GL_NO_ERROR) {
+        }
+        EXPECT_TRUE(m_renderer->add_point_drawable(vertices, colors, indices, 1.0F, accessPattern).is_valid());
+        EXPECT_EQ(GL_NO_ERROR, glGetError());
+    }
+}
+
+TEST_F(RendererTest, LineTypesCreateLineDrawablesWithoutGlErrors) {
+    const std::array<float, 12> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F,
+    };
+    const std::array<std::uint32_t, 4> indices = {0U, 1U, 2U, 3U};
+    const std::array<float, 16> colors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F, 1.0F,
+    };
+
+    for (const renderer::LineType lineType: {renderer::LineType::lines(),
+                                              renderer::LineType::line_strip(),
+                                              renderer::LineType::line_loop()}) {
+        while (glGetError() != GL_NO_ERROR) {
+        }
+        EXPECT_TRUE(m_renderer->add_line_drawable(vertices, indices, colors, lineType, 2.0F).is_valid());
+        EXPECT_EQ(GL_NO_ERROR, glGetError());
+    }
+
+    m_renderer->begin_frame();
+    m_renderer->draw();
+    m_renderer->end_frame();
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
 TEST_F(RendererTest, AddMeshDrawableReturnsValidHandle) {

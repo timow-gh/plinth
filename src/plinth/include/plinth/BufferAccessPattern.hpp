@@ -1,26 +1,15 @@
 #ifndef PLINTH_BUFFERACCESSPATTERN_HPP
 #define PLINTH_BUFFERACCESSPATTERN_HPP
 
-#include <cstdint>
-
 namespace renderer {
 
-enum class BufferAccessPattern : std::uint32_t {
-    READ_ONLY = 0x88B8,
-    WRITE_ONLY = 0x88B9,
-    READ_WRITE = 0x88BA,
-    BUFFER_ACCESS = 0x88BB,
-    BUFFER_MAPPED = 0x88BC,
-    BUFFER_MAP_POINTER = 0x88BD,
-    STREAM_DRAW = 0x88E0,
-    STREAM_READ = 0x88E1,
-    STREAM_COPY = 0x88E2,
-    STATIC_DRAW = 0x88E4,
-    STATIC_READ = 0x88E5,
-    STATIC_COPY = 0x88E6,
-    DYNAMIC_DRAW = 0x88E8,
-    DYNAMIC_READ = 0x88E9,
-    DYNAMIC_COPY = 0x88EA
+enum class BufferAccessPattern {
+    // Data is replaced and consumed at most once.
+    Stream,
+    // Data is uploaded once and used many times.
+    Static,
+    // Data is replaced repeatedly and used many times between updates.
+    Dynamic,
 };
 
 } // namespace renderer

@@ -318,7 +318,7 @@ class DrawablesManager {
                                                    opengl::LineType::lines(),
                                                    lineWidth,
                                                    1.0f,
-                                                   opengl::BufferAccessPattern::STATIC_DRAW);
+                                                    opengl::BufferAccessPattern::Static);
         if (!drawable.has_value()) {
             return std::nullopt;
         }
@@ -355,7 +355,7 @@ class DrawablesManager {
                                                     4,
                                                     std::span<const std::uint32_t>(indices),
                                                     pointSize,
-                                                    opengl::BufferAccessPattern::STATIC_DRAW);
+                                                    opengl::BufferAccessPattern::Static);
         if (!drawable.has_value()) {
             return std::nullopt;
         }

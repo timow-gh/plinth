@@ -135,7 +135,7 @@ class Renderer {
                        std::span<const float> colors,
                        std::span<const std::uint32_t> indices,
                        float pointSize,
-                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::STATIC_DRAW);
+                        renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
     DrawableHandle
     add_line_drawable(std::span<const float> vertices,
@@ -144,14 +144,14 @@ class Renderer {
                       renderer::LineType lineType,
                       float lineWidth,
                       float pointSize = 0.0F,
-                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::STATIC_DRAW);
+                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
     DrawableHandle
     add_mesh_drawable(std::span<const float> vertices,
                       std::span<const float> normals,
                       std::span<const float> colors,
                       std::span<const std::uint32_t> triangleIndices,
-                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::STATIC_DRAW);
+                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
     TextureHandle create_texture_2d(TextureData data);
     bool remove_texture(TextureHandle texture);
@@ -162,7 +162,7 @@ class Renderer {
         std::span<const float> colors,
         std::span<const std::uint32_t> triangleIndices,
         TextureHandle texture,
-        renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::STATIC_DRAW);
+         renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
     DrawableHandle add_mesh_segment_drawable(std::span<const float> positions,
                                              std::span<const std::uint32_t> indices,

@@ -1,66 +1,42 @@
 #ifndef PLINTH_LINETYPE_HPP
 #define PLINTH_LINETYPE_HPP
 
-#include <cstdint>
-#include <stdexcept>
-
 namespace renderer {
 
 class LineType {
-    enum class Type : std::uint32_t {
-        LINES = 0x0001,
-        LINE_STRIP = 0x0003,
-        LINE_LOOP = 0x0002,
-        TRIANGLES = 0x0004,
-        TRIANGLE_STRIP = 0x0005,
-        TRIANGLE_FAN = 0x0006
+    enum class Type {
+        Lines,
+        LineStrip,
+        LineLoop,
     };
 
   public:
     LineType()
-        : m_type(Type::LINES) {}
+        : m_type(Type::Lines) {}
 
     [[nodiscard]]
     static LineType lines() {
-        return LineType(Type::LINES);
+        return LineType(Type::Lines);
     }
     [[nodiscard]]
     static LineType line_strip() {
-        return LineType(Type::LINE_STRIP);
+        return LineType(Type::LineStrip);
     }
     [[nodiscard]]
     static LineType line_loop() {
-        return LineType(Type::LINE_LOOP);
+        return LineType(Type::LineLoop);
     }
     [[nodiscard]]
-    static LineType triangles() {
-        return LineType(Type::TRIANGLES);
+    bool is_lines() const {
+        return m_type == Type::Lines;
     }
     [[nodiscard]]
-    static LineType triangle_strip() {
-        return LineType(Type::TRIANGLE_STRIP);
+    bool is_line_strip() const {
+        return m_type == Type::LineStrip;
     }
     [[nodiscard]]
-    static LineType triangle_fan() {
-        return LineType(Type::TRIANGLE_FAN);
-    }
-
-    [[nodiscard]]
-    static LineType from_gl_type(std::uint32_t gl_type) {
-        switch (gl_type) {
-        case 0x0001: return lines();
-        case 0x0003: return line_strip();
-        case 0x0002: return line_loop();
-        case 0x0004: return triangles();
-        case 0x0005: return triangle_strip();
-        case 0x0006: return triangle_fan();
-        default:      throw std::invalid_argument("Unknown OpenGL line type");
-        }
-    }
-
-    [[nodiscard]]
-    std::uint32_t get_gl_type() const {
-        return static_cast<std::uint32_t>(m_type);
+    bool is_line_loop() const {
+        return m_type == Type::LineLoop;
     }
 
   private:

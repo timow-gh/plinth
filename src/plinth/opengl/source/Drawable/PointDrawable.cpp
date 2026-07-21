@@ -126,7 +126,7 @@ void PointDrawable::draw_translucent(const linal::hmatf& mvp,
                                      const linal::double3& viewPosition) {
     const std::vector<std::uint32_t> sortedIndices =
         sort_translucent_point_indices_back_to_front(m_translucentPointIndices, viewPosition);
-    m_translucentPointIndicesBuffer.update_indices_buffer(sortedIndices, BufferAccessPattern::STREAM_DRAW);
+    m_translucentPointIndicesBuffer.update_indices_buffer(sortedIndices, BufferAccessPattern::Stream);
     draw_index_buffer(mvp, modelMatrix, m_translucentPointIndicesBuffer);
 }
 

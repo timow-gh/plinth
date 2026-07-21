@@ -54,7 +54,7 @@ std::optional<VertexBuffer> VertexBuffer::create(std::span<const float> vectors,
     glBindBuffer(GL_ARRAY_BUFFER, bufferId);
     const auto size = vectors.size() * sizeof(float);
     RENDERER_ASSERT(size <= static_cast<std::size_t>(std::numeric_limits<GLsizeiptr>::max()));
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(size), vectors.data(), get_enum_value(accessPattern));
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(size), vectors.data(), get_gl_buffer_usage(accessPattern));
     glEnableVertexAttribArray(bufferLocation.get_as_unsigned());
     const GLsizei stride = vectorDimension * static_cast<GLsizei>(sizeof(float));
     glVertexAttribPointer(bufferLocation.get_as_unsigned(), vectorDimension, GL_FLOAT, GL_FALSE, stride, nullptr);

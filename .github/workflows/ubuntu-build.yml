@@ -21,20 +21,31 @@ jobs:
     name: Build - ${{ matrix.compiler }} - ${{ matrix.build_type }}
     steps:
       - uses: actions/checkout@v4
-      # ubuntu-build-steps installs build deps (including xvfb for headless OpenGL)
-      # and runs configure, build, and ctest under xvfb-run.
+      # ubuntu-build-steps installs build deps and runs configure, build, and ctest.
+      # Defaults to unit|install tests without xvfb.
       - uses: ./.github/actions/ubuntu-build-steps
         with:
           cmake_workflow: workflow-test-${{ matrix.compiler }}-${{ matrix.build_type }}
+
+  ubuntu-graphics:
+    runs-on: ubuntu-24.04
+    name: Graphics - gcc - debug
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ubuntu-build-steps
+        with:
+          cmake_workflow: workflow-test-gcc-debug
+          test_label_regex: graphics
+          use_xvfb: 'true'
   
   ubuntu-build-summary:
     runs-on: ubuntu-latest
-    needs: ubuntu-build
+    needs: [ubuntu-build, ubuntu-graphics]
     if: always()
     steps:
       - name: Check build status
         run: |
-          if [ "${{ needs.ubuntu-build.result }}" != "success" ]; then
+          if [ "${{ needs.ubuntu-build.result }}" != "success" ] || [ "${{ needs.ubuntu-graphics.result }}" != "success" ]; then
             echo "Ubuntu build failed"
             exit 1
           fi

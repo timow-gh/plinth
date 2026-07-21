@@ -12,6 +12,14 @@ inputs:
     description: 'Additional native build-tool arguments passed after cmake --build --'
     required: false
     default: ''
+  test_label_regex:
+    description: 'CTest label regex passed to ctest -L (e.g. "unit|install" or "graphics")'
+    required: false
+    default: 'unit|install'
+  use_xvfb:
+    description: 'When true, install xvfb and execute ctest through xvfb-run'
+    required: false
+    default: 'false'
 
 runs:
   using: "composite"
@@ -30,12 +38,16 @@ runs:
         # uuid-dev: required by the stduuid dependency
         # libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev: X11 headers needed to build GLFW
         # libgl-dev: OpenGL headers; the system Mesa (llvmpipe) provides the runtime
-        # xvfb: X Virtual Framebuffer — GitHub Actions runners have no display server.
-        #   plinth uses GLFW which calls XOpenDisplay() at glfwInit() time; without a
-        #   display that call fails and every test that opens a window aborts immediately.
-        #   xvfb-run (see Test step) starts a temporary in-process display so glfwInit()
-        #   and glfwCreateWindow() succeed against the system Mesa/llvmpipe renderer.
-        sudo apt-get install -y gcc-15 g++-15 clang-20 libclang-rt-20-dev ninja-build uuid-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev xvfb ${{ inputs.install_tools }}
+        if [[ "${{ inputs.use_xvfb }}" == "true" ]]; then
+          # xvfb: X Virtual Framebuffer — GitHub Actions runners have no display server.
+          #   plinth uses GLFW which calls XOpenDisplay() at glfwInit() time; without a
+          #   display that call fails and every test that opens a window aborts immediately.
+          #   xvfb-run (see Test step) starts a temporary in-process display so glfwInit()
+          #   and glfwCreateWindow() succeed against the system Mesa/llvmpipe renderer.
+          sudo apt-get install -y gcc-15 g++-15 clang-20 libclang-rt-20-dev ninja-build uuid-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev xvfb ${{ inputs.install_tools }}
+        else
+          sudo apt-get install -y gcc-15 g++-15 clang-20 libclang-rt-20-dev ninja-build uuid-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev ${{ inputs.install_tools }}
+        fi
       shell: bash
     
     - name: Extract preset names
@@ -66,12 +78,16 @@ runs:
     
     - name: Test
       run: |
-        # xvfb-run starts a throwaway X server for the duration of ctest so that
-        # GLFW can open an OpenGL window (rendered in software by Mesa/llvmpipe).
-        # --auto-servernum selects a free display number automatically, which avoids
-        # conflicts when multiple matrix jobs run on the same host.
-        # --server-args="-noreset -ac": -noreset prevents the X server from resetting
-        # when all clients disconnect (e.g. when GlfwWindow::~GlfwWindow calls
-        # glfwTerminate between test cases). -ac disables access control.
-        xvfb-run --auto-servernum --server-args="-noreset -ac" ctest --preset ${{ steps.preset.outputs.test }}
+        if [[ "${{ inputs.use_xvfb }}" == "true" ]]; then
+          # xvfb-run starts a throwaway X server for the duration of ctest so that
+          # GLFW can open an OpenGL window (rendered in software by Mesa/llvmpipe).
+          # --auto-servernum selects a free display number automatically, which avoids
+          # conflicts when multiple matrix jobs run on the same host.
+          # --server-args="-noreset -ac": -noreset prevents the X server from resetting
+          # when all clients disconnect (e.g. when GlfwWindow::~GlfwWindow calls
+          # glfwTerminate between test cases). -ac disables access control.
+          xvfb-run --auto-servernum --server-args="-noreset -ac" ctest --preset ${{ steps.preset.outputs.test }} --label-regex "${{ inputs.test_label_regex }}"
+        else
+          ctest --preset ${{ steps.preset.outputs.test }} --label-regex "${{ inputs.test_label_regex }}"
+        fi
       shell: bash

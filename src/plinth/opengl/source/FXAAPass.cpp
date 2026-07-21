@@ -116,18 +116,22 @@ void FXAAPass::process(GLuint inputTexture, int width, int height) const {
 }
 
 void FXAAPass::set_enabled(bool enabled) const {
+    glUseProgram(m_program.get_value());
     glUniform1i(m_enabled.get_location().get_value(), enabled ? 1 : 0);
 }
 
 void FXAAPass::set_edge_threshold(float threshold) const {
+    glUseProgram(m_program.get_value());
     glUniform1f(m_edgeThreshold.get_location().get_value(), threshold);
 }
 
 void FXAAPass::set_edge_threshold_min(float threshold) const {
+    glUseProgram(m_program.get_value());
     glUniform1f(m_edgeThresholdMin.get_location().get_value(), threshold);
 }
 
 void FXAAPass::set_subpixel_amount(float amount) const {
+    glUseProgram(m_program.get_value());
     glUniform1f(m_subpixelAmount.get_location().get_value(), amount);
 }
 

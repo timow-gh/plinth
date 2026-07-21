@@ -165,50 +165,62 @@ void PostProcessingPass::process(GLuint hdrColorTexture, GLuint depthTexture, in
 }
 
 void PostProcessingPass::set_inv_projection(const float* data) const {
+    glUseProgram(m_program.get_value());
     glUniformMatrix4fv(m_invProjection.get_location().get_value(), 1, GL_FALSE, data);
 }
 
 void PostProcessingPass::set_fog_enabled(bool enabled) const {
+    glUseProgram(m_program.get_value());
     glUniform1i(m_fogEnabled.get_location().get_value(), enabled ? 1 : 0);
 }
 
 void PostProcessingPass::set_fog_mode(int mode) const {
+    glUseProgram(m_program.get_value());
     glUniform1i(m_fogMode.get_location().get_value(), mode);
 }
 
 void PostProcessingPass::set_fog_start(float start) const {
+    glUseProgram(m_program.get_value());
     glUniform1f(m_fogStart.get_location().get_value(), start);
 }
 
 void PostProcessingPass::set_fog_end(float end) const {
+    glUseProgram(m_program.get_value());
     glUniform1f(m_fogEnd.get_location().get_value(), end);
 }
 
 void PostProcessingPass::set_fog_density(float density) const {
+    glUseProgram(m_program.get_value());
     glUniform1f(m_fogDensity.get_location().get_value(), density);
 }
 
 void PostProcessingPass::set_fog_color(float r, float g, float b) const {
+    glUseProgram(m_program.get_value());
     glUniform3f(m_fogColor.get_location().get_value(), r, g, b);
 }
 
 void PostProcessingPass::set_exposure_stops(float stops) const {
+    glUseProgram(m_program.get_value());
     glUniform1f(m_exposureStops.get_location().get_value(), stops);
 }
 
 void PostProcessingPass::set_tone_map_mode(int mode) const {
+    glUseProgram(m_program.get_value());
     glUniform1i(m_toneMapMode.get_location().get_value(), mode);
 }
 
 void PostProcessingPass::set_visualization_mode(int mode) const {
+    glUseProgram(m_program.get_value());
     glUniform1i(m_visualizationMode.get_location().get_value(), mode);
 }
 
 void PostProcessingPass::set_hdr_display_max(float maxVal) const {
+    glUseProgram(m_program.get_value());
     glUniform1f(m_hdrDisplayMax.get_location().get_value(), maxVal);
 }
 
 void PostProcessingPass::set_grayscale(bool enabled) const {
+    glUseProgram(m_program.get_value());
     glUniform1i(m_grayscale.get_location().get_value(), enabled ? 1 : 0);
 }
 

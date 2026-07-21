@@ -14,6 +14,7 @@
 #include <plinth/InputState.hpp>
 #include <plinth/LightingConfig.hpp>
 #include <plinth/LineType.hpp>
+#include <plinth/PostProcessingEnums.hpp>
 #include <plinth/Texture.hpp>
 #include <plinth/WindowSettings.hpp>
 #include <span>
@@ -24,6 +25,8 @@ namespace opengl {
 class DrawablesManager;
 class Framebuffer;
 class PresentationPass;
+class PostProcessingPass;
+class FXAAPass;
 } // namespace opengl
 
 namespace renderer {
@@ -162,6 +165,23 @@ class Renderer {
     [[nodiscard]]
     bool has_mesh_drawables() const;
 
+    // --- Post-processing controls ---
+    void set_exposure_stops(float stops);
+    void set_tone_map_mode(renderer::ToneMapMode mode);
+    void set_fog_enabled(bool enabled);
+    void set_fog_mode(renderer::FogMode mode);
+    void set_fog_start(float start);
+    void set_fog_end(float end);
+    void set_fog_density(float density);
+    void set_fog_color(float r, float g, float b);
+    void set_visualization_mode(renderer::VisualizationMode mode);
+    void set_hdr_display_max(float maxVal);
+    void set_grayscale(bool enabled);
+    void set_fxaa_enabled(bool enabled);
+    void set_fxaa_edge_threshold(float threshold);
+    void set_fxaa_edge_threshold_min(float threshold);
+    void set_fxaa_subpixel_amount(float amount);
+
     // --- Frame lifecycle ---
     static void poll_events();
     [[nodiscard]]
@@ -177,11 +197,6 @@ class Renderer {
     void end_frame(bool& autoFitEnabled, bool& homeRequested);
 
     // --- Camera navigation (geometry-fit aware) ---
-    // Recommended entry points for jumping to a named preset view or "home": unlike the
-    // geometry-agnostic CameraInteractor::go_to_preset_view (which just preserves the current
-    // camera-to-target distance/pivot), these gather all current drawable geometry and fit it
-    // into view via calculate_camera_auto_fit, falling back to the geometry-agnostic behavior
-    // when the scene has no geometry yet.
     void go_to_preset_view(PresetView view);
     void go_to_home_view();
 
@@ -221,8 +236,11 @@ class Renderer {
              std::shared_ptr<CameraInteractor> camera,
              std::shared_ptr<ImGuiOverlay> imgui,
              std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
-             std::unique_ptr<opengl::Framebuffer> resolveFramebuffer,
+             std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
+             std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
              std::unique_ptr<opengl::PresentationPass> presentationPass,
+             std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
+             std::unique_ptr<opengl::FXAAPass> fxaaPass,
              int sceneSamples,
              int maxTextureSize);
 
@@ -234,12 +252,7 @@ class Renderer {
     void on_mouse_button(int button, Action action, Mods mods);
     [[nodiscard]]
     std::optional<std::pair<double, double>> current_scene_framebuffer_coordinates() const;
-    // Builds a CameraAutoFitInput from the camera's current projection settings plus the given
-    // hypothetical direction/up/target/distance, gathers all current drawable geometry, and
-    // returns the fitted result. `direction`/`up`/`targetHint` define the frame to fit within
-    // (not necessarily the camera's actual current pose - e.g. a preset-view direction);
-    // `currentDistance` is clamped to a safe minimum so callers can never feed a degenerate
-    // distance into CameraInteractor's transition machinery.
+
     [[nodiscard]]
     CameraAutoFitResult compute_fit_destination(const linal::double3& direction,
                                                 const linal::double3& up,
@@ -252,8 +265,11 @@ class Renderer {
     std::shared_ptr<CameraInteractor> m_camera;
     std::shared_ptr<ImGuiOverlay> m_imgui;
     std::unique_ptr<opengl::Framebuffer> m_sceneFramebuffer;
-    std::unique_ptr<opengl::Framebuffer> m_resolveFramebuffer;
+    std::unique_ptr<opengl::Framebuffer> m_hdrResolveFramebuffer;
+    std::unique_ptr<opengl::Framebuffer> m_ldrIntermediate;
     std::unique_ptr<opengl::PresentationPass> m_presentationPass;
+    std::unique_ptr<opengl::PostProcessingPass> m_postProcessingPass;
+    std::unique_ptr<opengl::FXAAPass> m_fxaaPass;
     int m_sceneSamples{1};
     SceneViewport m_sceneViewport;
     CursorPosState m_lastWindowCursorPos;
@@ -261,9 +277,6 @@ class Renderer {
     std::chrono::steady_clock::time_point m_lastFrameTime;
     std::chrono::steady_clock::time_point m_lastCameraInteractionTime;
     bool m_autoFitPending{false};
-    // Mirrors the caller-owned autoFitEnabled bool passed to end_frame(bool&, bool&) - begin_frame
-    // needs to see this to decide whether to run the auto-zoom-when-settled check, but has no
-    // access to end_frame's by-reference parameter (a different call each frame).
     bool m_autoFitEnabled{false};
     int m_maxTextureSize{0};
 
@@ -271,6 +284,24 @@ class Renderer {
     std::vector<ScrollCB> m_scrollCallbacks;
     std::vector<MouseBtnCB> m_mouseButtonCallbacks;
     std::vector<KeyCB> m_keyCallbacks;
+
+    float m_exposureStops{0.0f};
+    renderer::ToneMapMode m_toneMapMode{renderer::ToneMapMode::None};
+    bool m_fogEnabled{false};
+    renderer::FogMode m_fogMode{renderer::FogMode::Linear};
+    float m_fogStart{5.0f};
+    float m_fogEnd{50.0f};
+    float m_fogDensity{0.05f};
+    float m_fogColorR{0.05f};
+    float m_fogColorG{0.05f};
+    float m_fogColorB{0.08f};
+    renderer::VisualizationMode m_visualizationMode{renderer::VisualizationMode::Final};
+    float m_hdrDisplayMax{10.0f};
+    bool m_grayscale{false};
+    bool m_fxaaEnabled{true};
+    float m_fxaaEdgeThreshold{0.166f};
+    float m_fxaaEdgeThresholdMin{0.0833f};
+    float m_fxaaSubpixelAmount{0.75f};
 };
 
 } // namespace renderer

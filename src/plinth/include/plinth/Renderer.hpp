@@ -24,7 +24,6 @@
 namespace opengl {
 class DrawablesManager;
 class Framebuffer;
-class PresentationPass;
 class PostProcessingPass;
 class FXAAPass;
 } // namespace opengl
@@ -258,9 +257,8 @@ class Renderer {
              std::unique_ptr<ImGuiOverlay> imgui,
              std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
              std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
-             std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
-             std::unique_ptr<opengl::PresentationPass> presentationPass,
-             std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
+              std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
+              std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
              std::unique_ptr<opengl::FXAAPass> fxaaPass,
              int sceneSamples,
              int maxTextureSize);
@@ -289,7 +287,6 @@ class Renderer {
     std::unique_ptr<opengl::Framebuffer> m_sceneFramebuffer;
     std::unique_ptr<opengl::Framebuffer> m_hdrResolveFramebuffer;
     std::unique_ptr<opengl::Framebuffer> m_ldrIntermediate;
-    std::unique_ptr<opengl::PresentationPass> m_presentationPass;
     std::unique_ptr<opengl::PostProcessingPass> m_postProcessingPass;
     std::unique_ptr<opengl::FXAAPass> m_fxaaPass;
     int m_sceneSamples{1};

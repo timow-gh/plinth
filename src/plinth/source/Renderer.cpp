@@ -6,7 +6,6 @@
 #include <OpenGL/GpuCapabilities.hpp>
 #include <OpenGL/OpenGL.hpp>
 #include <OpenGL/PostProcessingPass.hpp>
-#include <OpenGL/PresentationPass.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -145,12 +144,6 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
         return nullptr;
     }
 
-    auto presentationPass = opengl::PresentationPass::create();
-    if (!presentationPass.has_value()) {
-        opengl::report_error("Error: Renderer::create failed - presentation pass creation failed");
-        return nullptr;
-    }
-
     auto postProcess = opengl::PostProcessingPass::create();
     if (!postProcess.has_value()) {
         opengl::report_error("Error: Renderer::create failed - post-processing pass creation failed");
@@ -169,9 +162,8 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
                                                        std::move(imgui),
                                                        std::make_unique<opengl::Framebuffer>(std::move(*hdrSceneFb)),
                                                        std::move(hdrResolveFb),
-                                                       std::make_unique<opengl::Framebuffer>(std::move(*ldrFb)),
-                                                       std::make_unique<opengl::PresentationPass>(std::move(*presentationPass)),
-                                                       std::make_unique<opengl::PostProcessingPass>(std::move(*postProcess)),
+                                                        std::make_unique<opengl::Framebuffer>(std::move(*ldrFb)),
+                                                        std::make_unique<opengl::PostProcessingPass>(std::move(*postProcess)),
                                                        std::make_unique<opengl::FXAAPass>(std::move(*fxaa)),
                                                        sceneSamples,
                                                        capabilities.maxTextureSize));
@@ -188,9 +180,8 @@ Renderer::Renderer(GlfwWindow window,
                     std::unique_ptr<ImGuiOverlay> imgui,
                     std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
                     std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
-                    std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
-                    std::unique_ptr<opengl::PresentationPass> presentationPass,
-                    std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
+                     std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
+                     std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
                     std::unique_ptr<opengl::FXAAPass> fxaaPass,
                     int sceneSamples,
                     int maxTextureSize)
@@ -201,7 +192,6 @@ Renderer::Renderer(GlfwWindow window,
     , m_sceneFramebuffer(std::move(sceneFramebuffer))
     , m_hdrResolveFramebuffer(std::move(hdrResolveFramebuffer))
     , m_ldrIntermediate(std::move(ldrIntermediate))
-    , m_presentationPass(std::move(presentationPass))
     , m_postProcessingPass(std::move(postProcessingPass))
     , m_fxaaPass(std::move(fxaaPass))
     , m_sceneSamples(sceneSamples)

@@ -14,7 +14,6 @@ set(opengl_HEADER_FILES
         include/OpenGL/BufferId.hpp
         include/OpenGL/Framebuffer.hpp
         include/OpenGL/Texture2D.hpp
-        include/OpenGL/PresentationPass.hpp
         include/OpenGL/PostProcessingPass.hpp
         include/OpenGL/FXAAPass.hpp
         include/OpenGL/FrameState.hpp
@@ -40,7 +39,6 @@ set(opengl_SOURCE_FILES
         source/IndexBuffer.cpp
         source/Framebuffer.cpp
         source/Texture2D.cpp
-        source/PresentationPass.cpp
         source/PostProcessingPass.cpp
         source/FXAAPass.cpp
         source/FrameState.cpp

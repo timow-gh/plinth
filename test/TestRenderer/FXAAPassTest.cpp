@@ -105,4 +105,46 @@ TEST_F(FXAAPassTest, PassThroughUniformColor) {
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
+TEST_F(FXAAPassTest, SmoothsHardEdgeWithoutChangingInterior) {
+    constexpr int size = 16;
+    auto source = opengl::Framebuffer::create_ldr_intermediate(size, size);
+    ASSERT_TRUE(source.has_value());
+    source->bind();
+    glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(size / 2, 0, size / 2, size);
+    glClearColor(1.0F, 1.0F, 1.0F, 1.0F);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_SCISSOR_TEST);
+
+    auto pass = opengl::FXAAPass::create();
+    ASSERT_TRUE(pass.has_value());
+    pass->set_edge_threshold(0.166F);
+    pass->set_edge_threshold_min(0.0833F);
+    pass->set_subpixel_amount(0.75F);
+
+    opengl::Framebuffer::unbind();
+    pass->set_enabled(false);
+    pass->process(source->get_color_texture(), size, size);
+    std::array<unsigned char, 4> disabledEdge{};
+    std::array<unsigned char, 4> disabledInterior{};
+    glReadPixels(7, 8, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, disabledEdge.data());
+    glReadPixels(4, 8, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, disabledInterior.data());
+
+    pass->set_enabled(true);
+    pass->process(source->get_color_texture(), size, size);
+    std::array<unsigned char, 4> enabledEdge{};
+    std::array<unsigned char, 4> enabledInterior{};
+    glReadPixels(7, 8, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, enabledEdge.data());
+    glReadPixels(4, 8, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, enabledInterior.data());
+
+    EXPECT_EQ(0, disabledEdge[0]);
+    EXPECT_EQ(0, disabledInterior[0]);
+    EXPECT_GT(enabledEdge[0], 0);
+    EXPECT_LT(enabledEdge[0], 255);
+    EXPECT_EQ(disabledInterior, enabledInterior);
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
 } // namespace

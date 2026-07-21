@@ -438,6 +438,64 @@ TEST_F(RendererPresentationTest, PresentsSingleSamplePointThroughPublicFrameLife
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
+TEST_F(RendererPresentationTest, PublicPostProcessingSettersAffectPresentedOutput) {
+    auto instance = create_renderer(1);
+    ASSERT_NE(nullptr, instance);
+    instance->set_fxaa_enabled(false);
+
+    const auto render = [&] {
+        instance->begin_frame({0.25F, 0.25F, 0.25F, 1.0F});
+        instance->draw();
+        instance->end_frame();
+        glFinish();
+        const auto [x, y] = scene_interior_coordinate(*instance);
+        return read_front_pixel(x, y);
+    };
+
+    instance->set_exposure_stops(0.0F);
+    instance->set_tone_map_mode(renderer::ToneMapMode::None);
+    instance->set_visualization_mode(renderer::VisualizationMode::Final);
+    expect_pixel_near(render(), {137, 137, 137, 255});
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+
+    instance->set_exposure_stops(1.0F);
+    expect_pixel_near(render(), {188, 188, 188, 255});
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+
+    instance->set_exposure_stops(0.0F);
+    instance->set_visualization_mode(renderer::VisualizationMode::LinearLdr);
+    expect_pixel_near(render(), {64, 64, 64, 255});
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(RendererPresentationTest, PublicReinhardToneMappingAffectsPresentedOutput) {
+    auto instance = create_renderer(1);
+    ASSERT_NE(nullptr, instance);
+    instance->set_fxaa_enabled(false);
+    instance->set_exposure_stops(0.0F);
+    instance->set_visualization_mode(renderer::VisualizationMode::Final);
+
+    const auto render = [&] {
+        instance->begin_frame({2.0F, 2.0F, 2.0F, 1.0F});
+        instance->draw();
+        instance->end_frame();
+        glFinish();
+        const auto [x, y] = scene_interior_coordinate(*instance);
+        return read_front_pixel(x, y);
+    };
+
+    instance->set_tone_map_mode(renderer::ToneMapMode::None);
+    const auto clampPixel = render();
+    expect_pixel_near(clampPixel, {255, 255, 255, 255});
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+
+    instance->set_tone_map_mode(renderer::ToneMapMode::Reinhard);
+    const auto reinhardPixel = render();
+    EXPECT_LT(reinhardPixel[0], clampPixel[0]);
+    expect_pixel_near(reinhardPixel, {213, 213, 213, 255});
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
 TEST_F(RendererPresentationTest, ResolvesMultisampledPointThroughPublicFrameLifecycle) {
     auto instance = create_renderer(4);
     ASSERT_NE(nullptr, instance);

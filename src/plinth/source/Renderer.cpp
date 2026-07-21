@@ -524,6 +524,7 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
         }
         if (!scene.has_value() || (m_sceneSamples > 1 && !resolve.has_value()) || !ldr.has_value()) {
             opengl::report_error("Error: Renderer::begin_frame failed to resize framebuffer targets");
+            return;
         } else {
             m_sceneFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*scene));
             if (m_sceneSamples > 1) {
@@ -533,6 +534,9 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
         }
     }
 
+    if (m_sceneFramebuffer->get_width() != framebufferWidth || m_sceneFramebuffer->get_height() != framebufferHeight) {
+        return;
+    }
     m_sceneFramebuffer->bind();
     opengl::begin_frame(clearColor, m_sceneViewport.framebuffer, false);
 }
@@ -543,6 +547,12 @@ void Renderer::draw() {
 }
 
 void Renderer::draw(const renderer::LightingConfig& lighting) {
+    const auto [windowFramebufferWidth, windowFramebufferHeight] = m_window.get_framebuffer_size();
+    if (m_sceneFramebuffer->get_width() != static_cast<int>(valid_framebuffer_dimension(windowFramebufferWidth)) ||
+        m_sceneFramebuffer->get_height() != static_cast<int>(valid_framebuffer_dimension(windowFramebufferHeight))) {
+        return;
+    }
+
     m_drawablesManager->draw_lines_and_points(m_camera->get_current_MVP(), m_camera->get_position());
 
     if (m_drawablesManager->has_mesh_drawables()) {
@@ -579,6 +589,12 @@ void Renderer::end_frame(bool& autoFitEnabled) {
 }
 
 void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
+    const auto [windowFramebufferWidth, windowFramebufferHeight] = m_window.get_framebuffer_size();
+    if (m_sceneFramebuffer->get_width() != static_cast<int>(valid_framebuffer_dimension(windowFramebufferWidth)) ||
+        m_sceneFramebuffer->get_height() != static_cast<int>(valid_framebuffer_dimension(windowFramebufferHeight))) {
+        return;
+    }
+
     m_imgui->new_frame();
     CameraProjectionType projectionType = m_camera->get_projection_type();
     m_imgui->add_camera_controls(autoFitEnabled, projectionType, homeRequested);
@@ -647,9 +663,8 @@ void Renderer::present_scene() {
     m_postProcessingPass->set_hdr_display_max(m_hdrDisplayMax);
     m_postProcessingPass->set_grayscale(m_grayscale);
 
-    const auto [fbWidth, fbHeight] = m_window.get_framebuffer_size();
-    int w = static_cast<int>(valid_framebuffer_dimension(fbWidth));
-    int h = static_cast<int>(valid_framebuffer_dimension(fbHeight));
+    const int w = m_sceneFramebuffer->get_width();
+    const int h = m_sceneFramebuffer->get_height();
 
     m_ldrIntermediate->bind();
     m_postProcessingPass->process(hdrColorTex, depthTex, w, h);

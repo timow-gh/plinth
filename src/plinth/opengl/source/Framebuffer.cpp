@@ -6,8 +6,8 @@
 namespace opengl {
 
 Framebuffer::Framebuffer(GLuint framebuffer, GLuint colorTexture, GLuint colorRenderbuffer,
-                         GLuint depthStencilRenderbuffer, GLuint depthTexture, bool hasDepthTexture,
-                         int width, int height, int samples, bool srgb)
+                          GLuint depthStencilRenderbuffer, GLuint depthTexture, bool hasDepthTexture,
+                          int width, int height, int samples, bool srgb, CreationDescriptor descriptor)
     : m_framebuffer(framebuffer)
     , m_colorTexture(colorTexture)
     , m_colorRenderbuffer(colorRenderbuffer)
@@ -17,7 +17,8 @@ Framebuffer::Framebuffer(GLuint framebuffer, GLuint colorTexture, GLuint colorRe
     , m_width(width)
     , m_height(height)
     , m_samples(samples)
-    , m_srgb(srgb) {
+    , m_srgb(srgb)
+    , m_creationDescriptor(descriptor) {
 }
 
 Framebuffer::Framebuffer(Framebuffer&& other) noexcept
@@ -30,7 +31,8 @@ Framebuffer::Framebuffer(Framebuffer&& other) noexcept
     , m_width(std::exchange(other.m_width, 0))
     , m_height(std::exchange(other.m_height, 0))
     , m_samples(std::exchange(other.m_samples, 0))
-    , m_srgb(std::exchange(other.m_srgb, false)) {
+    , m_srgb(std::exchange(other.m_srgb, false))
+    , m_creationDescriptor(std::exchange(other.m_creationDescriptor, {})) {
 }
 
 Framebuffer& Framebuffer::operator=(Framebuffer&& other) noexcept {
@@ -46,6 +48,7 @@ Framebuffer& Framebuffer::operator=(Framebuffer&& other) noexcept {
         m_height = std::exchange(other.m_height, 0);
         m_samples = std::exchange(other.m_samples, 0);
         m_srgb = std::exchange(other.m_srgb, false);
+        m_creationDescriptor = std::exchange(other.m_creationDescriptor, {});
     }
     return *this;
 }
@@ -80,6 +83,7 @@ void Framebuffer::reset() noexcept {
     m_samples = 0;
     m_srgb = false;
     m_hasDepthTexture = false;
+    m_creationDescriptor = {};
 }
 
 std::optional<Framebuffer> Framebuffer::create(int width, int height, int samples, bool srgb) {
@@ -172,8 +176,8 @@ std::optional<Framebuffer> Framebuffer::create(int width, int height, int sample
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     Framebuffer result{framebuffer, colorTexture, colorRenderbuffer, depthStencilRenderbuffer,
-                       0, false,
-                       width, height, samples, srgb};
+                        0, false,
+                        width, height, samples, srgb, {AttachmentLayout::Generic, false}};
     return std::optional<Framebuffer>{std::move(result)};
 }
 
@@ -314,7 +318,8 @@ std::optional<Framebuffer> Framebuffer::create_hdr(const HdrConfig& config) {
 
     Framebuffer result{framebuffer, colorTexture, colorRenderbuffer, depthStencilRenderbuffer,
                        depthTexture, hasDepthTexture,
-                       config.width, config.height, config.samples, false};
+                        config.width, config.height, config.samples, false,
+                        {AttachmentLayout::Hdr, config.useDepthTexture}};
     return std::optional<Framebuffer>{std::move(result)};
 }
 
@@ -362,7 +367,7 @@ std::optional<Framebuffer> Framebuffer::create_ldr_intermediate(int width, int h
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     Framebuffer result{framebuffer, colorTexture, 0, 0, 0, false,
-                       width, height, 1, false};
+                        width, height, 1, false, {AttachmentLayout::LdrIntermediate, false}};
     return std::optional<Framebuffer>{std::move(result)};
 }
 
@@ -371,7 +376,18 @@ bool Framebuffer::resize(int width, int height) {
         return false;
     }
 
-    auto temp = create(width, height, m_samples, m_srgb);
+    std::optional<Framebuffer> temp;
+    switch (m_creationDescriptor.layout) {
+    case AttachmentLayout::Generic:
+        temp = create(width, height, m_samples, m_srgb);
+        break;
+    case AttachmentLayout::Hdr:
+        temp = create_hdr({width, height, m_samples, m_creationDescriptor.useDepthTexture});
+        break;
+    case AttachmentLayout::LdrIntermediate:
+        temp = create_ldr_intermediate(width, height);
+        break;
+    }
     if (!temp.has_value()) {
         return false;
     }

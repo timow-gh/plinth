@@ -17,6 +17,9 @@ class GlfwWindow {
     GlfwWindow& operator=(GlfwWindow&&) noexcept;
     ~GlfwWindow();
 
+    // Only one live plinth GlfwWindow may exist at a time. A second call to
+    // create() while another GlfwWindow is alive returns std::nullopt. A new
+    // instance may be created after the previous owner is destroyed.
     [[nodiscard]]
     static std::optional<GlfwWindow> create(const WindowSettings& settings);
 

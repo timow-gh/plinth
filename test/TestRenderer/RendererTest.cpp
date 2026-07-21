@@ -256,3 +256,103 @@ TEST(OneSampleRendererTest, OneSampleFrameDoesNotCrash) {
     renderer.reset();
     glfwTerminate();
 }
+
+TEST(GlfwWindowSingletonTest, RejectsSecondLiveWindow) {
+    renderer::WindowSettings settings;
+    settings.title = "plinth singleton test";
+    settings.width = 64;
+    settings.height = 64;
+    settings.visible = false;
+    settings.resizable = false;
+
+    auto first = renderer::GlfwWindow::create(settings);
+    ASSERT_TRUE(first.has_value());
+
+    auto second = renderer::GlfwWindow::create(settings);
+    EXPECT_FALSE(second.has_value());
+
+    first.reset();
+
+    auto replacement = renderer::GlfwWindow::create(settings);
+    EXPECT_TRUE(replacement.has_value());
+}
+
+TEST(GlfwWindowSingletonTest, FailedCreationDoesNotReserveSlot) {
+    renderer::WindowSettings settings;
+    settings.title = "plinth singleton test";
+    settings.width = 0;
+    settings.height = 0;
+    settings.visible = false;
+    settings.resizable = false;
+
+    auto failed = renderer::GlfwWindow::create(settings);
+    EXPECT_FALSE(failed.has_value());
+
+    settings.width = 64;
+    settings.height = 64;
+    auto valid = renderer::GlfwWindow::create(settings);
+    EXPECT_TRUE(valid.has_value());
+}
+
+TEST(GlfwWindowSingletonTest, MoveTransferPreservesGuard) {
+    renderer::WindowSettings settings;
+    settings.title = "plinth singleton test";
+    settings.width = 64;
+    settings.height = 64;
+    settings.visible = false;
+    settings.resizable = false;
+
+    auto first = renderer::GlfwWindow::create(settings);
+    ASSERT_TRUE(first.has_value());
+
+    auto moved = std::move(first);
+
+    {
+        auto second = renderer::GlfwWindow::create(settings);
+        EXPECT_FALSE(second.has_value());
+    }
+}
+
+TEST(GlfwWindowSingletonTest, MoveAssignIntoActiveReleasesGuard) {
+    renderer::WindowSettings settings;
+    settings.title = "plinth singleton test";
+    settings.width = 64;
+    settings.height = 64;
+    settings.visible = false;
+    settings.resizable = false;
+
+    auto active = renderer::GlfwWindow::create(settings);
+    ASSERT_TRUE(active.has_value());
+
+    renderer::GlfwWindow empty;
+    active = std::move(empty);
+
+    auto replacement = renderer::GlfwWindow::create(settings);
+    EXPECT_TRUE(replacement.has_value());
+}
+
+TEST(RendererSingletonTest, RejectsSecondLiveRendererAndAllowsReplacement) {
+    renderer::WindowSettings settings;
+    settings.title = "plinth singleton test";
+    settings.width = 64;
+    settings.height = 64;
+    settings.visible = false;
+    settings.resizable = false;
+    settings.double_buffer = true;
+
+    auto first = renderer::Renderer::create(settings);
+    if (!first) {
+        GTEST_SKIP() << "GL context creation not available in this environment";
+    }
+
+    auto second = renderer::Renderer::create(settings);
+    EXPECT_EQ(nullptr, second);
+
+    first.reset();
+
+    auto replacement = renderer::Renderer::create(settings);
+    if (!replacement) {
+        GTEST_SKIP() << "GL context creation not available in this environment";
+    }
+    EXPECT_NE(nullptr, replacement);
+}

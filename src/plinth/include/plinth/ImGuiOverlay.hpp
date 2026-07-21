@@ -4,6 +4,8 @@
 #include <plinth/CameraProjectionType.hpp>
 #include <plinth/InputCaptureState.hpp>
 #include <plinth/InputState.hpp>
+#include <plinth/PostProcessingEnums.hpp>
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <vector>
@@ -25,6 +27,22 @@ class ImGuiOverlay {
     void new_frame();
     void add_control(std::function<void()> controlFunc);
     void add_camera_controls(bool& autoZoomEnabled, CameraProjectionType& projectionType, bool& homeRequested);
+    void add_post_processing_controls(
+        float& exposureStops,
+        renderer::ToneMapMode& toneMapMode,
+        bool& fogEnabled,
+        renderer::FogMode& fogMode,
+        float& fogStart,
+        float& fogEnd,
+        float& fogDensity,
+        std::array<float, 3>& fogColor,
+        renderer::VisualizationMode& visualizationMode,
+        float& hdrDisplayMax,
+        bool& grayscale,
+        bool& fxaaEnabled,
+        float& fxaaEdgeThreshold,
+        float& fxaaEdgeThresholdMin,
+        float& fxaaSubpixelAmount);
     void render();
     void end_frame();
 

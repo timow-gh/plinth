@@ -1,13 +1,16 @@
 #include <OpenGL/Drawable/DrawablesManager.hpp>
 #include <OpenGL/ErrorReporting.hpp>
+#include <OpenGL/FXAAPass.hpp>
 #include <OpenGL/FrameState.hpp>
 #include <OpenGL/Framebuffer.hpp>
 #include <OpenGL/GpuCapabilities.hpp>
 #include <OpenGL/OpenGL.hpp>
+#include <OpenGL/PostProcessingPass.hpp>
 #include <OpenGL/PresentationPass.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <plinth/Renderer.hpp>
 
 namespace renderer {
@@ -17,16 +20,8 @@ Renderer::~Renderer() = default;
 namespace {
 
 constexpr linal::double3 defaultCameraPosition{5.0, 5.0, 5.0};
-// Safe floor for any hypothetical camera-to-target distance fed into a fit/transition
-// computation, so CameraInteractor's degenerate-distance assertions can never be reached
-// regardless of the user's prior zoom state.
 constexpr double minimumFitDistance = 1.0;
-// Caps the per-frame delta fed to CameraInteractor::update() so a long gap between frames (e.g.
-// asset loading between Renderer construction and the first begin_frame() call, or any other
-// stall) can't translate into a single huge fly-mode jump or transition skip.
 constexpr double maxFrameDeltaSeconds = 0.1;
-// Reuse CameraAutoFitSettings' own default suppression window rather than duplicating the
-// magic number here.
 constexpr CameraAutoFitSettings defaultAutoFitSettings{};
 
 std::uint32_t valid_framebuffer_dimension(int dimension) {
@@ -114,21 +109,29 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
     const int sceneSamples = std::clamp(settings.samples, 1, maxSamples);
     const int framebufferWidth = static_cast<int>(valid_framebuffer_dimension(fbWidth));
     const int framebufferHeight = static_cast<int>(valid_framebuffer_dimension(fbHeight));
-    const bool srgb = window->is_srgb_capable();
-    auto sceneFramebuffer = opengl::Framebuffer::create(framebufferWidth, framebufferHeight, sceneSamples, srgb);
-    if (!sceneFramebuffer.has_value()) {
-        opengl::report_error("Error: Renderer::create failed - scene framebuffer creation failed");
+
+    opengl::Framebuffer::HdrConfig hdrConfig{framebufferWidth, framebufferHeight, sceneSamples, true};
+    auto hdrSceneFb = opengl::Framebuffer::create_hdr(hdrConfig);
+    if (!hdrSceneFb.has_value()) {
+        opengl::report_error("Error: Renderer::create failed - HDR scene framebuffer creation failed");
         return nullptr;
     }
 
-    std::unique_ptr<opengl::Framebuffer> resolveFramebuffer;
+    std::unique_ptr<opengl::Framebuffer> hdrResolveFb;
     if (sceneSamples > 1) {
-        auto resolve = opengl::Framebuffer::create(framebufferWidth, framebufferHeight, 1, srgb);
+        opengl::Framebuffer::HdrConfig resolveConfig{framebufferWidth, framebufferHeight, 1, true};
+        auto resolve = opengl::Framebuffer::create_hdr(resolveConfig);
         if (!resolve.has_value()) {
-            opengl::report_error("Error: Renderer::create failed - resolve framebuffer creation failed");
+            opengl::report_error("Error: Renderer::create failed - HDR resolve framebuffer creation failed");
             return nullptr;
         }
-        resolveFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*resolve));
+        hdrResolveFb = std::make_unique<opengl::Framebuffer>(std::move(*resolve));
+    }
+
+    auto ldrFb = opengl::Framebuffer::create_ldr_intermediate(framebufferWidth, framebufferHeight);
+    if (!ldrFb.has_value()) {
+        opengl::report_error("Error: Renderer::create failed - LDR intermediate framebuffer creation failed");
+        return nullptr;
     }
 
     auto presentationPass = opengl::PresentationPass::create();
@@ -137,14 +140,28 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
         return nullptr;
     }
 
-    // Use raw new because the constructor is private and Renderer is non-movable.
+    auto postProcess = opengl::PostProcessingPass::create();
+    if (!postProcess.has_value()) {
+        opengl::report_error("Error: Renderer::create failed - post-processing pass creation failed");
+        return nullptr;
+    }
+
+    auto fxaa = opengl::FXAAPass::create();
+    if (!fxaa.has_value()) {
+        opengl::report_error("Error: Renderer::create failed - FXAA pass creation failed");
+        return nullptr;
+    }
+
     std::unique_ptr<Renderer> renderer(new Renderer(std::move(window.value()),
-                                                      std::move(drawablesManager),
-                                                      std::move(camera),
+                                                       std::move(drawablesManager),
+                                                       std::move(camera),
                                                        std::move(imgui),
-                                                       std::make_unique<opengl::Framebuffer>(std::move(*sceneFramebuffer)),
-                                                       std::move(resolveFramebuffer),
+                                                       std::make_unique<opengl::Framebuffer>(std::move(*hdrSceneFb)),
+                                                       std::move(hdrResolveFb),
+                                                       std::make_unique<opengl::Framebuffer>(std::move(*ldrFb)),
                                                        std::make_unique<opengl::PresentationPass>(std::move(*presentationPass)),
+                                                       std::make_unique<opengl::PostProcessingPass>(std::move(*postProcess)),
+                                                       std::make_unique<opengl::FXAAPass>(std::move(*fxaa)),
                                                        sceneSamples,
                                                        capabilities.maxTextureSize));
 
@@ -157,19 +174,25 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 Renderer::Renderer(GlfwWindow window,
                     std::unique_ptr<opengl::DrawablesManager> drawables,
                     std::shared_ptr<CameraInteractor> camera,
-                     std::shared_ptr<ImGuiOverlay> imgui,
-                     std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
-                     std::unique_ptr<opengl::Framebuffer> resolveFramebuffer,
-                     std::unique_ptr<opengl::PresentationPass> presentationPass,
-                     int sceneSamples,
-                     int maxTextureSize)
+                    std::shared_ptr<ImGuiOverlay> imgui,
+                    std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
+                    std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
+                    std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
+                    std::unique_ptr<opengl::PresentationPass> presentationPass,
+                    std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
+                    std::unique_ptr<opengl::FXAAPass> fxaaPass,
+                    int sceneSamples,
+                    int maxTextureSize)
     : m_window(std::move(window))
     , m_drawablesManager(std::move(drawables))
     , m_camera(std::move(camera))
     , m_imgui(std::move(imgui))
     , m_sceneFramebuffer(std::move(sceneFramebuffer))
-    , m_resolveFramebuffer(std::move(resolveFramebuffer))
+    , m_hdrResolveFramebuffer(std::move(hdrResolveFramebuffer))
+    , m_ldrIntermediate(std::move(ldrIntermediate))
     , m_presentationPass(std::move(presentationPass))
+    , m_postProcessingPass(std::move(postProcessingPass))
+    , m_fxaaPass(std::move(fxaaPass))
     , m_sceneSamples(sceneSamples)
     , m_lastFrameTime(std::chrono::steady_clock::now())
     , m_lastCameraInteractionTime(m_lastFrameTime)
@@ -246,8 +269,6 @@ void Renderer::wire_callbacks() {
         if (!forward) {
             return;
         }
-        // Built-in library shortcut: H triggers the same "go home" behavior as the ImGui Home
-        // button, edge-triggered on physical key-press (not polled) so it fires once per press.
         if (key == Key::KEY_H && action == Action::PRESS && !m_imgui->wants_keyboard()) {
             go_to_home_view();
         }
@@ -259,8 +280,8 @@ void Renderer::wire_callbacks() {
     m_window.set_char_callback([this](std::uint32_t codepoint) { m_imgui->handle_char(codepoint); });
 
     m_window.set_framebuffer_size_callback([this]([[maybe_unused]] std::uint32_t width,
-                                                  [[maybe_unused]]
-                                                  std::uint32_t height) { update_scene_viewport(); });
+                                                   [[maybe_unused]]
+                                                   std::uint32_t height) { update_scene_viewport(); });
 }
 
 // --- Geometry ---
@@ -317,7 +338,7 @@ DrawableHandle Renderer::add_textured_mesh_drawable(std::span<const float> verti
                                                      std::span<const std::uint32_t> triangleIndices, TextureHandle texture,
                                                      renderer::BufferAccessPattern accessPattern) {
     const auto id = m_drawablesManager->add_textured_mesh_drawable(vertices, 3, normals, textureCoordinates, colors, 4,
-                                                                    triangleIndices, texture.id, accessPattern);
+                                                                     triangleIndices, texture.id, accessPattern);
     return id ? DrawableHandle{DrawableKind::mesh, *id} : DrawableHandle{};
 }
 
@@ -463,11 +484,6 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
         return !m_imgui->wants_keyboard() && m_window.is_key_pressed(key);
     });
 
-    // Auto Zoom: once the camera settles after user interaction (no reorientation - just a
-    // distance/pan correction along the current gaze), fit current geometry into view. Never
-    // fires while actively interacting or mid-transition, and only re-triggers on the next real
-    // interaction (does not re-check due to geometry being added/removed while the camera sits
-    // still - no drawable-mutation hook exists for that).
     if (m_camera->get_was_blocking()) {
         m_lastCameraInteractionTime = now;
         m_autoFitPending = true;
@@ -495,24 +511,30 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
     const int framebufferWidth = static_cast<int>(valid_framebuffer_dimension(windowFramebufferWidth));
     const int framebufferHeight = static_cast<int>(valid_framebuffer_dimension(windowFramebufferHeight));
     if (m_sceneFramebuffer->get_width() != framebufferWidth || m_sceneFramebuffer->get_height() != framebufferHeight) {
-        auto scene = opengl::Framebuffer::create(
-            framebufferWidth, framebufferHeight, m_sceneSamples, m_window.is_srgb_capable());
+        opengl::Framebuffer::HdrConfig hdrConfig{framebufferWidth, framebufferHeight, m_sceneSamples, true};
+        auto scene = opengl::Framebuffer::create_hdr(hdrConfig);
         std::optional<opengl::Framebuffer> resolve;
-        if (scene.has_value() && m_sceneSamples > 1) {
-            resolve = opengl::Framebuffer::create(framebufferWidth, framebufferHeight, 1, m_window.is_srgb_capable());
+        std::optional<opengl::Framebuffer> ldr;
+        if (scene.has_value()) {
+            if (m_sceneSamples > 1) {
+                opengl::Framebuffer::HdrConfig resolveConfig{framebufferWidth, framebufferHeight, 1, true};
+                resolve = opengl::Framebuffer::create_hdr(resolveConfig);
+            }
+            ldr = opengl::Framebuffer::create_ldr_intermediate(framebufferWidth, framebufferHeight);
         }
-        if (!scene.has_value() || (m_sceneSamples > 1 && !resolve.has_value())) {
-            opengl::report_error("Error: Renderer::begin_frame failed to resize scene framebuffer targets");
+        if (!scene.has_value() || (m_sceneSamples > 1 && !resolve.has_value()) || !ldr.has_value()) {
+            opengl::report_error("Error: Renderer::begin_frame failed to resize framebuffer targets");
         } else {
             m_sceneFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*scene));
             if (m_sceneSamples > 1) {
-                m_resolveFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*resolve));
+                m_hdrResolveFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*resolve));
             }
+            m_ldrIntermediate = std::make_unique<opengl::Framebuffer>(std::move(*ldr));
         }
     }
 
     m_sceneFramebuffer->bind();
-    opengl::begin_frame(clearColor, m_sceneViewport.framebuffer, m_window.is_srgb_capable());
+    opengl::begin_frame(clearColor, m_sceneViewport.framebuffer, false);
 }
 
 void Renderer::draw() {
@@ -536,12 +558,10 @@ void Renderer::draw(const renderer::LightingConfig& lighting) {
                                        effectiveLighting);
     }
 
-    // Draw segment overlays on top of meshes.
     if (m_drawablesManager->has_mesh_segment_drawables()) {
         m_drawablesManager->draw_mesh_segment_overlays(m_camera->get_current_MVP());
     }
 
-    // Draw vertex overlays on top of meshes.
     if (m_drawablesManager->has_mesh_vertex_drawables()) {
         m_drawablesManager->draw_mesh_vertex_overlays(m_camera->get_current_MVP());
     }
@@ -563,6 +583,20 @@ void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
     m_imgui->new_frame();
     CameraProjectionType projectionType = m_camera->get_projection_type();
     m_imgui->add_camera_controls(autoFitEnabled, projectionType, homeRequested);
+
+    std::array<float, 3> fogColorArr{m_fogColorR, m_fogColorG, m_fogColorB};
+    m_imgui->add_post_processing_controls(
+        m_exposureStops,
+        m_toneMapMode,
+        m_fogEnabled, m_fogMode, m_fogStart, m_fogEnd, m_fogDensity,
+        fogColorArr,
+        m_visualizationMode, m_hdrDisplayMax,
+        m_grayscale,
+        m_fxaaEnabled, m_fxaaEdgeThreshold, m_fxaaEdgeThresholdMin, m_fxaaSubpixelAmount);
+    m_fogColorR = fogColorArr[0];
+    m_fogColorG = fogColorArr[1];
+    m_fogColorB = fogColorArr[2];
+
     m_imgui->render();
     m_imgui->end_frame();
 
@@ -581,20 +615,115 @@ void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
 }
 
 void Renderer::present_scene() {
-    GLuint colorTexture = m_sceneFramebuffer->get_color_texture();
+    GLuint hdrColorTex{0};
+    GLuint depthTex{0};
     if (m_sceneSamples > 1) {
-        if (!m_sceneFramebuffer->resolve_to(*m_resolveFramebuffer)) {
-            opengl::report_error("Error: Renderer::present_scene failed to resolve scene framebuffer");
+        if (!m_sceneFramebuffer->resolve_to(*m_hdrResolveFramebuffer, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)) {
+            opengl::report_error("Error: present_scene failed to resolve HDR framebuffer");
             return;
         }
-        colorTexture = m_resolveFramebuffer->get_color_texture();
+        hdrColorTex = m_hdrResolveFramebuffer->get_color_texture();
+        depthTex = m_hdrResolveFramebuffer->get_depth_texture();
+    } else {
+        hdrColorTex = m_sceneFramebuffer->get_color_texture();
+        depthTex = m_sceneFramebuffer->get_depth_texture();
     }
 
+    const linal::hmatf projMat = m_camera->get_projection_matrix();
+    const linal::hmatf invProjMat = linal::hmatf::inverse(projMat);
+    m_postProcessingPass->set_inv_projection(invProjMat.data());
+
+    m_postProcessingPass->set_fog_enabled(m_fogEnabled);
+    m_postProcessingPass->set_fog_mode(static_cast<int>(m_fogMode));
+    m_postProcessingPass->set_fog_start(m_fogStart);
+    m_postProcessingPass->set_fog_end(m_fogEnd);
+    m_postProcessingPass->set_fog_density(m_fogDensity);
+    m_postProcessingPass->set_fog_color(m_fogColorR, m_fogColorG, m_fogColorB);
+    m_postProcessingPass->set_exposure_stops(m_exposureStops);
+    m_postProcessingPass->set_tone_map_mode(static_cast<int>(m_toneMapMode));
+    m_postProcessingPass->set_visualization_mode(static_cast<int>(m_visualizationMode));
+    m_postProcessingPass->set_hdr_display_max(m_hdrDisplayMax);
+    m_postProcessingPass->set_grayscale(m_grayscale);
+
+    const auto [fbWidth, fbHeight] = m_window.get_framebuffer_size();
+    int w = static_cast<int>(valid_framebuffer_dimension(fbWidth));
+    int h = static_cast<int>(valid_framebuffer_dimension(fbHeight));
+
+    m_ldrIntermediate->bind();
+    m_postProcessingPass->process(hdrColorTex, depthTex, w, h);
+
     opengl::Framebuffer::unbind();
-    const auto [framebufferWidth, framebufferHeight] = m_window.get_framebuffer_size();
-    m_presentationPass->present(colorTexture,
-                                static_cast<int>(valid_framebuffer_dimension(framebufferWidth)),
-                                static_cast<int>(valid_framebuffer_dimension(framebufferHeight)));
+    glDisable(GL_FRAMEBUFFER_SRGB);
+
+    m_fxaaPass->set_enabled(m_fxaaEnabled);
+    m_fxaaPass->set_edge_threshold(m_fxaaEdgeThreshold);
+    m_fxaaPass->set_edge_threshold_min(m_fxaaEdgeThresholdMin);
+    m_fxaaPass->set_subpixel_amount(m_fxaaSubpixelAmount);
+    m_fxaaPass->process(m_ldrIntermediate->get_color_texture(), w, h);
+}
+
+// --- Post-processing setters ---
+
+void Renderer::set_exposure_stops(float stops) {
+    m_exposureStops = stops;
+}
+
+void Renderer::set_tone_map_mode(renderer::ToneMapMode mode) {
+    m_toneMapMode = mode;
+}
+
+void Renderer::set_fog_enabled(bool enabled) {
+    m_fogEnabled = enabled;
+}
+
+void Renderer::set_fog_mode(renderer::FogMode mode) {
+    m_fogMode = mode;
+}
+
+void Renderer::set_fog_start(float start) {
+    m_fogStart = start;
+}
+
+void Renderer::set_fog_end(float end) {
+    m_fogEnd = end;
+}
+
+void Renderer::set_fog_density(float density) {
+    m_fogDensity = density;
+}
+
+void Renderer::set_fog_color(float r, float g, float b) {
+    m_fogColorR = r;
+    m_fogColorG = g;
+    m_fogColorB = b;
+}
+
+void Renderer::set_visualization_mode(renderer::VisualizationMode mode) {
+    m_visualizationMode = mode;
+}
+
+void Renderer::set_hdr_display_max(float maxVal) {
+    m_hdrDisplayMax = maxVal;
+}
+
+void Renderer::set_grayscale(bool enabled) {
+    m_grayscale = enabled;
+}
+
+void Renderer::set_fxaa_enabled(bool enabled) {
+    m_fxaaEnabled = enabled;
+}
+
+void Renderer::set_fxaa_edge_threshold(float threshold) {
+    m_fxaaEdgeThreshold = threshold;
+}
+
+void Renderer::set_fxaa_edge_threshold_min(float threshold) {
+    m_fxaaEdgeThresholdMin = threshold;
+}
+
+void Renderer::set_fxaa_subpixel_amount(float amount) {
+    m_fxaaSubpixelAmount = amount;
 }
 
 // --- Camera navigation (geometry-fit aware) ---
@@ -642,8 +771,6 @@ void Renderer::go_to_preset_view(PresetView view) {
         compute_fit_destination(preset.direction, preset.up, currentTarget, currentDistance);
 
     if (!result.hasGeometry) {
-        // No geometry in the scene: fall back to the existing geometry-agnostic behavior
-        // (rotate around the current pivot at the current, clamped-safe distance).
         m_camera->go_to_preset_view(view);
         return;
     }

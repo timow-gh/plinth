@@ -130,6 +130,96 @@ void ImGuiOverlay::add_camera_controls(bool& autoZoomEnabled,
     });
 }
 
+void ImGuiOverlay::add_post_processing_controls(
+    float& exposureStops,
+    renderer::ToneMapMode& toneMapMode,
+    bool& fogEnabled,
+    renderer::FogMode& fogMode,
+    float& fogStart,
+    float& fogEnd,
+    float& fogDensity,
+    std::array<float, 3>& fogColor,
+    renderer::VisualizationMode& visualizationMode,
+    float& hdrDisplayMax,
+    bool& grayscale,
+    bool& fxaaEnabled,
+    float& fxaaEdgeThreshold,
+    float& fxaaEdgeThresholdMin,
+    float& fxaaSubpixelAmount) {
+
+    float* fogColorPtr = fogColor.data();
+    m_controls.emplace_back([&exposureStops, &toneMapMode,
+                             &fogEnabled, &fogMode, &fogStart, &fogEnd, &fogDensity, fogColorPtr,
+                             &visualizationMode, &hdrDisplayMax, &grayscale,
+                             &fxaaEnabled, &fxaaEdgeThreshold, &fxaaEdgeThresholdMin, &fxaaSubpixelAmount]() {
+        if (!ImGui::CollapsingHeader("Post Processing", ImGuiTreeNodeFlags_DefaultOpen)) {
+            return;
+        }
+
+        ImGui::SliderFloat("Exposure (stops)", &exposureStops, -10.0F, 10.0F, "%.1F");  // NOLINT(readability-magic-numbers)
+        ImGui::Text("%s", "  -1 = half, 0 = unchanged, +1 = twice");  // NOLINT(cppcoreguidelines-pro-type-vararg)
+
+        constexpr std::array<const char*, 2> toneMapItems = {"None (clamp)", "Reinhard"};
+        int currentTM = static_cast<int>(toneMapMode);
+        ImGui::Combo("Tone Mapping", &currentTM, toneMapItems.data(), static_cast<int>(toneMapItems.size()));
+        toneMapMode = static_cast<renderer::ToneMapMode>(currentTM);
+
+        if (ImGui::TreeNode("Fog")) {
+            ImGui::Checkbox("Enabled", &fogEnabled);
+            constexpr std::array<const char*, 2> fogItems = {"Linear", "Exponential"};
+            int currentFog = static_cast<int>(fogMode);
+            ImGui::Combo("Mode", &currentFog, fogItems.data(), static_cast<int>(fogItems.size()));
+            fogMode = static_cast<renderer::FogMode>(currentFog);
+
+            if (fogMode == renderer::FogMode::Linear) {
+                constexpr float fogStartStep{0.1F};
+                constexpr float fogEndMin{0.1F};
+                constexpr float fogEndMax{500.0F};
+                ImGui::SliderFloat("Start", &fogStart, 0.0F, fogEnd - fogStartStep);  // NOLINT(readability-magic-numbers)
+                ImGui::SliderFloat("End", &fogEnd, fogStart + fogEndMin, fogEndMax);  // NOLINT(readability-magic-numbers)
+            } else {
+                constexpr float fogDensityMin{0.001F};
+                constexpr float fogDensityMax{1.0F};
+                ImGui::SliderFloat("Density", &fogDensity, fogDensityMin, fogDensityMax, "%.4F");
+            }
+            ImGui::ColorEdit3("Color", fogColorPtr);
+            ImGui::TreePop();
+        }
+
+        constexpr std::array<const char*, 10> visItems = {
+            "Final", "Raw HDR", "Linear LDR", "Luminance",
+            "Log Luminance", "Depth", "Overexposure",
+            "Underexposure", "NaN & Infinity", "Grayscale"
+        };
+        int currentVis = static_cast<int>(visualizationMode);
+        ImGui::Combo("Visualization", &currentVis, visItems.data(), static_cast<int>(visItems.size()));
+        visualizationMode = static_cast<renderer::VisualizationMode>(currentVis);
+
+        if (visualizationMode == renderer::VisualizationMode::RawHdr ||
+            visualizationMode == renderer::VisualizationMode::Luminance) {
+            constexpr float hdrMin{0.1F};
+            constexpr float hdrMax{100.0F};
+            ImGui::SliderFloat("HDR Max", &hdrDisplayMax, hdrMin, hdrMax, "%.1F");
+        }
+
+        ImGui::Checkbox("Grayscale", &grayscale);
+
+        ImGui::Separator();
+        ImGui::Checkbox("FXAA", &fxaaEnabled);
+        if (fxaaEnabled) {
+            constexpr float edgeMin{0.0F};
+            constexpr float edgeMax{0.5F};
+            constexpr float edgeMinMin{0.0F};
+            constexpr float edgeMinMax{0.25F};
+            constexpr float subpixMin{0.0F};
+            constexpr float subpixMax{1.0F};
+            ImGui::SliderFloat("Edge Threshold", &fxaaEdgeThreshold, edgeMin, edgeMax, "%.3F");
+            ImGui::SliderFloat("Edge Threshold Min", &fxaaEdgeThresholdMin, edgeMinMin, edgeMinMax, "%.4F");
+            ImGui::SliderFloat("Subpixel Amount", &fxaaSubpixelAmount, subpixMin, subpixMax, "%.2F");
+        }
+    });
+}
+
 void ImGuiOverlay::render() {
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     if (viewport != nullptr) {

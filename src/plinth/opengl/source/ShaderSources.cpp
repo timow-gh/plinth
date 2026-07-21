@@ -291,8 +291,10 @@ void main() {
         ldr = vec3(lum);
     }
 
-    vec3 encoded = srgbEncode(ldr);
-    FragColor = vec4(encoded, 1.0);
+    // This debug view deliberately bypasses display encoding so it exposes the
+    // linear LDR values that the final view converts for an sRGB display.
+    vec3 outputColor = u_visualizationMode == 2 ? ldr : srgbEncode(ldr);
+    FragColor = vec4(outputColor, 1.0);
 })";
 }
 

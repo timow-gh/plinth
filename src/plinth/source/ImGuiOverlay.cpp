@@ -156,15 +156,38 @@ void ImGuiOverlay::add_post_processing_controls(
             return;
         }
 
-        ImGui::SliderFloat("Exposure (stops)", &exposureStops, -10.0F, 10.0F, "%.1F");  // NOLINT(readability-magic-numbers)
-        ImGui::Text("%s", "  -1 = half, 0 = unchanged, +1 = twice");  // NOLINT(cppcoreguidelines-pro-type-vararg)
+        constexpr std::array<const char*, 10> visItems = {
+            "Final", "Raw HDR", "Linear LDR (unencoded)", "Luminance",
+            "Log Luminance", "Depth", "Overexposure",
+            "Underexposure", "NaN & Infinity", "Grayscale"
+        };
+        int currentVis = static_cast<int>(visualizationMode);
+        ImGui::Combo("Visualization", &currentVis, visItems.data(), static_cast<int>(visItems.size()));
+        visualizationMode = static_cast<renderer::VisualizationMode>(currentVis);
 
-        constexpr std::array<const char*, 2> toneMapItems = {"None (clamp)", "Reinhard"};
-        int currentTM = static_cast<int>(toneMapMode);
-        ImGui::Combo("Tone Mapping", &currentTM, toneMapItems.data(), static_cast<int>(toneMapItems.size()));
-        toneMapMode = static_cast<renderer::ToneMapMode>(currentTM);
+        const bool exposureApplies = visualizationMode == renderer::VisualizationMode::Final ||
+                                     visualizationMode == renderer::VisualizationMode::LinearLdr ||
+                                     visualizationMode == renderer::VisualizationMode::Overexposure ||
+                                     visualizationMode == renderer::VisualizationMode::Underexposure ||
+                                     visualizationMode == renderer::VisualizationMode::Grayscale;
+        if (exposureApplies) {
+            ImGui::SliderFloat("Exposure (stops)", &exposureStops, -10.0F, 10.0F, "%.1F");  // NOLINT(readability-magic-numbers)
+            ImGui::TextUnformatted("-1 = half, 0 = unchanged, +1 = twice");
+        }
 
-        if (ImGui::TreeNode("Fog")) {
+        const bool toneMappingApplies = visualizationMode == renderer::VisualizationMode::Final ||
+                                        visualizationMode == renderer::VisualizationMode::LinearLdr ||
+                                        visualizationMode == renderer::VisualizationMode::Grayscale;
+        if (toneMappingApplies) {
+            constexpr std::array<const char*, 2> toneMapItems = {"None (clamp)", "Reinhard"};
+            int currentTM = static_cast<int>(toneMapMode);
+            ImGui::Combo("Tone Mapping", &currentTM, toneMapItems.data(), static_cast<int>(toneMapItems.size()));
+            toneMapMode = static_cast<renderer::ToneMapMode>(currentTM);
+        }
+
+        const bool fogApplies = visualizationMode != renderer::VisualizationMode::Depth &&
+                                visualizationMode != renderer::VisualizationMode::NaNAndInfinity;
+        if (fogApplies && ImGui::TreeNode("Fog")) {
             ImGui::Checkbox("Enabled", &fogEnabled);
             constexpr std::array<const char*, 2> fogItems = {"Linear", "Exponential"};
             int currentFog = static_cast<int>(fogMode);
@@ -186,15 +209,6 @@ void ImGuiOverlay::add_post_processing_controls(
             ImGui::TreePop();
         }
 
-        constexpr std::array<const char*, 10> visItems = {
-            "Final", "Raw HDR", "Linear LDR", "Luminance",
-            "Log Luminance", "Depth", "Overexposure",
-            "Underexposure", "NaN & Infinity", "Grayscale"
-        };
-        int currentVis = static_cast<int>(visualizationMode);
-        ImGui::Combo("Visualization", &currentVis, visItems.data(), static_cast<int>(visItems.size()));
-        visualizationMode = static_cast<renderer::VisualizationMode>(currentVis);
-
         if (visualizationMode == renderer::VisualizationMode::RawHdr ||
             visualizationMode == renderer::VisualizationMode::Luminance) {
             constexpr float hdrMin{0.1F};
@@ -202,7 +216,9 @@ void ImGuiOverlay::add_post_processing_controls(
             ImGui::SliderFloat("HDR Max", &hdrDisplayMax, hdrMin, hdrMax, "%.1F");
         }
 
-        ImGui::Checkbox("Grayscale", &grayscale);
+        if (visualizationMode == renderer::VisualizationMode::Final) {
+            ImGui::Checkbox("Grayscale", &grayscale);
+        }
 
         ImGui::Separator();
         ImGui::Checkbox("FXAA", &fxaaEnabled);
@@ -214,13 +230,13 @@ void ImGuiOverlay::add_post_processing_controls(
             constexpr float subpixMin{0.0F};
             constexpr float subpixMax{1.0F};
             ImGui::SliderFloat("Edge Threshold", &fxaaEdgeThreshold, edgeMin, edgeMax, "%.3F");
-            ImGui::SliderFloat("Edge Threshold Min", &fxaaEdgeThresholdMin, edgeMinMin, edgeMinMax, "%.4F");
+            ImGui::SliderFloat("Minimum Edge Contrast", &fxaaEdgeThresholdMin, edgeMinMin, edgeMinMax, "%.4F");
             ImGui::SliderFloat("Subpixel Amount", &fxaaSubpixelAmount, subpixMin, subpixMax, "%.2F");
         }
     });
 }
 
-void ImGuiOverlay::render() {
+void ImGuiOverlay::build_controls() {
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     if (viewport != nullptr) {
         m_controlPanelWidth = clamp_panel_width(m_controlPanelWidth, viewport->WorkSize.x);
@@ -252,7 +268,10 @@ void ImGuiOverlay::render() {
         ImGui::End();
     }
     m_controls.clear();
+}
 
+void ImGuiOverlay::render() {
+    build_controls();
     ImGui::Render();
     ImDrawData* drawData = ImGui::GetDrawData();
     if (drawData != nullptr && drawData->Valid) {

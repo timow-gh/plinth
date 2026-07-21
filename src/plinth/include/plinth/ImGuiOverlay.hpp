@@ -43,6 +43,7 @@ class ImGuiOverlay {
         float& fxaaEdgeThreshold,
         float& fxaaEdgeThresholdMin,
         float& fxaaSubpixelAmount);
+    void build_controls();
     void render();
     void end_frame();
 

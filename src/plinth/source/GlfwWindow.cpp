@@ -19,6 +19,7 @@ void* load_glfw_proc(const char* procName) {
     return reinterpret_cast<void*>(glfwGetProcAddress(procName));
 }
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 bool hasLivePlinthWindow{false};
 
 } // namespace

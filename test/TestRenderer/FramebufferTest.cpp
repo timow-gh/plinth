@@ -217,4 +217,97 @@ TEST_F(FramebufferTest, MoveAssignmentInvalidatesSource) {
     EXPECT_EQ(0, fb->get_height());
 }
 
+TEST_F(FramebufferTest, HdrSingleSampleHasColorAndDepthTexture) {
+    opengl::Framebuffer::HdrConfig config{64, 64, 1, true};
+    auto fb = opengl::Framebuffer::create_hdr(config);
+    ASSERT_TRUE(fb.has_value());
+    EXPECT_TRUE(fb->is_valid());
+    EXPECT_NE(0u, fb->get_color_texture());
+    EXPECT_NE(0u, fb->get_depth_texture());
+    EXPECT_EQ(1, fb->get_samples());
+
+    const GLuint colorTex = fb->get_color_texture();
+    glBindTexture(GL_TEXTURE_2D, colorTex);
+    GLint internalFormat = 0;
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &internalFormat);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    EXPECT_EQ(GL_RGBA16F, internalFormat);
+
+    const GLuint depthTex = fb->get_depth_texture();
+    ASSERT_NE(0u, depthTex);
+    glBindTexture(GL_TEXTURE_2D, depthTex);
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &internalFormat);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    EXPECT_EQ(GL_DEPTH_COMPONENT24, internalFormat);
+
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(FramebufferTest, HdrMultisampleUsesMultisampleTextures) {
+    GLint maxSamples = 0;
+    glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+    ASSERT_GT(maxSamples, 0);
+
+    if (maxSamples < 2) {
+        GTEST_SKIP() << "GL_MAX_SAMPLES < 2, skipping MSAA test";
+    }
+
+    const int samples = std::min(4, maxSamples);
+    opengl::Framebuffer::HdrConfig config{64, 64, samples, true};
+    auto fb = opengl::Framebuffer::create_hdr(config);
+    ASSERT_TRUE(fb.has_value());
+    EXPECT_TRUE(fb->is_valid());
+    EXPECT_EQ(samples, fb->get_samples());
+}
+
+TEST_F(FramebufferTest, HdrResolveBlitsColorAndDepth) {
+    GLint maxSamples = 0;
+    glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+    ASSERT_GT(maxSamples, 0);
+
+    if (maxSamples < 2) {
+        GTEST_SKIP() << "GL_MAX_SAMPLES < 2, skipping MSAA resolve test";
+    }
+
+    const int samples = std::min(4, maxSamples);
+    opengl::Framebuffer::HdrConfig srcConfig{64, 64, samples, true};
+    auto src = opengl::Framebuffer::create_hdr(srcConfig);
+    ASSERT_TRUE(src.has_value());
+
+    opengl::Framebuffer::HdrConfig dstConfig{64, 64, 1, true};
+    auto dst = opengl::Framebuffer::create_hdr(dstConfig);
+    ASSERT_TRUE(dst.has_value());
+
+    src->bind();
+    glClearColor(0.2f, 0.4f, 0.6f, 1.0f);
+    glClearDepth(0.5);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    opengl::Framebuffer::unbind();
+
+    const bool resolved = src->resolve_to(*dst, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    EXPECT_TRUE(resolved);
+
+    EXPECT_EQ(1, dst->get_samples());
+    EXPECT_NE(0u, dst->get_depth_texture());
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(FramebufferTest, LdrIntermediateHasColorOnly) {
+    auto fb = opengl::Framebuffer::create_ldr_intermediate(64, 64);
+    ASSERT_TRUE(fb.has_value());
+    EXPECT_TRUE(fb->is_valid());
+    EXPECT_NE(0u, fb->get_color_texture());
+    EXPECT_EQ(0u, fb->get_depth_texture());
+    EXPECT_EQ(1, fb->get_samples());
+
+    const GLuint tex = fb->get_color_texture();
+    glBindTexture(GL_TEXTURE_2D, tex);
+    GLint internalFormat = 0;
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &internalFormat);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    EXPECT_EQ(GL_RGBA8, internalFormat);
+
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
 } // namespace

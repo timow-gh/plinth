@@ -2,6 +2,7 @@
 #include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/Programs/CreateProgram.hpp"
 #include "OpenGL/ShaderSources.hpp"
+#include <array>
 #include <format>
 #include <utility>
 

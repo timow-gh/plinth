@@ -49,13 +49,13 @@ linal::hmatf make_translation(float x, float y, float z) {
     return result;
 }
 
-void dispatch_cursor(renderer::Renderer& renderer, double xpos) {
+void dispatch_key(renderer::Renderer& renderer, renderer::Key key) {
     auto* window = static_cast<GLFWwindow*>(renderer.window().get_native_handle());
     ASSERT_NE(nullptr, window);
-    const GLFWcursorposfun callback = glfwSetCursorPosCallback(window, nullptr);
+    const GLFWkeyfun callback = glfwSetKeyCallback(window, nullptr);
     ASSERT_NE(nullptr, callback);
-    glfwSetCursorPosCallback(window, callback);
-    callback(window, xpos, 32.0);
+    glfwSetKeyCallback(window, callback);
+    callback(window, static_cast<int>(key), 0, static_cast<int>(renderer::Action::PRESS), 0);
 }
 
 } // namespace
@@ -388,31 +388,31 @@ TEST_F(RendererTest, NoArgumentEndFrameRetainsRendererOwnedAutoFitState) {
 TEST_F(RendererTest, CallbackSubscriptionDisconnectsOnDestruction) {
     int calls = 0;
     {
-        const auto subscription = m_renderer->add_cursor_pos_callback([&calls](double, double) { ++calls; });
-        dispatch_cursor(*m_renderer, 63.0);
+        const auto subscription = m_renderer->add_key_callback([&calls](renderer::Key, renderer::Scancode, renderer::Action, renderer::Mods) { ++calls; });
+        dispatch_key(*m_renderer, renderer::Key::KEY_A);
         EXPECT_EQ(1, calls);
         EXPECT_TRUE(subscription.is_connected());
     }
-    dispatch_cursor(*m_renderer, 63.5);
+    dispatch_key(*m_renderer, renderer::Key::KEY_A);
     EXPECT_EQ(1, calls);
 }
 
 TEST_F(RendererTest, CallbackSubscriptionCanDisconnectExplicitlyAndDuringDispatch) {
     int explicitCalls = 0;
-    auto explicitSubscription = m_renderer->add_cursor_pos_callback([&explicitCalls](double, double) { ++explicitCalls; });
+    auto explicitSubscription = m_renderer->add_key_callback([&explicitCalls](renderer::Key, renderer::Scancode, renderer::Action, renderer::Mods) { ++explicitCalls; });
     explicitSubscription.disconnect();
     EXPECT_FALSE(explicitSubscription.is_connected());
-    dispatch_cursor(*m_renderer, 63.0);
+    dispatch_key(*m_renderer, renderer::Key::KEY_A);
     EXPECT_EQ(0, explicitCalls);
 
     int selfCalls = 0;
     renderer::CallbackSubscription selfSubscription;
-    selfSubscription = m_renderer->add_cursor_pos_callback([&selfCalls, &selfSubscription](double, double) {
+    selfSubscription = m_renderer->add_key_callback([&selfCalls, &selfSubscription](renderer::Key, renderer::Scancode, renderer::Action, renderer::Mods) {
         ++selfCalls;
         selfSubscription.disconnect();
     });
-    dispatch_cursor(*m_renderer, 63.5);
-    dispatch_cursor(*m_renderer, 63.0);
+    dispatch_key(*m_renderer, renderer::Key::KEY_A);
+    dispatch_key(*m_renderer, renderer::Key::KEY_A);
     EXPECT_EQ(1, selfCalls);
 }
 

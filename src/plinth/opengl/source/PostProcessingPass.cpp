@@ -2,10 +2,57 @@
 #include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/Programs/CreateProgram.hpp"
 #include "OpenGL/ShaderSources.hpp"
+#include <array>
 #include <format>
 #include <utility>
 
 namespace opengl {
+
+namespace {
+
+class ScopedFullscreenState {
+  public:
+    ScopedFullscreenState() {
+        glGetIntegerv(GL_VIEWPORT, m_viewport.data());
+        glGetIntegerv(GL_CURRENT_PROGRAM, &m_program);
+        glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &m_vertexArray);
+        glGetIntegerv(GL_ACTIVE_TEXTURE, &m_activeTexture);
+        for (int unit = 0; unit < 2; ++unit) {
+            glActiveTexture(GL_TEXTURE0 + unit);
+            glGetIntegerv(GL_TEXTURE_BINDING_2D, &m_textures[unit]);
+        }
+        glActiveTexture(static_cast<GLenum>(m_activeTexture));
+        m_depthTest = glIsEnabled(GL_DEPTH_TEST);
+        m_cullFace = glIsEnabled(GL_CULL_FACE);
+        m_blend = glIsEnabled(GL_BLEND);
+    }
+
+    ~ScopedFullscreenState() {
+        glViewport(m_viewport[0], m_viewport[1], m_viewport[2], m_viewport[3]);
+        glUseProgram(static_cast<GLuint>(m_program));
+        glBindVertexArray(static_cast<GLuint>(m_vertexArray));
+        for (int unit = 0; unit < 2; ++unit) {
+            glActiveTexture(GL_TEXTURE0 + unit);
+            glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(m_textures[unit]));
+        }
+        glActiveTexture(static_cast<GLenum>(m_activeTexture));
+        m_depthTest ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
+        m_cullFace ? glEnable(GL_CULL_FACE) : glDisable(GL_CULL_FACE);
+        m_blend ? glEnable(GL_BLEND) : glDisable(GL_BLEND);
+    }
+
+  private:
+    std::array<GLint, 4> m_viewport{};
+    std::array<GLint, 2> m_textures{};
+    GLint m_program{0};
+    GLint m_vertexArray{0};
+    GLint m_activeTexture{GL_TEXTURE0};
+    GLboolean m_depthTest{GL_FALSE};
+    GLboolean m_cullFace{GL_FALSE};
+    GLboolean m_blend{GL_FALSE};
+};
+
+} // namespace
 
 PostProcessingPass::PostProcessingPass(ProgramHandle program, GLuint vertexArray,
                                        Uniform sceneColor, Uniform sceneDepth,
@@ -145,6 +192,7 @@ bool PostProcessingPass::is_valid() const noexcept {
 }
 
 void PostProcessingPass::process(GLuint hdrColorTexture, GLuint depthTexture, int width, int height) const {
+    ScopedFullscreenState state;
     glViewport(0, 0, width, height);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);

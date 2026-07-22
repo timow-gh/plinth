@@ -67,7 +67,7 @@ TEST_F(TexturedMeshTest, SamplesTextureRgbAndPreservesVertexAlpha) {
     ASSERT_TRUE(textureId.has_value());
     const auto meshId = manager->add_textured_mesh_drawable(triangleVertices, 3, triangleNormals, triangleUvs,
                                                             colors_with_alpha(0.5F), 4, triangleIndices, *textureId,
-                                                            opengl::BufferAccessPattern::STATIC_DRAW);
+                                                             opengl::BufferAccessPattern::Static);
     ASSERT_TRUE(meshId.has_value());
 
     framebuffer->bind();

@@ -63,7 +63,7 @@ TEST_F(GoldenImageTest, PointSceneMatchesGolden) {
                                                                                 4,
                                                                                 indices,
                                                                                 largePointSize,
-                                                                                opengl::BufferAccessPattern::STATIC_DRAW);
+                                                                                 opengl::BufferAccessPattern::Static);
     ASSERT_TRUE(drawable.has_value());
 
     linal::hmatf identity = linal::hmatf::identity();

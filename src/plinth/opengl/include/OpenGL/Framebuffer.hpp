@@ -59,9 +59,20 @@ class OPENGL_EXPORT Framebuffer {
     int get_samples() const noexcept;
 
   private:
+    enum class AttachmentLayout {
+        Generic,
+        Hdr,
+        LdrIntermediate,
+    };
+
+    struct CreationDescriptor {
+        AttachmentLayout layout{AttachmentLayout::Generic};
+        bool useDepthTexture{false};
+    };
+
     Framebuffer(GLuint framebuffer, GLuint colorTexture, GLuint colorRenderbuffer,
-                GLuint depthStencilRenderbuffer, GLuint depthTexture, bool hasDepthTexture,
-                int width, int height, int samples, bool srgb);
+                 GLuint depthStencilRenderbuffer, GLuint depthTexture, bool hasDepthTexture,
+                 int width, int height, int samples, bool srgb, CreationDescriptor descriptor);
 
     GLuint m_framebuffer{0};
     GLuint m_colorTexture{0};
@@ -73,6 +84,7 @@ class OPENGL_EXPORT Framebuffer {
     int m_height{0};
     int m_samples{0};
     bool m_srgb{false};
+    CreationDescriptor m_creationDescriptor{};
 };
 
 } // namespace opengl

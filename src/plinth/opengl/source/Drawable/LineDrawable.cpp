@@ -124,7 +124,7 @@ void LineDrawable::draw_translucent(const linal::hmatf& mvp,
                                     const linal::double3& viewPosition) {
     const std::vector<std::uint32_t> sortedIndices =
         sort_translucent_line_indices_back_to_front(m_translucentLineSegments, viewPosition);
-    m_translucentLineIndicesBuffer.update_indices_buffer(sortedIndices, BufferAccessPattern::STREAM_DRAW);
+    m_translucentLineIndicesBuffer.update_indices_buffer(sortedIndices, BufferAccessPattern::Stream);
     draw_index_buffer(mvp, modelMatrix, m_translucentLineIndicesBuffer);
 }
 
@@ -143,7 +143,7 @@ void LineDrawable::draw_index_buffer(const linal::hmatf& mvp,
     glLineWidth(m_lineThickness);
     m_vertexArray.bind();
     indexBuffer.bind();
-    glDrawElements(m_lineType.get_gl_type(), indexBuffer.get_index_count(), GL_UNSIGNED_INT, nullptr);
+    glDrawElements(to_gl_primitive(m_lineType), indexBuffer.get_index_count(), GL_UNSIGNED_INT, nullptr);
 
     if (m_pointSize != 0.0F) {
         glPointSize(m_pointSize);

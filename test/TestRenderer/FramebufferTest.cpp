@@ -95,6 +95,49 @@ TEST_F(FramebufferTest, BindUnbindChangesBinding) {
     EXPECT_EQ(0, currentBinding);
 }
 
+TEST_F(FramebufferTest, FactoryAndResizePreserveBindingsTheyTouch) {
+    auto read = opengl::Framebuffer::create(64, 64, 1, false);
+    auto draw = opengl::Framebuffer::create(64, 64, 1, false);
+    auto resized = opengl::Framebuffer::create(64, 64, 1, false);
+    ASSERT_TRUE(read.has_value());
+    ASSERT_TRUE(draw.has_value());
+    ASSERT_TRUE(resized.has_value());
+
+    GLuint renderbuffer = 0;
+    GLuint texture = 0;
+    glGenRenderbuffers(1, &renderbuffer);
+    glGenTextures(1, &texture);
+    ASSERT_NE(0U, renderbuffer);
+    ASSERT_NE(0U, texture);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, read->get_id());
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw->get_id());
+    glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    ASSERT_TRUE(opengl::Framebuffer::create(32, 32, 1, false).has_value());
+    ASSERT_TRUE(resized->resize(32, 32));
+
+    GLint readBinding = 0;
+    GLint drawBinding = 0;
+    GLint renderbufferBinding = 0;
+    GLint activeTexture = 0;
+    GLint textureBinding = 0;
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readBinding);
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawBinding);
+    glGetIntegerv(GL_RENDERBUFFER_BINDING, &renderbufferBinding);
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &textureBinding);
+    EXPECT_EQ(static_cast<GLint>(read->get_id()), readBinding);
+    EXPECT_EQ(static_cast<GLint>(draw->get_id()), drawBinding);
+    EXPECT_EQ(static_cast<GLint>(renderbuffer), renderbufferBinding);
+    EXPECT_EQ(GL_TEXTURE1, activeTexture);
+    EXPECT_EQ(static_cast<GLint>(texture), textureBinding);
+
+    glDeleteRenderbuffers(1, &renderbuffer);
+    glDeleteTextures(1, &texture);
+}
+
 TEST_F(FramebufferTest, MultisampleIsValidAndHasNoTexture) {
     GLint maxSamples = 0;
     glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
@@ -135,8 +178,18 @@ TEST_F(FramebufferTest, ResolveBlitsColor) {
     glClear(GL_COLOR_BUFFER_BIT);
     opengl::Framebuffer::unbind();
 
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, dst->get_id());
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, src->get_id());
+    glBindTexture(GL_RENDERBUFFER, 0); // Deliberately leave an unrelated GL error pending.
     const bool resolved = src->resolve_to(*dst);
     EXPECT_TRUE(resolved);
+
+    GLint readBinding = 0;
+    GLint drawBinding = 0;
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readBinding);
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawBinding);
+    EXPECT_EQ(static_cast<GLint>(dst->get_id()), readBinding);
+    EXPECT_EQ(static_cast<GLint>(src->get_id()), drawBinding);
 
     dst->bind();
     std::array<unsigned char, 4> pixel{0, 0, 0, 0};
@@ -176,6 +229,74 @@ TEST_F(FramebufferTest, ResizePreservesStateOnFailure) {
     EXPECT_EQ(64, fb->get_height());
     EXPECT_EQ(originalId, fb->get_id());
     EXPECT_TRUE(fb->is_valid());
+}
+
+TEST_F(FramebufferTest, ResizePreservesHdrDepthTextureLayout) {
+    auto fb = opengl::Framebuffer::create_hdr({64, 64, 1, true});
+    ASSERT_TRUE(fb.has_value());
+
+    ASSERT_TRUE(fb->resize(32, 16));
+    EXPECT_EQ(32, fb->get_width());
+    EXPECT_EQ(16, fb->get_height());
+
+    glBindTexture(GL_TEXTURE_2D, fb->get_color_texture());
+    GLint internalFormat = 0;
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &internalFormat);
+    EXPECT_EQ(GL_RGBA16F, internalFormat);
+
+    ASSERT_NE(0u, fb->get_depth_texture());
+    glBindTexture(GL_TEXTURE_2D, fb->get_depth_texture());
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &internalFormat);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    EXPECT_EQ(GL_DEPTH_COMPONENT24, internalFormat);
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(FramebufferTest, ResizePreservesHdrWithoutDepthTexture) {
+    auto fb = opengl::Framebuffer::create_hdr({64, 64, 1, false});
+    ASSERT_TRUE(fb.has_value());
+
+    ASSERT_TRUE(fb->resize(32, 16));
+    EXPECT_EQ(0u, fb->get_depth_texture());
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(FramebufferTest, ResizePreservesMultisampleHdrTextureLayout) {
+    GLint maxSamples = 0;
+    glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+    ASSERT_GT(maxSamples, 0);
+    if (maxSamples < 2) {
+        GTEST_SKIP() << "GL_MAX_SAMPLES < 2, skipping MSAA test";
+    }
+
+    const int samples = std::min(4, maxSamples);
+    auto fb = opengl::Framebuffer::create_hdr({64, 64, samples, true});
+    ASSERT_TRUE(fb.has_value());
+
+    ASSERT_TRUE(fb->resize(32, 16));
+    EXPECT_EQ(samples, fb->get_samples());
+    ASSERT_NE(0u, fb->get_color_texture());
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, fb->get_color_texture());
+    GLint textureSamples = 0;
+    glGetTexLevelParameteriv(GL_TEXTURE_2D_MULTISAMPLE, 0, GL_TEXTURE_SAMPLES, &textureSamples);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+    EXPECT_EQ(samples, textureSamples);
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(FramebufferTest, ResizePreservesLdrColorOnlyLayout) {
+    auto fb = opengl::Framebuffer::create_ldr_intermediate(64, 64);
+    ASSERT_TRUE(fb.has_value());
+
+    ASSERT_TRUE(fb->resize(32, 16));
+    EXPECT_EQ(1, fb->get_samples());
+    EXPECT_EQ(0u, fb->get_depth_texture());
+    glBindTexture(GL_TEXTURE_2D, fb->get_color_texture());
+    GLint internalFormat = 0;
+    glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &internalFormat);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    EXPECT_EQ(GL_RGBA8, internalFormat);
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
 TEST_F(FramebufferTest, MoveConstructionInvalidatesSource) {
@@ -289,6 +410,32 @@ TEST_F(FramebufferTest, HdrResolveBlitsColorAndDepth) {
 
     EXPECT_EQ(1, dst->get_samples());
     EXPECT_NE(0u, dst->get_depth_texture());
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(FramebufferTest, ResolveRejectsIncompatibleFramebuffers) {
+    GLint maxSamples = 0;
+    glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+    ASSERT_GT(maxSamples, 0);
+    if (maxSamples < 2) {
+        GTEST_SKIP() << "GL_MAX_SAMPLES < 2, skipping MSAA resolve test";
+    }
+
+    const int samples = std::min(4, maxSamples);
+    auto multisample = opengl::Framebuffer::create(64, 64, samples, false);
+    auto singleSample = opengl::Framebuffer::create(64, 64, 1, false);
+    auto otherMultisample = opengl::Framebuffer::create(64, 64, samples, false);
+    auto unequal = opengl::Framebuffer::create(32, 32, 1, false);
+    ASSERT_TRUE(multisample.has_value());
+    ASSERT_TRUE(singleSample.has_value());
+    ASSERT_TRUE(otherMultisample.has_value());
+    ASSERT_TRUE(unequal.has_value());
+
+    opengl::Framebuffer invalidSource{std::move(*singleSample)};
+    EXPECT_FALSE(singleSample->resolve_to(invalidSource));
+    EXPECT_FALSE(invalidSource.resolve_to(*unequal));
+    EXPECT_FALSE(multisample->resolve_to(*otherMultisample));
+    EXPECT_FALSE(multisample->resolve_to(*unequal));
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 

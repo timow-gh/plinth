@@ -5,17 +5,33 @@ inputs:
     description: 'The cmake workflow to use.'
     required: true
   install_tools:
-    description: 'Additional tools to install (space-separated list: lcov, clang-tidy, cppcheck)'
+    description: 'Additional tools to install (space-separated list: doxygen, lcov, clang-tidy, cppcheck)'
     required: false
     default: ''
   build_native_args:
     description: 'Additional native build-tool arguments passed after cmake --build --'
     required: false
     default: ''
+  configure_args:
+    description: 'Additional CMake cache or configure arguments'
+    required: false
+    default: ''
+  build_target:
+    description: 'Optional CMake build target'
+    required: false
+    default: ''
   test_label_regex:
     description: 'CTest label regex passed to ctest -L (e.g. "unit|install" or "graphics")'
     required: false
     default: 'unit|install'
+  test_name_regex:
+    description: 'Optional CTest test-name regex passed to ctest -R'
+    required: false
+    default: ''
+  skip_tests:
+    description: 'When true, do not execute CTest'
+    required: false
+    default: 'false'
   use_xvfb:
     description: 'When true, install xvfb and execute ctest through xvfb-run'
     required: false
@@ -64,20 +80,28 @@ runs:
 
     - name: Configure
       run: |
-        cmake --preset ${{ steps.preset.outputs.configure }} -DBUILD_SHARED_LIBS=ON
+        cmake --preset ${{ steps.preset.outputs.configure }} -DBUILD_SHARED_LIBS=ON ${{ inputs.configure_args }}
       shell: bash
     
     - name: Build
       run: |
-        if [ -n "${{ inputs.build_native_args }}" ]; then
-          cmake --build --preset ${{ steps.preset.outputs.build }} -- ${{ inputs.build_native_args }}
-        else
-          cmake --build --preset ${{ steps.preset.outputs.build }}
+        BUILD_COMMAND=(cmake --build --preset ${{ steps.preset.outputs.build }})
+        if [ -n "${{ inputs.build_target }}" ]; then
+          BUILD_COMMAND+=(--target "${{ inputs.build_target }}")
         fi
+        if [ -n "${{ inputs.build_native_args }}" ]; then
+          BUILD_COMMAND+=(-- ${{ inputs.build_native_args }})
+        fi
+        "${BUILD_COMMAND[@]}"
       shell: bash
     
     - name: Test
+      if: inputs.skip_tests != 'true'
       run: |
+        TEST_COMMAND=(ctest --preset ${{ steps.preset.outputs.test }} --label-regex "${{ inputs.test_label_regex }}")
+        if [ -n "${{ inputs.test_name_regex }}" ]; then
+          TEST_COMMAND+=(-R "${{ inputs.test_name_regex }}")
+        fi
         if [[ "${{ inputs.use_xvfb }}" == "true" ]]; then
           # xvfb-run starts a throwaway X server for the duration of ctest so that
           # GLFW can open an OpenGL window (rendered in software by Mesa/llvmpipe).
@@ -86,8 +110,8 @@ runs:
           # --server-args="-noreset -ac": -noreset prevents the X server from resetting
           # when all clients disconnect (e.g. when GlfwWindow::~GlfwWindow calls
           # glfwTerminate between test cases). -ac disables access control.
-          xvfb-run --auto-servernum --server-args="-noreset -ac" ctest --preset ${{ steps.preset.outputs.test }} --label-regex "${{ inputs.test_label_regex }}"
+          xvfb-run --auto-servernum --server-args="-noreset -ac" "${TEST_COMMAND[@]}"
         else
-          ctest --preset ${{ steps.preset.outputs.test }} --label-regex "${{ inputs.test_label_regex }}"
+          "${TEST_COMMAND[@]}"
         fi
       shell: bash

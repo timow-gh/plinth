@@ -24,7 +24,6 @@
 namespace opengl {
 class DrawablesManager;
 class Framebuffer;
-class PresentationPass;
 class PostProcessingPass;
 class FXAAPass;
 } // namespace opengl
@@ -43,11 +42,37 @@ enum class DrawableKind {
 struct DrawableHandle {
     DrawableKind kind{DrawableKind::invalid};
     std::uint64_t id{0U};
+    /// Opaque identity of the Renderer that created this handle. Handles are
+    /// renderer-specific; invalid, foreign, removed, and stale handles are rejected.
+    std::uint64_t rendererInstance{0U};
 
     [[nodiscard]]
     constexpr bool is_valid() const {
-        return kind != DrawableKind::invalid && id != 0U;
+        return kind != DrawableKind::invalid && id != 0U && rendererInstance != 0U;
     }
+};
+
+struct CallbackConnection;
+
+class CallbackSubscription {
+  public:
+    CallbackSubscription() = default;
+    CallbackSubscription(const CallbackSubscription&) = delete;
+    CallbackSubscription& operator=(const CallbackSubscription&) = delete;
+    CallbackSubscription(CallbackSubscription&& other) noexcept;
+    CallbackSubscription& operator=(CallbackSubscription&& other) noexcept;
+    ~CallbackSubscription();
+
+    /// Disconnecting is idempotent. A disconnected callback is skipped even if
+    /// dispatch is in progress.
+    void disconnect() noexcept;
+    [[nodiscard]] bool is_connected() const noexcept;
+
+  private:
+    friend class Renderer;
+    explicit CallbackSubscription(std::shared_ptr<CallbackConnection> connection);
+
+    std::shared_ptr<CallbackConnection> m_connection;
 };
 
 struct LogicalViewportRect {
@@ -67,6 +92,22 @@ struct SceneViewport {
     renderer::ViewportRect framebuffer;
 };
 
+class ImGuiOverlayView {
+  public:
+    [[nodiscard]]
+    ImGuiOverlay* lock() const {
+        return m_lifetime.expired() ? nullptr : m_overlay;
+    }
+
+  private:
+    friend class Renderer;
+    ImGuiOverlayView(ImGuiOverlay* overlay, std::weak_ptr<void> lifetime)
+        : m_overlay(overlay), m_lifetime(std::move(lifetime)) {}
+
+    ImGuiOverlay* m_overlay{nullptr};
+    std::weak_ptr<void> m_lifetime;
+};
+
 class Renderer {
   public:
     Renderer() = delete;
@@ -76,28 +117,36 @@ class Renderer {
     Renderer& operator=(Renderer&&) = delete;
     ~Renderer();
 
-    // Only one live Renderer is supported at a time. A second call to create()
-    // while another Renderer is alive returns nullptr. A new instance may be
-    // created after the previous owner is destroyed.
+    /// Only one live Renderer is supported at a time. A second call to create()
+    /// while another Renderer is alive returns nullptr. A new instance may be
+    /// created after the previous owner is destroyed.
     [[nodiscard]]
     static std::unique_ptr<Renderer> create(const WindowSettings& settings);
+    /// Computes the scene viewport layout from window and framebuffer dimensions.
+    /// The logical viewport reserves the given width for UI; the framebuffer
+    /// viewport covers the remaining area in pixel coordinates.
     [[nodiscard]]
     static SceneViewport calculate_scene_viewport(std::pair<int, int> windowSize,
                                                   std::pair<int, int> framebufferSize,
                                                   double reservedLogicalWidth);
+    /// Converts window cursor coordinates to the scene framebuffer coordinate
+    /// system. Returns std::nullopt when the position lies outside the scene
+    /// logical viewport.
     [[nodiscard]]
     static std::optional<std::pair<double, double>>
     to_scene_framebuffer_coordinates(const SceneViewport& sceneViewport, double xpos, double ypos);
 
-    // --- Geometry ---
-    // All add_*_drawable functions return an invalid handle (is_valid() == false) if drawable
-    // creation fails; they do not throw.
+    /// Geometry input uses three floats per position or normal, four floats per
+    /// color, and two floats per texture coordinate. Indices address vertices and
+    /// use pairs for lines or triples for triangles. Input spans are copied during
+    /// the call and may be released afterwards. All add_*_drawable functions return
+    /// an invalid handle when creation fails; they do not throw.
     DrawableHandle
     add_point_drawable(std::span<const float> vertices,
                        std::span<const float> colors,
                        std::span<const std::uint32_t> indices,
                        float pointSize,
-                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::STATIC_DRAW);
+                        renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
     DrawableHandle
     add_line_drawable(std::span<const float> vertices,
@@ -106,17 +155,23 @@ class Renderer {
                       renderer::LineType lineType,
                       float lineWidth,
                       float pointSize = 0.0F,
-                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::STATIC_DRAW);
+                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
+    /// Returns an invalid handle when creation fails. Does not set a texture;
+    /// use add_textured_mesh_drawable for textured geometry.
     DrawableHandle
     add_mesh_drawable(std::span<const float> vertices,
                       std::span<const float> normals,
                       std::span<const float> colors,
                       std::span<const std::uint32_t> triangleIndices,
-                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::STATIC_DRAW);
+                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
+    /// Returns an invalid handle when creation fails. TextureData::rgba8 is copied.
     TextureHandle create_texture_2d(TextureData data);
+    /// Returns false for invalid, foreign, removed, or stale handles.
     bool remove_texture(TextureHandle texture);
+    /// Returns an invalid handle when creation fails. The texture must outlive
+    /// this drawable or be re-registered before removal.
     DrawableHandle add_textured_mesh_drawable(
         std::span<const float> vertices,
         std::span<const float> normals,
@@ -124,25 +179,33 @@ class Renderer {
         std::span<const float> colors,
         std::span<const std::uint32_t> triangleIndices,
         TextureHandle texture,
-        renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::STATIC_DRAW);
+         renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
+    /// Returns an invalid handle when creation fails. Input spans are copied.
     DrawableHandle add_mesh_segment_drawable(std::span<const float> positions,
                                              std::span<const std::uint32_t> indices,
                                              std::span<const float> color,
                                              float lineWidth);
 
+    /// Returns an invalid handle when creation fails. Input spans are copied.
     DrawableHandle
     add_mesh_vertex_drawable(std::span<const float> positions, std::span<const float> color, float pointSize);
 
+    /// Invalid, foreign, removed, and stale handles leave state unchanged.
     void set_mesh_drawable_cull_mode(DrawableHandle handle, renderer::MeshCullFaceMode mode);
 
+    /// Returns false for invalid, foreign, removed, or stale handles.
     bool remove_drawable(DrawableHandle handle);
 
+    /// Transform operations return false (or std::nullopt) for invalid, foreign,
+    /// removed, and stale handles; reset restores the identity transform.
     bool set_drawable_transform(DrawableHandle handle, const linal::hmatf& transform);
     [[nodiscard]]
     std::optional<linal::hmatf> get_drawable_transform(DrawableHandle handle) const;
     bool reset_drawable_transform(DrawableHandle handle);
 
+    /// Updates affect the most recently added drawable of that kind. If none
+    /// exists, the call is ignored. Input spans are copied during the call.
     void update_last_point_drawable(std::span<const float> vertices,
                                     std::span<const float> colors,
                                     std::span<const std::uint32_t> indices,
@@ -153,9 +216,13 @@ class Renderer {
                                    std::span<const std::uint32_t> indices,
                                    renderer::BufferAccessPattern accessPattern);
 
+    /// Removes all drawables of the given kind. Handles previously returned for
+    /// those drawables become invalid and are rejected by subsequent operations.
     void clear_point_drawables();
     void clear_line_drawables();
     void clear_mesh_drawables();
+    /// Removes all drawables regardless of kind. All previously-returned handles
+    /// become invalid.
     void clear_drawables();
 
     [[nodiscard]]
@@ -165,7 +232,11 @@ class Renderer {
     [[nodiscard]]
     bool has_mesh_drawables() const;
 
-    // --- Post-processing controls ---
+    /// Post-processing controls require finite numeric values. HDR display max
+    /// must be positive, fog density must be non-negative, and linear fog needs
+    /// end > start. FXAA edge threshold, minimum edge contrast, and subpixel
+    /// amount are constrained to [0, 0.5], [0, 0.25], and [0, 1]. Invalid input
+    /// is rejected without changing state and reported through the error sink.
     void set_exposure_stops(float stops);
     void set_tone_map_mode(renderer::ToneMapMode mode);
     void set_fog_enabled(bool enabled);
@@ -182,35 +253,51 @@ class Renderer {
     void set_fxaa_edge_threshold_min(float threshold);
     void set_fxaa_subpixel_amount(float amount);
 
-    // --- Frame lifecycle ---
+    /// Renderer owns one GLFW/OpenGL context. All methods that access the window,
+    /// renderer state, or GL must be called on its creating thread. Frame methods
+    /// make that context current before GL work. Per frame, call poll_events(),
+    /// begin_frame(), draw(), then end_frame(); repeated draw() calls add work to
+    /// the same frame, while end_frame() presents and swaps buffers once per call.
     static void poll_events();
     [[nodiscard]]
+    /// Returns true when the GLFW window has received a close request.
     bool should_close() const;
     [[nodiscard]]
+    /// Returns true when the Escape key was pressed this frame.
     bool is_escape_pressed() const;
 
     void begin_frame(const renderer::ClearColor& clearColor = defaultClearColor);
     void draw();
     void draw(const renderer::LightingConfig& lighting);
     void end_frame();
+    // Caller owns auto-fit state for these overloads. A Home request is consumed
+    // before return. The no-argument overload retains renderer-owned auto-fit state.
     void end_frame(bool& autoFitEnabled);
     void end_frame(bool& autoFitEnabled, bool& homeRequested);
 
+    /// Makes the renderer-owned context current on the calling thread.
+    void make_context_current() const;
+
     // --- Camera navigation (geometry-fit aware) ---
+    /// Animates the camera to a preset view orientation.
     void go_to_preset_view(PresetView view);
+    /// Animates the camera to the home (initial) view.
     void go_to_home_view();
 
     // --- Callback extension points ---
-    void add_cursor_pos_callback(CursorPosCB cb);
-    void add_scroll_callback(ScrollCB cb);
-    void add_mouse_button_callback(MouseBtnCB cb);
-    void add_key_callback(KeyCB cb);
+    /// Keep the returned subscription alive for the callback lifetime. Destroying
+    /// or disconnecting it removes the callback. During dispatch, disconnected
+    /// callbacks are skipped and callbacks added during dispatch wait until later.
+    /// Cursor callbacks receive scene framebuffer coordinates and are suppressed
+    /// outside the scene or when ImGui captures the event. Scroll, mouse, and key
+    /// callbacks are likewise suppressed while ImGui captures their input.
+    [[nodiscard]] CallbackSubscription add_cursor_pos_callback(CursorPosCB cb);
+    [[nodiscard]] CallbackSubscription add_scroll_callback(ScrollCB cb);
+    [[nodiscard]] CallbackSubscription add_mouse_button_callback(MouseBtnCB cb);
+    [[nodiscard]] CallbackSubscription add_key_callback(KeyCB cb);
 
     // --- Accessors ---
     [[nodiscard]]
-    GlfwWindow& window() {
-        return m_window;
-    }
     [[nodiscard]]
     const GlfwWindow& window() const {
         return m_window;
@@ -223,10 +310,16 @@ class Renderer {
     std::weak_ptr<const CameraInteractor> get_camera() const {
         return m_camera;
     }
+    [[nodiscard]] bool is_auto_fit_enabled() const noexcept { return m_autoFitEnabled; }
     [[nodiscard]]
-    std::weak_ptr<ImGuiOverlay> get_imgui() {
-        return m_imgui;
-    }
+    /// The returned overlay is owned by this Renderer and must not be used
+    /// after the Renderer is destroyed. Use get_imgui() for a lifetime-safe view.
+    [[nodiscard]]
+    ImGuiOverlay& imgui() { return *m_imgui; }
+    [[nodiscard]]
+    /// Returns a lifetime-safe view of the ImGui overlay. Returns nullptr from
+    /// lock() if the Renderer has been destroyed.
+    ImGuiOverlayView get_imgui() { return ImGuiOverlayView{m_imgui.get(), m_imguiLifetime}; }
 
     static constexpr renderer::ClearColor defaultClearColor{0.05F, 0.05F, 0.08F, 1.0F};
 
@@ -234,15 +327,15 @@ class Renderer {
     Renderer(GlfwWindow window,
              std::unique_ptr<opengl::DrawablesManager> drawablesManager,
              std::shared_ptr<CameraInteractor> camera,
-             std::shared_ptr<ImGuiOverlay> imgui,
+             std::unique_ptr<ImGuiOverlay> imgui,
              std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
              std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
-             std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
-             std::unique_ptr<opengl::PresentationPass> presentationPass,
-             std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
-             std::unique_ptr<opengl::FXAAPass> fxaaPass,
-             int sceneSamples,
-             int maxTextureSize);
+              std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
+              std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
+              std::unique_ptr<opengl::FXAAPass> fxaaPass,
+              int sceneSamples,
+              int maxTextureSize,
+              std::uint64_t rendererInstance);
 
     void wire_callbacks();
     void update_scene_viewport();
@@ -258,16 +351,28 @@ class Renderer {
                                                 const linal::double3& up,
                                                 const linal::double3& targetHint,
                                                 double currentDistance) const;
+    void maybe_update_auto_fit(std::chrono::steady_clock::time_point now);
     void apply_fit_result(const CameraAutoFitResult& result);
+
+    template <typename Callback>
+    struct CallbackEntry {
+        Callback callback;
+        std::shared_ptr<CallbackConnection> connection;
+    };
+
+    template <typename Callback>
+    CallbackSubscription add_callback(std::vector<CallbackEntry<Callback>>& callbacks, Callback callback);
+    template <typename Callback, typename... Args>
+    void dispatch_callbacks(std::vector<CallbackEntry<Callback>>& callbacks, Args&&... args);
 
     GlfwWindow m_window;
     std::unique_ptr<opengl::DrawablesManager> m_drawablesManager;
     std::shared_ptr<CameraInteractor> m_camera;
-    std::shared_ptr<ImGuiOverlay> m_imgui;
+    std::shared_ptr<void> m_imguiLifetime{std::make_shared<int>(0)};
+    std::unique_ptr<ImGuiOverlay> m_imgui;
     std::unique_ptr<opengl::Framebuffer> m_sceneFramebuffer;
     std::unique_ptr<opengl::Framebuffer> m_hdrResolveFramebuffer;
     std::unique_ptr<opengl::Framebuffer> m_ldrIntermediate;
-    std::unique_ptr<opengl::PresentationPass> m_presentationPass;
     std::unique_ptr<opengl::PostProcessingPass> m_postProcessingPass;
     std::unique_ptr<opengl::FXAAPass> m_fxaaPass;
     int m_sceneSamples{1};
@@ -279,11 +384,12 @@ class Renderer {
     bool m_autoFitPending{false};
     bool m_autoFitEnabled{false};
     int m_maxTextureSize{0};
+    std::uint64_t m_rendererInstance{0U};
 
-    std::vector<CursorPosCB> m_cursorPosCallbacks;
-    std::vector<ScrollCB> m_scrollCallbacks;
-    std::vector<MouseBtnCB> m_mouseButtonCallbacks;
-    std::vector<KeyCB> m_keyCallbacks;
+    std::vector<CallbackEntry<CursorPosCB>> m_cursorPosCallbacks;
+    std::vector<CallbackEntry<ScrollCB>> m_scrollCallbacks;
+    std::vector<CallbackEntry<MouseBtnCB>> m_mouseButtonCallbacks;
+    std::vector<CallbackEntry<KeyCB>> m_keyCallbacks;
 
     float m_exposureStops{0.0f};
     renderer::ToneMapMode m_toneMapMode{renderer::ToneMapMode::None};

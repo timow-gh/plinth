@@ -5,19 +5,19 @@ macro(enable_doxygen)
         message(FATAL_ERROR "Doxygen not found. Documentation will not be generated.")
     endif ()
 
-    # if doxygen is found, generate the documentation
-    if (DOXYGEN_EXECUTABLE)
-        # configure doxygen file
-        # @ONLY means only replace variables of the form @VAR@ (and not ${VAR})
-        configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Doxyfile.in ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Doxyfile @ONLY)
+    set(DOXYGEN_CONFIG_FILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
 
-        # Define the custom target for building the documentation
-        add_custom_target(
-                docs ALL
-                COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Doxyfile
-                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                COMMENT "Generating API documentation with Doxygen"
-                VERBATIM
-        )
-    endif ()
+    # @ONLY means only replace variables of the form @VAR@ (and not ${VAR}).
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Doxyfile.in ${DOXYGEN_CONFIG_FILE} @ONLY)
+
+    # Public headers are not yet fully documented, so retain Doxygen warnings.
+    # They are emitted to the target log for visibility in CI.
+    add_custom_target(
+            docs
+            COMMAND ${CMAKE_COMMAND} -E echo "Doxygen warnings, if any, follow in this build log."
+            COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_CONFIG_FILE}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMENT "Generating API documentation with Doxygen"
+            VERBATIM
+    )
 endmacro()

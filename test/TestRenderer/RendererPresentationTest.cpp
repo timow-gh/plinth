@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <memory>
+#include <limits>
 #include <optional>
 #include <plinth/Renderer.hpp>
 #include <plinth/WindowSettings.hpp>
@@ -435,6 +436,120 @@ TEST_F(RendererPresentationTest, PresentsSingleSamplePointThroughPublicFrameLife
 
     const auto [x, y] = scene_interior_coordinate(*instance);
     expect_pixel_near(read_front_pixel(x, y), {255, 0, 0, 255});
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(RendererPresentationTest, PublicPostProcessingSettersAffectPresentedOutput) {
+    auto instance = create_renderer(1);
+    ASSERT_NE(nullptr, instance);
+    instance->set_fxaa_enabled(false);
+
+    const auto render = [&] {
+        instance->begin_frame({0.25F, 0.25F, 0.25F, 1.0F});
+        instance->draw();
+        instance->end_frame();
+        glFinish();
+        const auto [x, y] = scene_interior_coordinate(*instance);
+        return read_front_pixel(x, y);
+    };
+
+    instance->set_exposure_stops(0.0F);
+    instance->set_tone_map_mode(renderer::ToneMapMode::None);
+    instance->set_visualization_mode(renderer::VisualizationMode::Final);
+    expect_pixel_near(render(), {137, 137, 137, 255});
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+
+    instance->set_exposure_stops(1.0F);
+    expect_pixel_near(render(), {188, 188, 188, 255});
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+
+    instance->set_exposure_stops(0.0F);
+    instance->set_visualization_mode(renderer::VisualizationMode::LinearLdr);
+    expect_pixel_near(render(), {64, 64, 64, 255});
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(RendererPresentationTest, InvalidPublicPostProcessingValuesPreservePresentedOutput) {
+    auto instance = create_renderer(1);
+    ASSERT_NE(nullptr, instance);
+    instance->set_fxaa_enabled(false);
+    instance->set_exposure_stops(0.0F);
+    instance->set_tone_map_mode(renderer::ToneMapMode::None);
+    instance->set_fog_enabled(false);
+    instance->set_fog_mode(renderer::FogMode::Linear);
+    instance->set_fog_start(5.0F);
+    instance->set_fog_end(50.0F);
+    instance->set_fog_density(0.05F);
+    instance->set_fog_color(0.05F, 0.05F, 0.08F);
+    instance->set_visualization_mode(renderer::VisualizationMode::Final);
+    instance->set_hdr_display_max(10.0F);
+    instance->set_fxaa_edge_threshold(0.166F);
+    instance->set_fxaa_edge_threshold_min(0.0833F);
+    instance->set_fxaa_subpixel_amount(0.75F);
+
+    const auto render = [&] {
+        instance->begin_frame({0.25F, 0.25F, 0.25F, 1.0F});
+        instance->draw();
+        instance->end_frame();
+        glFinish();
+        const auto [x, y] = scene_interior_coordinate(*instance);
+        return read_front_pixel(x, y);
+    };
+
+    const auto baseline = render();
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    instance->set_exposure_stops(nan);
+    instance->set_tone_map_mode(static_cast<renderer::ToneMapMode>(-1));
+    instance->set_fog_mode(static_cast<renderer::FogMode>(-1));
+    instance->set_fog_start(nan);
+    instance->set_fog_start(50.0F);
+    instance->set_fog_end(nan);
+    instance->set_fog_end(5.0F);
+    instance->set_fog_density(nan);
+    instance->set_fog_density(-0.01F);
+    instance->set_fog_color(nan, 0.05F, 0.08F);
+    instance->set_visualization_mode(static_cast<renderer::VisualizationMode>(-1));
+    instance->set_hdr_display_max(nan);
+    instance->set_hdr_display_max(0.0F);
+    instance->set_fxaa_edge_threshold(nan);
+    instance->set_fxaa_edge_threshold(0.51F);
+    instance->set_fxaa_edge_threshold_min(nan);
+    instance->set_fxaa_edge_threshold_min(0.26F);
+    instance->set_fxaa_subpixel_amount(nan);
+    instance->set_fxaa_subpixel_amount(1.01F);
+
+    expect_pixel_near(render(), {static_cast<int>(baseline[0]),
+                                  static_cast<int>(baseline[1]),
+                                  static_cast<int>(baseline[2]),
+                                  static_cast<int>(baseline[3])});
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(RendererPresentationTest, PublicReinhardToneMappingAffectsPresentedOutput) {
+    auto instance = create_renderer(1);
+    ASSERT_NE(nullptr, instance);
+    instance->set_fxaa_enabled(false);
+    instance->set_exposure_stops(0.0F);
+    instance->set_visualization_mode(renderer::VisualizationMode::Final);
+
+    const auto render = [&] {
+        instance->begin_frame({2.0F, 2.0F, 2.0F, 1.0F});
+        instance->draw();
+        instance->end_frame();
+        glFinish();
+        const auto [x, y] = scene_interior_coordinate(*instance);
+        return read_front_pixel(x, y);
+    };
+
+    instance->set_tone_map_mode(renderer::ToneMapMode::None);
+    const auto clampPixel = render();
+    expect_pixel_near(clampPixel, {255, 255, 255, 255});
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+
+    instance->set_tone_map_mode(renderer::ToneMapMode::Reinhard);
+    const auto reinhardPixel = render();
+    EXPECT_LT(reinhardPixel[0], clampPixel[0]);
+    expect_pixel_near(reinhardPixel, {213, 213, 213, 255});
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 

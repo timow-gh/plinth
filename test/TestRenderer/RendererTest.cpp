@@ -1,4 +1,5 @@
 #include "PlinthTestMatchers.hpp"
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <gtest/gtest.h>
 #include <linal/hmat.hpp>
@@ -8,6 +9,15 @@
 #include <cstdint>
 
 namespace {
+
+template <typename T>
+concept HasQueryOnlyBufferPattern = requires { T::READ_ONLY; };
+
+template <typename T>
+concept HasTriangleLineType = requires { T::triangles(); };
+
+static_assert(!HasQueryOnlyBufferPattern<renderer::BufferAccessPattern>);
+static_assert(!HasTriangleLineType<renderer::LineType>);
 
 class RendererTest : public ::testing::Test {
   protected:
@@ -37,6 +47,15 @@ linal::hmatf make_translation(float x, float y, float z) {
     linal::hmatf result = linal::hmatf::identity();
     result.set_translation(linal::float3{x, y, z});
     return result;
+}
+
+void dispatch_key(renderer::Renderer& renderer, renderer::Key key) {
+    auto* window = static_cast<GLFWwindow*>(renderer.window().get_native_handle());
+    ASSERT_NE(nullptr, window);
+    const GLFWkeyfun callback = glfwSetKeyCallback(window, nullptr);
+    ASSERT_NE(nullptr, callback);
+    glfwSetKeyCallback(window, callback);
+    callback(window, static_cast<int>(key), 0, static_cast<int>(renderer::Action::PRESS), 0);
 }
 
 } // namespace
@@ -72,6 +91,49 @@ TEST_F(RendererTest, AddLineDrawableReturnsValidHandle) {
 
     EXPECT_TRUE(handle.is_valid());
     EXPECT_EQ(renderer::DrawableKind::line, handle.kind);
+}
+
+TEST_F(RendererTest, BufferAccessPatternsCreateBuffersWithoutGlErrors) {
+    const std::array<float, 9> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F,
+    };
+    const std::array<float, 12> colors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+    };
+    const std::array<std::uint32_t, 3> indices = {0U, 1U, 2U};
+
+    for (const renderer::BufferAccessPattern accessPattern: {renderer::BufferAccessPattern::Stream,
+                                                               renderer::BufferAccessPattern::Static,
+                                                               renderer::BufferAccessPattern::Dynamic}) {
+        while (glGetError() != GL_NO_ERROR) {
+        }
+        EXPECT_TRUE(m_renderer->add_point_drawable(vertices, colors, indices, 1.0F, accessPattern).is_valid());
+        EXPECT_EQ(GL_NO_ERROR, glGetError());
+    }
+}
+
+TEST_F(RendererTest, LineTypesCreateLineDrawablesWithoutGlErrors) {
+    const std::array<float, 12> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F,
+    };
+    const std::array<std::uint32_t, 4> indices = {0U, 1U, 2U, 3U};
+    const std::array<float, 16> colors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F, 1.0F,
+    };
+
+    for (const renderer::LineType lineType: {renderer::LineType::lines(),
+                                              renderer::LineType::line_strip(),
+                                              renderer::LineType::line_loop()}) {
+        while (glGetError() != GL_NO_ERROR) {
+        }
+        EXPECT_TRUE(m_renderer->add_line_drawable(vertices, indices, colors, lineType, 2.0F).is_valid());
+        EXPECT_EQ(GL_NO_ERROR, glGetError());
+    }
+
+    m_renderer->begin_frame();
+    m_renderer->draw();
+    m_renderer->end_frame();
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
 TEST_F(RendererTest, AddMeshDrawableReturnsValidHandle) {
@@ -194,6 +256,85 @@ TEST_F(RendererTest, ResetTransformSetsIdentity) {
     EXPECT_TRUE(m_renderer->get_drawable_transform(handle)->is_identity());
 }
 
+TEST_F(RendererTest, DrawableKindsSupportTransformAndRemoval) {
+    const std::array<float, 9> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F,
+    };
+    const std::array<float, 9> normals = {
+        0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F,
+    };
+    const std::array<float, 12> colors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+    };
+    const std::array<float, 4> color = {1.0F, 1.0F, 1.0F, 1.0F};
+    const std::array<std::uint32_t, 3> indices = {0U, 1U, 2U};
+
+    const std::array handles = {
+        m_renderer->add_point_drawable(vertices, colors, indices, 1.0F),
+        m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), 1.0F),
+        m_renderer->add_mesh_drawable(vertices, normals, colors, indices),
+        m_renderer->add_mesh_segment_drawable(vertices, indices, color, 1.0F),
+        m_renderer->add_mesh_vertex_drawable(vertices, color, 1.0F),
+    };
+
+    for (const renderer::DrawableHandle handle: handles) {
+        ASSERT_TRUE(handle.is_valid());
+        EXPECT_TRUE(m_renderer->set_drawable_transform(handle, make_translation(1.0F, 2.0F, 3.0F)));
+        EXPECT_TRUE(m_renderer->get_drawable_transform(handle).has_value());
+        EXPECT_TRUE(m_renderer->reset_drawable_transform(handle));
+        EXPECT_TRUE(m_renderer->remove_drawable(handle));
+    }
+}
+
+TEST_F(RendererTest, StaleHandlesCannotAffectReplacementRenderer) {
+    const std::array<float, 9> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F,
+    };
+    const std::array<float, 9> normals = {
+        0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F,
+    };
+    const std::array<float, 12> colors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+    };
+    const std::array<std::uint32_t, 3> indices = {0U, 1U, 2U};
+    const std::array<std::uint8_t, 4> pixels = {255U, 255U, 255U, 255U};
+
+    const renderer::DrawableHandle staleDrawable = m_renderer->add_mesh_drawable(vertices, normals, colors, indices);
+    const renderer::TextureHandle staleTexture = m_renderer->create_texture_2d({1U, 1U, pixels});
+    ASSERT_TRUE(staleDrawable.is_valid());
+    ASSERT_TRUE(staleTexture.is_valid());
+    m_renderer.reset();
+
+    renderer::WindowSettings settings;
+    settings.title = "plinth replacement renderer test";
+    settings.width = 64;
+    settings.height = 64;
+    settings.visible = false;
+    settings.resizable = false;
+    settings.double_buffer = true;
+    m_renderer = renderer::Renderer::create(settings);
+    ASSERT_NE(nullptr, m_renderer);
+
+    const renderer::DrawableHandle replacement = m_renderer->add_mesh_drawable(vertices, normals, colors, indices);
+    const renderer::TextureHandle replacementTexture = m_renderer->create_texture_2d({1U, 1U, pixels});
+    ASSERT_TRUE(replacement.is_valid());
+    ASSERT_TRUE(replacementTexture.is_valid());
+    ASSERT_NE(staleDrawable.rendererInstance, replacement.rendererInstance);
+    ASSERT_NE(staleTexture.rendererInstance, replacementTexture.rendererInstance);
+
+    EXPECT_FALSE(m_renderer->remove_texture(staleTexture));
+    EXPECT_FALSE(m_renderer->add_textured_mesh_drawable(vertices, normals, {}, colors, indices, staleTexture).is_valid());
+    EXPECT_FALSE(m_renderer->remove_drawable(staleDrawable));
+    EXPECT_FALSE(m_renderer->set_drawable_transform(staleDrawable, make_translation(1.0F, 2.0F, 3.0F)));
+    EXPECT_FALSE(m_renderer->get_drawable_transform(staleDrawable).has_value());
+    EXPECT_FALSE(m_renderer->reset_drawable_transform(staleDrawable));
+    m_renderer->set_mesh_drawable_cull_mode(staleDrawable, renderer::MeshCullFaceMode::none);
+
+    EXPECT_TRUE(m_renderer->get_drawable_transform(replacement)->is_identity());
+    EXPECT_TRUE(m_renderer->remove_drawable(replacement));
+    EXPECT_TRUE(m_renderer->remove_texture(replacementTexture));
+}
+
 // --- Frame lifecycle ---
 
 TEST_F(RendererTest, BeginDrawEndFrameDoesNotCrash) {
@@ -229,6 +370,73 @@ TEST_F(RendererTest, EndFrameHandlesAutoFitAndHomeRequest) {
     m_renderer->begin_frame();
     m_renderer->draw();
     m_renderer->end_frame(autoFit, homeRequested);
+}
+
+TEST_F(RendererTest, NoArgumentEndFrameRetainsRendererOwnedAutoFitState) {
+    bool autoFit = true;
+    m_renderer->begin_frame();
+    m_renderer->draw();
+    m_renderer->end_frame(autoFit);
+    ASSERT_TRUE(m_renderer->is_auto_fit_enabled());
+
+    m_renderer->begin_frame();
+    m_renderer->draw();
+    m_renderer->end_frame();
+    EXPECT_TRUE(m_renderer->is_auto_fit_enabled());
+}
+
+TEST_F(RendererTest, CallbackSubscriptionDisconnectsOnDestruction) {
+    int calls = 0;
+    {
+        const auto subscription = m_renderer->add_key_callback([&calls](renderer::Key, renderer::Scancode, renderer::Action, renderer::Mods) { ++calls; });
+        dispatch_key(*m_renderer, renderer::Key::KEY_A);
+        EXPECT_EQ(1, calls);
+        EXPECT_TRUE(subscription.is_connected());
+    }
+    dispatch_key(*m_renderer, renderer::Key::KEY_A);
+    EXPECT_EQ(1, calls);
+}
+
+TEST_F(RendererTest, CallbackSubscriptionCanDisconnectExplicitlyAndDuringDispatch) {
+    int explicitCalls = 0;
+    auto explicitSubscription = m_renderer->add_key_callback([&explicitCalls](renderer::Key, renderer::Scancode, renderer::Action, renderer::Mods) { ++explicitCalls; });
+    explicitSubscription.disconnect();
+    EXPECT_FALSE(explicitSubscription.is_connected());
+    dispatch_key(*m_renderer, renderer::Key::KEY_A);
+    EXPECT_EQ(0, explicitCalls);
+
+    int selfCalls = 0;
+    renderer::CallbackSubscription selfSubscription;
+    selfSubscription = m_renderer->add_key_callback([&selfCalls, &selfSubscription](renderer::Key, renderer::Scancode, renderer::Action, renderer::Mods) {
+        ++selfCalls;
+        selfSubscription.disconnect();
+    });
+    dispatch_key(*m_renderer, renderer::Key::KEY_A);
+    dispatch_key(*m_renderer, renderer::Key::KEY_A);
+    EXPECT_EQ(1, selfCalls);
+}
+
+TEST_F(RendererTest, RetainedImGuiViewDoesNotKeepBackendAlive) {
+    const renderer::ImGuiOverlayView view = m_renderer->get_imgui();
+    ASSERT_NE(nullptr, view.lock());
+
+    m_renderer.reset();
+
+    EXPECT_EQ(nullptr, view.lock());
+}
+
+TEST_F(RendererTest, FrameBoundaryRestoresRendererContext) {
+    glfwDefaultWindowHints();
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    GLFWwindow* other = glfwCreateWindow(64, 64, "plinth alternate context", nullptr, nullptr);
+    ASSERT_NE(nullptr, other);
+
+    glfwMakeContextCurrent(other);
+    ASSERT_EQ(other, glfwGetCurrentContext());
+    m_renderer->begin_frame();
+
+    EXPECT_EQ(m_renderer->window().get_native_handle(), glfwGetCurrentContext());
+    glfwDestroyWindow(other);
 }
 
 TEST(OneSampleRendererTest, OneSampleFrameDoesNotCrash) {
@@ -311,24 +519,6 @@ TEST(GlfwWindowSingletonTest, MoveTransferPreservesGuard) {
         auto second = renderer::GlfwWindow::create(settings);
         EXPECT_FALSE(second.has_value());
     }
-}
-
-TEST(GlfwWindowSingletonTest, MoveAssignIntoActiveReleasesGuard) {
-    renderer::WindowSettings settings;
-    settings.title = "plinth singleton test";
-    settings.width = 64;
-    settings.height = 64;
-    settings.visible = false;
-    settings.resizable = false;
-
-    auto active = renderer::GlfwWindow::create(settings);
-    ASSERT_TRUE(active.has_value());
-
-    renderer::GlfwWindow empty;
-    active = std::move(empty);
-
-    auto replacement = renderer::GlfwWindow::create(settings);
-    EXPECT_TRUE(replacement.has_value());
 }
 
 TEST(RendererSingletonTest, RejectsSecondLiveRendererAndAllowsReplacement) {

@@ -9,3 +9,4 @@ leak:opengl::Framebuffer::resolve_to
 leak:ImGui_ImplOpenGL3_RenderDrawData
 leak:opengl::Texture2D::create
 leak:opengl::PostProcessingPass::process
+leak:opengl::FXAAPass::process

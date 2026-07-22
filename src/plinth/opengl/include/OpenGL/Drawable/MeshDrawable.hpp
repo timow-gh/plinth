@@ -70,7 +70,11 @@ class OPENGL_EXPORT MeshDrawable {
               const linal::float3& fillLightDirection,
               const linal::float3& fillLightColor,
               const linal::float3& ambientColor,
-              float shininess) const;
+              float shininess,
+              const linal::float3& lightAttenuation,
+              const linal::float3& materialAmbient,
+              const linal::float3& materialDiffuse,
+              const linal::float3& materialSpecular) const;
 
     [[nodiscard]]
     bool is_translucent() const noexcept {

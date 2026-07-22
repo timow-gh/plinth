@@ -21,6 +21,7 @@ struct OPENGL_EXPORT GpuCapabilities {
     std::string glslVersion;    // GL_SHADING_LANGUAGE_VERSION, e.g. "4.30"
     int maxTextureSize{0};      // GL_MAX_TEXTURE_SIZE
     int maxColorAttachments{0}; // GL_MAX_COLOR_ATTACHMENTS - relevant once framebuffer work lands
+    int maxAnisotropy{1};       // GL_MAX_TEXTURE_MAX_ANISOTROPY, default to 1 if unsupported
     bool supportsDebugOutput{false}; // core-4.3 glDebugMessageCallback path (see ErrorReporting.hpp)
 
     // Convenience: true if the context is at least the given version.

@@ -12,7 +12,7 @@ namespace opengl {
 class OPENGL_EXPORT PointProgram {
     ProgramHandle m_program;
 
-    Uniform m_mvpLocation;
+    Uniform m_viewProjectionLocation;
     Uniform m_modelMatrixLocation;
     Attribute m_vertexLocation;
     Attribute m_colorLocation;
@@ -20,7 +20,7 @@ class OPENGL_EXPORT PointProgram {
   public:
     PointProgram() noexcept = default;
     PointProgram(ProgramHandle program,
-                 Uniform mvpLocation,
+                 Uniform viewProjectionLocation,
                  Uniform modelMatrixLocation,
                  Attribute vertexLocation,
                  Attribute colorLocation) noexcept;
@@ -29,7 +29,7 @@ class OPENGL_EXPORT PointProgram {
     PointProgram& operator=(const PointProgram&) = delete;
     PointProgram(PointProgram&& other) noexcept {
         m_program = std::move(other.m_program);
-        m_mvpLocation = std::move(other.m_mvpLocation);
+        m_viewProjectionLocation = std::move(other.m_viewProjectionLocation);
         m_modelMatrixLocation = std::move(other.m_modelMatrixLocation);
         m_vertexLocation = std::move(other.m_vertexLocation);
         m_colorLocation = std::move(other.m_colorLocation);
@@ -37,7 +37,7 @@ class OPENGL_EXPORT PointProgram {
     PointProgram& operator=(PointProgram&& other) noexcept {
         if (this != &other) {
             m_program = std::move(other.m_program);
-            m_mvpLocation = std::move(other.m_mvpLocation);
+            m_viewProjectionLocation = std::move(other.m_viewProjectionLocation);
             m_modelMatrixLocation = std::move(other.m_modelMatrixLocation);
             m_vertexLocation = std::move(other.m_vertexLocation);
             m_colorLocation = std::move(other.m_colorLocation);
@@ -52,8 +52,8 @@ class OPENGL_EXPORT PointProgram {
     }
 
     [[nodiscard]]
-    constexpr Location get_mvp_location() const noexcept {
-        return m_mvpLocation.get_location();
+    constexpr Location get_view_projection_location() const noexcept {
+        return m_viewProjectionLocation.get_location();
     }
     [[nodiscard]]
     constexpr Location get_model_matrix_location() const noexcept {

@@ -63,7 +63,7 @@ TEST_F(TexturedMeshTest, SamplesTextureRgbAndPreservesVertexAlpha) {
     ASSERT_TRUE(framebuffer.has_value());
     auto manager = opengl::DrawablesManager::create();
     ASSERT_NE(nullptr, manager);
-    const auto textureId = manager->create_texture_2d({2U, 2U, texturePixels, renderer::TextureColorSpace::linear}, 64);
+    const auto textureId = manager->create_texture_2d({2U, 2U, texturePixels, renderer::TextureColorSpace::linear}, 64, 1);
     ASSERT_TRUE(textureId.has_value());
     const auto meshId = manager->add_textured_mesh_drawable(triangleVertices, 3, triangleNormals, triangleUvs,
                                                             colors_with_alpha(0.5F), 4, triangleIndices, *textureId,

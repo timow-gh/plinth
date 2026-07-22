@@ -238,6 +238,7 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
                                                        std::make_unique<opengl::FXAAPass>(std::move(*fxaa)),
                                                        sceneSamples,
                                                         capabilities.maxTextureSize,
+                                                        capabilities.maxAnisotropy,
                                                         *rendererInstance));
 
     renderer->update_scene_viewport();
@@ -257,6 +258,7 @@ Renderer::Renderer(GlfwWindow window,
                      std::unique_ptr<opengl::FXAAPass> fxaaPass,
                      int sceneSamples,
                      int maxTextureSize,
+                     int maxAnisotropy,
                      std::uint64_t rendererInstance)
     : m_window(std::move(window))
     , m_drawablesManager(std::move(drawables))
@@ -271,6 +273,7 @@ Renderer::Renderer(GlfwWindow window,
     , m_lastFrameTime(std::chrono::steady_clock::now())
     , m_lastCameraInteractionTime(m_lastFrameTime)
     , m_maxTextureSize(maxTextureSize)
+    , m_maxAnisotropy(maxAnisotropy)
     , m_rendererInstance(rendererInstance) {
 }
 
@@ -394,7 +397,7 @@ DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
 }
 
 TextureHandle Renderer::create_texture_2d(TextureData data) {
-    const auto id = m_drawablesManager->create_texture_2d(data, m_maxTextureSize);
+    const auto id = m_drawablesManager->create_texture_2d(data, m_maxTextureSize, m_maxAnisotropy);
     return id ? TextureHandle{*id, m_rendererInstance} : TextureHandle{};
 }
 
@@ -670,6 +673,8 @@ void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
     present_scene();
     m_imgui->render();
     m_imgui->end_frame();
+
+    glEnable(GL_FRAMEBUFFER_SRGB);
 
     if (projectionType != m_camera->get_projection_type()) {
         m_camera->set_projection_type(projectionType);

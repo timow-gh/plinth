@@ -5,7 +5,7 @@ std::string line_vertex_shader_source() {
     return
         R"(#version 330
 
-uniform mat4 u_MVP;
+uniform mat4 u_viewProjection;
 uniform mat4 u_model;
 
 in vec3 a_vertex;
@@ -14,7 +14,7 @@ in vec4 a_color;
 out vec4 v_color;
 
 void main() {
-    gl_Position = u_MVP * u_model * vec4(a_vertex, 1.0);
+    gl_Position = u_viewProjection * u_model * vec4(a_vertex, 1.0);
     v_color = a_color;
 })";
 }
@@ -36,7 +36,7 @@ std::string point_color_vertex_shader_source() {
     return
         R"(#version 330
 
-uniform mat4 u_MVP;
+uniform mat4 u_viewProjection;
 uniform mat4 u_model;
 uniform float u_pointSize;
 
@@ -46,7 +46,7 @@ in vec4 a_color;
 out vec4 v_color;
 
 void main() {
-    gl_Position = u_MVP * u_model * vec4(a_vertex, 1.0);
+    gl_Position = u_viewProjection * u_model * vec4(a_vertex, 1.0);
     gl_PointSize = u_pointSize;
     v_color = a_color;
 })";
@@ -114,6 +114,10 @@ std::string mesh_fragment_shader_source() {
     uniform float u_shininess;
     uniform bool u_hasAlbedoTexture;
     uniform sampler2D u_albedoTexture;
+    uniform vec3 u_lightAttenuation;
+    uniform vec3 u_materialAmbient;
+    uniform vec3 u_materialDiffuse;
+    uniform vec3 u_materialSpecular;
 
     void main() {
         // Normalize input vectors
@@ -126,12 +130,18 @@ std::string mesh_fragment_shader_source() {
             albedo *= texture(u_albedoTexture, v_texCoord).rgb;
         }
 
+        // Point light attenuation (constant, linear, quadratic)
+        float lightDist = length(u_lightPos - v_position);
+        float attenuation = 1.0 / (u_lightAttenuation.x +
+                                   u_lightAttenuation.y * lightDist +
+                                   u_lightAttenuation.z * lightDist * lightDist);
+
         // Ambient lighting
-        vec3 ambient = u_ambientColor * albedo;
+        vec3 ambient = u_materialAmbient * u_ambientColor * albedo;
 
         // Diffuse lighting
         float diff = max(dot(norm, lightDir), 0.0);
-        vec3 diffuse = u_lightColor * diff * albedo;
+        vec3 diffuse = u_materialDiffuse * u_lightColor * diff * albedo * attenuation;
 
         // Directional fill lighting
         float fillDirLength = length(u_fillLightDirection);
@@ -139,10 +149,10 @@ std::string mesh_fragment_shader_source() {
         float fillDiff = max(dot(norm, fillDir), 0.0);
         vec3 fillDiffuse = u_fillLightColor * fillDiff * albedo;
 
-        // Specular lighting
-        vec3 reflectDir = reflect(-lightDir, norm);
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), u_shininess);
-        vec3 specular = u_lightColor * spec;
+        // Specular lighting (Blinn-Phong)
+        vec3 halfwayDir = normalize(lightDir + viewDir);
+        float spec = pow(max(dot(norm, halfwayDir), 0.0), u_shininess);
+        vec3 specular = u_materialSpecular * u_lightColor * spec * attenuation;
 
         // Combine results
         vec3 result = ambient + diffuse + fillDiffuse + specular;

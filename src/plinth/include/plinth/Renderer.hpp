@@ -335,6 +335,7 @@ class Renderer {
               std::unique_ptr<opengl::FXAAPass> fxaaPass,
               int sceneSamples,
               int maxTextureSize,
+              int maxAnisotropy,
               std::uint64_t rendererInstance);
 
     void wire_callbacks();
@@ -384,6 +385,7 @@ class Renderer {
     bool m_autoFitPending{false};
     bool m_autoFitEnabled{false};
     int m_maxTextureSize{0};
+    int m_maxAnisotropy{1};
     std::uint64_t m_rendererInstance{0U};
 
     std::vector<CallbackEntry<CursorPosCB>> m_cursorPosCallbacks;

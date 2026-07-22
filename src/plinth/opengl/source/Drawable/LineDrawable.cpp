@@ -138,7 +138,7 @@ void LineDrawable::draw_index_buffer(const linal::hmatf& mvp,
     RENDERER_ASSERT(m_program != nullptr);
     auto& prog = *m_program;
     prog.use();
-    glUniformMatrix4fv(prog.get_mvp_location().get_value(), 1, GL_FALSE, mvp.data());
+    glUniformMatrix4fv(prog.get_view_projection_location().get_value(), 1, GL_FALSE, mvp.data());
     glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_FALSE, modelMatrix.data());
     glLineWidth(m_lineThickness);
     m_vertexArray.bind();

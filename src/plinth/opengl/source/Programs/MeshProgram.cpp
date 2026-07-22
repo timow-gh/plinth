@@ -54,7 +54,11 @@ MeshProgram make_mesh_program() {
                               .ambientColor = make_uniform("u_ambientColor", id),
                                .shininess = make_uniform("u_shininess", id),
                                .hasAlbedoTexture = make_uniform("u_hasAlbedoTexture", id),
-                               .albedoTexture = make_uniform("u_albedoTexture", id)};
+                               .albedoTexture = make_uniform("u_albedoTexture", id),
+                               .lightAttenuation = make_uniform("u_lightAttenuation", id),
+                               .materialAmbient = make_uniform("u_materialAmbient", id),
+                               .materialDiffuse = make_uniform("u_materialDiffuse", id),
+                               .materialSpecular = make_uniform("u_materialSpecular", id)};
 
     return MeshProgram{std::move(program), input};
 }

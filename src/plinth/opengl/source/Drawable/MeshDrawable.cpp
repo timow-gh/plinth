@@ -88,7 +88,11 @@ void MeshDrawable::draw(const linal::hmatf& modelMatrix,
                         const linal::float3& fillLightDirection,
                         const linal::float3& fillLightColor,
                         const linal::float3& ambientColor,
-                        float shininess) const {
+                        float shininess,
+                        const linal::float3& lightAttenuation,
+                        const linal::float3& materialAmbient,
+                        const linal::float3& materialDiffuse,
+                        const linal::float3& materialSpecular) const {
     RENDERER_ASSERT(m_program != nullptr);
     const auto& prog = *m_program;
     prog.use();
@@ -113,6 +117,10 @@ void MeshDrawable::draw(const linal::hmatf& modelMatrix,
         glBindTexture(GL_TEXTURE_2D, 0);
     }
     glUniform1i(prog.get_albedo_texture_location().get_value(), 0);
+    glUniform3fv(prog.get_light_attenuation_location().get_value(), 1, lightAttenuation.data());
+    glUniform3fv(prog.get_material_ambient_location().get_value(), 1, materialAmbient.data());
+    glUniform3fv(prog.get_material_diffuse_location().get_value(), 1, materialDiffuse.data());
+    glUniform3fv(prog.get_material_specular_location().get_value(), 1, materialSpecular.data());
 
     m_vertexArray.bind();
     m_triangleIndicesBuffer.bind();

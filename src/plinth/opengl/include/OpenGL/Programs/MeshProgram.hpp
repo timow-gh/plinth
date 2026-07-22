@@ -30,6 +30,10 @@ struct OPENGL_EXPORT MeshProgramInput {
     Uniform shininess;
     Uniform hasAlbedoTexture;
     Uniform albedoTexture;
+    Uniform lightAttenuation;
+    Uniform materialAmbient;
+    Uniform materialDiffuse;
+    Uniform materialSpecular;
 };
 
 constexpr void assert_mesh_program_input([[maybe_unused]] const MeshProgramInput& input) noexcept {
@@ -50,6 +54,10 @@ constexpr void assert_mesh_program_input([[maybe_unused]] const MeshProgramInput
     RENDERER_ASSERT(input.shininess.get_location().get_value() != -1);
     RENDERER_ASSERT(input.hasAlbedoTexture.get_location().get_value() != -1);
     RENDERER_ASSERT(input.albedoTexture.get_location().get_value() != -1);
+    RENDERER_ASSERT(input.lightAttenuation.get_location().get_value() != -1);
+    RENDERER_ASSERT(input.materialAmbient.get_location().get_value() != -1);
+    RENDERER_ASSERT(input.materialDiffuse.get_location().get_value() != -1);
+    RENDERER_ASSERT(input.materialSpecular.get_location().get_value() != -1);
 }
 
 class OPENGL_EXPORT MeshProgram {
@@ -144,6 +152,10 @@ class OPENGL_EXPORT MeshProgram {
     }
     [[nodiscard]] constexpr Location get_has_albedo_texture_location() const noexcept { return m_input.hasAlbedoTexture.get_location(); }
     [[nodiscard]] constexpr Location get_albedo_texture_location() const noexcept { return m_input.albedoTexture.get_location(); }
+    [[nodiscard]] constexpr Location get_light_attenuation_location() const noexcept { return m_input.lightAttenuation.get_location(); }
+    [[nodiscard]] constexpr Location get_material_ambient_location() const noexcept { return m_input.materialAmbient.get_location(); }
+    [[nodiscard]] constexpr Location get_material_diffuse_location() const noexcept { return m_input.materialDiffuse.get_location(); }
+    [[nodiscard]] constexpr Location get_material_specular_location() const noexcept { return m_input.materialSpecular.get_location(); }
 
     void use() const;
 };

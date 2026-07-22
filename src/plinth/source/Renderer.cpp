@@ -667,8 +667,6 @@ void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
     m_fogColorG = fogColorArr[1];
     m_fogColorB = fogColorArr[2];
 
-    // Build ImGui before post-processing so changes affect this presented frame.
-    m_imgui->build_controls();
     present_scene();
     m_imgui->render();
     m_imgui->end_frame();

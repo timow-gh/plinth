@@ -256,8 +256,11 @@ void ImGuiOverlay::build_controls() {
             const ImVec2 availableContentSize = ImGui::GetContentRegionAvail();
             const float contentWidth = std::max(1.0F, availableContentSize.x - resizeGripWidth);
             if (ImGui::BeginChild("##ControlPanelContent", ImVec2{contentWidth, 0.0F}, 0)) {
+                int id = 0;
                 for (const auto& control: m_controls) {
+                    ImGui::PushID(id++);
                     control();
+                    ImGui::PopID();
                 }
             }
             ImGui::EndChild();

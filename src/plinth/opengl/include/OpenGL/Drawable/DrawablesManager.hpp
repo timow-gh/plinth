@@ -236,8 +236,8 @@ class DrawablesManager {
         return id;
     }
 
-    std::optional<DrawableId> create_texture_2d(const renderer::TextureData& data, int maxTextureSize) {
-        auto texture = Texture2D::create(data, maxTextureSize);
+    std::optional<DrawableId> create_texture_2d(const renderer::TextureData& data, int maxTextureSize, int maxAnisotropy) {
+        auto texture = Texture2D::create(data, maxTextureSize, maxAnisotropy);
         if (!texture) return std::nullopt;
         const DrawableId id = m_nextTextureId++;
         m_textures.emplace(id, std::make_shared<Texture2D>(std::move(*texture)));
@@ -618,7 +618,11 @@ class DrawablesManager {
                               lighting.fillLightDir,
                               lighting.fillLightColor,
                               lighting.ambientColor,
-                              lighting.shininess);
+                              lighting.shininess,
+                              lighting.lightAttenuation,
+                              lighting.materialAmbient,
+                              lighting.materialDiffuse,
+                              lighting.materialSpecular);
             }
 
             // Restore default cull state after a per-mesh override.
@@ -657,7 +661,11 @@ class DrawablesManager {
                                 lighting.fillLightDir,
                                 lighting.fillLightColor,
                                 lighting.ambientColor,
-                                lighting.shininess);
+                                lighting.shininess,
+                                lighting.lightAttenuation,
+                                lighting.materialAmbient,
+                                lighting.materialDiffuse,
+                                lighting.materialSpecular);
         }
     }
 

@@ -10,17 +10,17 @@
 namespace opengl {
 
 LineProgram::LineProgram(ProgramHandle program,
-                         Uniform mvpLocation,
+                         Uniform viewProjectionLocation,
                          Uniform modelMatrixLocation,
                          Attribute vertexLocation,
                          Attribute colorLocation) noexcept
     : m_program{std::move(program)}
-    , m_mvpLocation{mvpLocation}
+    , m_viewProjectionLocation{viewProjectionLocation}
     , m_modelMatrixLocation{modelMatrixLocation}
     , m_vertexLocation{vertexLocation}
     , m_colorLocation{colorLocation} {
     RENDERER_ASSERT(m_program.is_valid());
-    RENDERER_ASSERT(mvpLocation.get_location().get_value() != -1);
+    RENDERER_ASSERT(viewProjectionLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(modelMatrixLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(vertexLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(colorLocation.get_location().get_value() != -1);
@@ -45,11 +45,11 @@ opengl::LineProgram make_line_program() {
 
     ProgramId id = program->get_id();
     RENDERER_ASSERT(id.get_value() != 0);
-    Uniform mvpLocation = make_uniform("u_MVP", id);
+    Uniform viewProjectionLocation = make_uniform("u_viewProjection", id);
     Uniform modelMatrixLocation = make_uniform("u_model", id);
     Attribute vertexLocation = make_attribute("a_vertex", id);
     Attribute colorLocation = make_attribute("a_color", id);
-    return LineProgram{std::move(*program), mvpLocation, modelMatrixLocation, vertexLocation, colorLocation};
+    return LineProgram{std::move(*program), viewProjectionLocation, modelMatrixLocation, vertexLocation, colorLocation};
 }
 
 } // namespace opengl

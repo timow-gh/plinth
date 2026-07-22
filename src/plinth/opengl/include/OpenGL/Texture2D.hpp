@@ -16,7 +16,7 @@ class OPENGL_EXPORT Texture2D {
     Texture2D& operator=(Texture2D&& other) noexcept;
     ~Texture2D();
 
-    [[nodiscard]] static std::optional<Texture2D> create(const renderer::TextureData& data, int maxTextureSize);
+    [[nodiscard]] static std::optional<Texture2D> create(const renderer::TextureData& data, int maxTextureSize, int maxAnisotropy = 1);
     void reset() noexcept;
     void bind(GLuint unit) const;
     [[nodiscard]] bool is_valid() const noexcept;

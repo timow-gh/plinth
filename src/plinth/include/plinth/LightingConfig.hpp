@@ -18,6 +18,10 @@ struct LightingConfig {
     linal::float3 fillLightColor{0.2F, 0.2F, 0.3F};
     linal::float3 ambientColor{0.1F, 0.1F, 0.1F};
     float shininess{8.0F};
+    linal::float3 lightAttenuation{1.0F, 0.0F, 0.0F};
+    linal::float3 materialAmbient{1.0F, 1.0F, 1.0F};
+    linal::float3 materialDiffuse{1.0F, 1.0F, 1.0F};
+    linal::float3 materialSpecular{1.0F, 1.0F, 1.0F};
 };
 
 } // namespace renderer

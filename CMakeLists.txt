@@ -59,6 +59,11 @@ option(${PROJECT_NAME}_INSTALL "Install project targets" ON)
 option(${PROJECT_NAME}_PACK "Create package" ON)
 option(${PROJECT_NAME}_BUILD_DOCUMENTATION "Build documentation" OFF)
 
+if (${PROJECT_NAME}_BUILD_DOCUMENTATION)
+    include(cmake/setup_doxygen.cmake)
+    enable_doxygen()
+endif ()
+
 if (${PROJECT_NAME}_USE_SCCACHE)
     include(setup_sccache)
     enable_sccache()

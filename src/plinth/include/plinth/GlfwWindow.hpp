@@ -17,19 +17,24 @@ class GlfwWindow {
     GlfwWindow& operator=(GlfwWindow&&) noexcept = delete;
     ~GlfwWindow();
 
-    // Only one live plinth GlfwWindow may exist at a time. A second call to
-    // create() while another GlfwWindow is alive returns std::nullopt. A new
-    // instance may be created after the previous owner is destroyed.
+    /// Only one live plinth GlfwWindow may exist at a time. A second call to
+    /// create() while another GlfwWindow is alive returns std::nullopt. A new
+    /// instance may be created after the previous owner is destroyed.
     [[nodiscard]]
     static std::optional<GlfwWindow> create(const WindowSettings& settings);
 
     [[nodiscard]]
     bool is_initialized() const;
     [[nodiscard]]
+    /// Returns the underlying GLFWwindow pointer. Must be called on the creating thread.
     void* get_native_handle() const;
 
+    /// GLFW and OpenGL operations must occur on the creating thread. This makes
+    /// this window's context current on that thread.
     void make_context_current() const;
+    /// Dispatch pending GLFW events and invoke installed callbacks.
     static void poll_events();
+    /// Swaps the front and back buffers. Must be called on the creating thread.
     void swap_buffers() const;
 
     [[nodiscard]]

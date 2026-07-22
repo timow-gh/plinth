@@ -37,15 +37,51 @@ jobs:
           cmake_workflow: workflow-test-gcc-debug
           test_label_regex: graphics
           use_xvfb: 'true'
+
+  ubuntu-graphics-clang:
+    runs-on: ubuntu-24.04
+    name: Graphics - clang - debug
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ubuntu-build-steps
+        with:
+          cmake_workflow: workflow-test-clang-debug
+          test_label_regex: graphics
+          use_xvfb: 'true'
+
+  ubuntu-graphics-release:
+    runs-on: ubuntu-24.04
+    name: Graphics - gcc - release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ubuntu-build-steps
+        with:
+          cmake_workflow: workflow-test-gcc-release
+          test_label_regex: graphics
+          test_name_regex: '(Framebuffer|RendererPresentation)'
+          use_xvfb: 'true'
+
+  ubuntu-docs:
+    runs-on: ubuntu-24.04
+    name: Documentation - gcc - debug
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ubuntu-build-steps
+        with:
+          cmake_workflow: workflow-test-gcc-debug
+          install_tools: doxygen
+          configure_args: -Dplinth_BUILD_DOCUMENTATION=ON
+          build_target: docs
+          skip_tests: 'true'
   
   ubuntu-build-summary:
     runs-on: ubuntu-latest
-    needs: [ubuntu-build, ubuntu-graphics]
+    needs: [ubuntu-build, ubuntu-graphics, ubuntu-graphics-clang, ubuntu-graphics-release, ubuntu-docs]
     if: always()
     steps:
       - name: Check build status
         run: |
-          if [ "${{ needs.ubuntu-build.result }}" != "success" ] || [ "${{ needs.ubuntu-graphics.result }}" != "success" ]; then
+          if [ "${{ needs.ubuntu-build.result }}" != "success" ] || [ "${{ needs.ubuntu-graphics.result }}" != "success" ] || [ "${{ needs.ubuntu-graphics-clang.result }}" != "success" ] || [ "${{ needs.ubuntu-graphics-release.result }}" != "success" ] || [ "${{ needs.ubuntu-docs.result }}" != "success" ]; then
             echo "Ubuntu build failed"
             exit 1
           fi

@@ -351,6 +351,7 @@ class Renderer {
                                                 const linal::double3& up,
                                                 const linal::double3& targetHint,
                                                 double currentDistance) const;
+    void maybe_update_auto_fit(std::chrono::steady_clock::time_point now);
     void apply_fit_result(const CameraAutoFitResult& result);
 
     template <typename Callback>

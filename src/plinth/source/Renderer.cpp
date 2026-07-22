@@ -65,6 +65,9 @@ constexpr double minimumFitDistance = 1.0;
 constexpr double maxFrameDeltaSeconds = 0.1;
 constexpr CameraAutoFitSettings defaultAutoFitSettings{};
 
+constexpr float maxFxaaEdgeThreshold = 0.5F;
+constexpr float maxFxaaEdgeThresholdMin = 0.25F;
+
 std::optional<std::uint64_t> next_renderer_instance() {
     static std::atomic<std::uint64_t> next{1U};
     std::uint64_t current = next.load(std::memory_order_relaxed);
@@ -555,26 +558,7 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
         return !m_imgui->wants_keyboard() && m_window.is_key_pressed(key);
     });
 
-    if (m_camera->get_was_blocking()) {
-        m_lastCameraInteractionTime = now;
-        m_autoFitPending = true;
-        m_camera->reset_was_blocking();
-    } else if (m_autoFitEnabled && m_autoFitPending && !m_camera->is_transitioning_view() &&
-              (now - m_lastCameraInteractionTime) >= defaultAutoFitSettings.suppressAfterUserCameraInteraction) {
-        const linal::double3 currentPosition = m_camera->get_position();
-        const linal::double3 currentTarget = m_camera->get_target();
-        const double currentDistance = linal::length(currentPosition - currentTarget);
-        const linal::double3 direction =
-            currentDistance > 1.0e-9 ? linal::normalize(currentPosition - currentTarget) : linal::double3{0.0, -1.0, 0.0};
-
-        const CameraAutoFitResult result =
-            compute_fit_destination(direction, m_camera->get_vertical(), currentTarget, currentDistance);
-        if (result.hasGeometry && result.changed) {
-            m_camera->transition_to_pose(result.position, result.target, result.vertical);
-            apply_fit_result(result);
-        }
-        m_autoFitPending = false;
-    }
+    maybe_update_auto_fit(now);
 
     update_scene_viewport();
 
@@ -596,13 +580,12 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
         if (!scene.has_value() || (m_sceneSamples > 1 && !resolve.has_value()) || !ldr.has_value()) {
             opengl::report_error("Error: Renderer::begin_frame failed to resize framebuffer targets");
             return;
-        } else {
-            m_sceneFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*scene));
-            if (m_sceneSamples > 1) {
-                m_hdrResolveFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*resolve));
-            }
-            m_ldrIntermediate = std::make_unique<opengl::Framebuffer>(std::move(*ldr));
         }
+        m_sceneFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*scene));
+        if (m_sceneSamples > 1) {
+            m_hdrResolveFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*resolve));
+        }
+        m_ldrIntermediate = std::make_unique<opengl::Framebuffer>(std::move(*ldr));
     }
 
     if (m_sceneFramebuffer->get_width() != framebufferWidth || m_sceneFramebuffer->get_height() != framebufferHeight) {
@@ -844,7 +827,7 @@ void Renderer::set_fxaa_enabled(bool enabled) {
 }
 
 void Renderer::set_fxaa_edge_threshold(float threshold) {
-    if (!is_finite(threshold) || threshold < 0.0F || threshold > 0.5F) {
+    if (!is_finite(threshold) || threshold < 0.0F || threshold > maxFxaaEdgeThreshold) {
         report_invalid_argument("set_fxaa_edge_threshold");
         return;
     }
@@ -852,7 +835,7 @@ void Renderer::set_fxaa_edge_threshold(float threshold) {
 }
 
 void Renderer::set_fxaa_edge_threshold_min(float threshold) {
-    if (!is_finite(threshold) || threshold < 0.0F || threshold > 0.25F) {
+    if (!is_finite(threshold) || threshold < 0.0F || threshold > maxFxaaEdgeThresholdMin) {
         report_invalid_argument("set_fxaa_edge_threshold_min");
         return;
     }
@@ -894,6 +877,31 @@ CameraAutoFitResult Renderer::compute_fit_destination(const linal::double3& dire
         positionBufferSpans.emplace_back(buffer);
     }
     return calculate_camera_auto_fit(std::span<const std::span<const float>>{positionBufferSpans}, input);
+}
+
+void Renderer::maybe_update_auto_fit(std::chrono::steady_clock::time_point now) {
+    if (m_camera->get_was_blocking()) {
+        m_lastCameraInteractionTime = now;
+        m_autoFitPending = true;
+        m_camera->reset_was_blocking();
+        return;
+    }
+    if (m_autoFitEnabled && m_autoFitPending && !m_camera->is_transitioning_view() &&
+        (now - m_lastCameraInteractionTime) >= defaultAutoFitSettings.suppressAfterUserCameraInteraction) {
+        const linal::double3 currentPosition = m_camera->get_position();
+        const linal::double3 currentTarget = m_camera->get_target();
+        const double currentDistance = linal::length(currentPosition - currentTarget);
+        const linal::double3 direction =
+            currentDistance > 1.0e-9 ? linal::normalize(currentPosition - currentTarget) : linal::double3{0.0, -1.0, 0.0};
+
+        const CameraAutoFitResult result =
+            compute_fit_destination(direction, m_camera->get_vertical(), currentTarget, currentDistance);
+        if (result.hasGeometry && result.changed) {
+            m_camera->transition_to_pose(result.position, result.target, result.vertical);
+            apply_fit_result(result);
+        }
+        m_autoFitPending = false;
+    }
 }
 
 void Renderer::apply_fit_result(const CameraAutoFitResult& result) {

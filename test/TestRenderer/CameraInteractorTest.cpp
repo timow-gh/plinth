@@ -143,6 +143,7 @@ TEST(CameraInteractorTest, MiddleMouseDragPansCamera) {
 
     EXPECT_TRUE(interactor.get_was_blocking());
     EXPECT_NE(interactor.get_position(), initialPosition);
+    EXPECT_NE(interactor.get_target(), initialTarget);
 }
 
 TEST(CameraInteractorTest, PanAsFirstCursorEventDoesNotMoveOrCorruptCamera) {

@@ -423,6 +423,51 @@ TEST(CameraInteractorTest, PresetViewTopAndBottomUseAlternateUpVector) {
     EXPECT_NEAR(linal::length(interactor.get_vertical() - linal::double3{0.0, 1.0, 0.0}), 0.0, tolerance);
 }
 
+TEST(CameraInteractorTest, OrbitSurvivesUnrelatedButtonRelease) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    interactor.on_cursor_position(400.0, 300.0);
+    interactor.on_mouse_button(1, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_cursor_position(440.0, 300.0);
+    const linal::double3 afterFirstDrag = interactor.get_position();
+
+    // Click the middle button mid-orbit: press is ignored, release must not
+    // cancel the right-button orbit gesture.
+    interactor.on_mouse_button(2, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_mouse_button(2, renderer::Action::RELEASE, renderer::Mods::NONE);
+    interactor.on_cursor_position(480.0, 300.0);
+
+    EXPECT_NE(interactor.get_position(), afterFirstDrag);
+
+    // Releasing the right button really ends the gesture.
+    interactor.on_mouse_button(1, renderer::Action::RELEASE, renderer::Mods::NONE);
+    const linal::double3 afterOrbitRelease = interactor.get_position();
+    interactor.on_cursor_position(520.0, 300.0);
+    EXPECT_EQ(interactor.get_position(), afterOrbitRelease);
+}
+
+TEST(CameraInteractorTest, PanSurvivesUnrelatedButtonRelease) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    interactor.on_cursor_position(400.0, 300.0);
+    interactor.on_mouse_button(2, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_cursor_position(440.0, 300.0);
+    const linal::double3 afterFirstDrag = interactor.get_position();
+
+    interactor.on_mouse_button(1, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_mouse_button(1, renderer::Action::RELEASE, renderer::Mods::NONE);
+    interactor.on_cursor_position(480.0, 300.0);
+
+    EXPECT_NE(interactor.get_position(), afterFirstDrag);
+
+    interactor.on_mouse_button(2, renderer::Action::RELEASE, renderer::Mods::NONE);
+    const linal::double3 afterPanRelease = interactor.get_position();
+    interactor.on_cursor_position(520.0, 300.0);
+    EXPECT_EQ(interactor.get_position(), afterPanRelease);
+}
+
 TEST(CameraInteractorTest, PresetViewTransitionBetweenExactOppositesStaysFinite) {
     renderer::InputState inputState;
     renderer::CameraInteractor interactor = make_interactor(inputState);

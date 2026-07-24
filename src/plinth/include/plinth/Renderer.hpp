@@ -406,6 +406,7 @@ class Renderer {
     SceneViewport m_sceneViewport;
     CursorPosState m_lastWindowCursorPos;
     bool m_cameraMouseInteractionActive{false};
+    int m_cameraMouseInteractionButton{-1};
     std::chrono::steady_clock::time_point m_lastFrameTime;
     std::chrono::steady_clock::time_point m_lastCameraInteractionTime;
     bool m_autoFitPending{false};

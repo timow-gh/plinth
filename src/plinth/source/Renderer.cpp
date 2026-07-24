@@ -318,13 +318,15 @@ void Renderer::on_mouse_button(int button, Action action, Mods mods) {
         const auto [sceneX, sceneY] = *sceneCoordinates;
         m_window.get_input_state().cursorPosState = CursorPosState{sceneX, sceneY};
     }
-    if (action == Action::PRESS) {
-        m_cameraMouseInteractionActive =
-            sceneCoordinates.has_value() && (button == 1 || button == 2);
+    if (action == Action::PRESS && !m_cameraMouseInteractionActive && sceneCoordinates.has_value() &&
+        (button == 1 || button == 2)) {
+        m_cameraMouseInteractionActive = true;
+        m_cameraMouseInteractionButton = button;
     }
     m_camera->on_mouse_button(button, action, mods);
-    if (action == Action::RELEASE) {
+    if (action == Action::RELEASE && button == m_cameraMouseInteractionButton) {
         m_cameraMouseInteractionActive = false;
+        m_cameraMouseInteractionButton = -1;
     }
     dispatch_callbacks(m_mouseButtonCallbacks, button, action, mods);
 }

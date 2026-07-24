@@ -49,6 +49,24 @@ linal::hmatf make_translation(float x, float y, float z) {
     return result;
 }
 
+void dispatch_cursor_pos(renderer::Renderer& renderer, double xpos, double ypos) {
+    auto* window = static_cast<GLFWwindow*>(renderer.window().get_native_handle());
+    ASSERT_NE(nullptr, window);
+    const GLFWcursorposfun callback = glfwSetCursorPosCallback(window, nullptr);
+    ASSERT_NE(nullptr, callback);
+    glfwSetCursorPosCallback(window, callback);
+    callback(window, xpos, ypos);
+}
+
+void dispatch_mouse_button(renderer::Renderer& renderer, int button, renderer::Action action) {
+    auto* window = static_cast<GLFWwindow*>(renderer.window().get_native_handle());
+    ASSERT_NE(nullptr, window);
+    const GLFWmousebuttonfun callback = glfwSetMouseButtonCallback(window, nullptr);
+    ASSERT_NE(nullptr, callback);
+    glfwSetMouseButtonCallback(window, callback);
+    callback(window, button, static_cast<int>(action), 0);
+}
+
 void dispatch_key(renderer::Renderer& renderer, renderer::Key key) {
     auto* window = static_cast<GLFWwindow*>(renderer.window().get_native_handle());
     ASSERT_NE(nullptr, window);
@@ -561,4 +579,34 @@ TEST(RendererSingletonTest, RejectsSecondLiveRendererAndAllowsReplacement) {
         GTEST_SKIP() << "GL context creation not available in this environment";
     }
     EXPECT_NE(nullptr, replacement);
+}
+
+TEST(CameraGestureRendererTest, CameraGestureSurvivesUnrelatedButtonRelease) {
+    renderer::WindowSettings settings;
+    settings.title = "plinth camera gesture test";
+    settings.width = 800;
+    settings.height = 600;
+    settings.visible = false;
+    auto renderer = renderer::Renderer::create(settings);
+    ASSERT_NE(nullptr, renderer);
+    const auto camera = renderer->get_camera().lock();
+    ASSERT_NE(nullptr, camera);
+
+    // Cursor well right of the ~336 px reserved control-panel strip so events
+    // reach the scene; no ImGui frame has run yet, so nothing is captured.
+    dispatch_cursor_pos(*renderer, 700.0, 300.0);
+    dispatch_mouse_button(*renderer, 1, renderer::Action::PRESS); // right: orbit
+    dispatch_cursor_pos(*renderer, 660.0, 300.0);
+    const linal::double3 afterFirstDrag = camera->get_position();
+
+    // Middle click mid-orbit: press is ignored; release must not cancel the
+    // right-button orbit gesture.
+    dispatch_mouse_button(*renderer, 2, renderer::Action::PRESS);
+    dispatch_mouse_button(*renderer, 2, renderer::Action::RELEASE);
+    dispatch_cursor_pos(*renderer, 620.0, 300.0);
+
+    EXPECT_NE(camera->get_position(), afterFirstDrag)
+        << "releasing the middle button must not cancel the right-button orbit";
+
+    dispatch_mouse_button(*renderer, 1, renderer::Action::RELEASE);
 }

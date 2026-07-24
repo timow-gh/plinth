@@ -163,7 +163,7 @@ std::pair<double, double> GlfwWindow::get_framebuffer_scale() const {
     return {xScale, yScale};
 }
 
-bool GlfwWindow::is_srgb_capable() const {
+bool GlfwWindow::is_srgb_capable() const { // NOLINT(readability-convert-member-functions-to-static)
     RENDERER_ASSERT(m_impl && m_impl->window);
     // GLFW framebuffer hints such as GLFW_SRGB_CAPABLE are not queryable via
     // glfwGetWindowAttrib (it raises GLFW_INVALID_ENUM and returns 0). Ask the

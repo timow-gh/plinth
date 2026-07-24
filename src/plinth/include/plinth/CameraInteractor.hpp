@@ -415,8 +415,15 @@ class CameraInteractor : private CameraSettings {
                                       m_transitionStartDirection[2]};
                 direction = linal::normalize(to_linal(rotated));
             }
-            const linal::double3 up =
-                linal::normalize(m_transitionStartUp * (1.0 - easedT) + m_transitionEndUp * easedT);
+            // Antiparallel start/end up vectors cancel at the lerp midpoint,
+            // which would normalize to NaN and poison the view matrix. Snap to
+            // the nearer endpoint up for that degenerate instant instead; the
+            // visible pop is bounded to one frame of an extreme transition.
+            const linal::double3 lerpedUp =
+                m_transitionStartUp * (1.0 - easedT) + m_transitionEndUp * easedT;
+            const linal::double3 up = linal::length(lerpedUp) > 1.0e-9
+                                          ? linal::normalize(lerpedUp)
+                                          : (easedT < 0.5 ? m_transitionStartUp : m_transitionEndUp);
             const linal::double3 target =
                 m_transitionStartTarget * (1.0 - easedT) + m_transitionEndTarget * easedT;
             const double distanceValue =

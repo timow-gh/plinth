@@ -3,6 +3,7 @@
 
 #include "plinth/plinth_export.h"
 #include <cstdint>
+#include <plinth/UiMode.hpp>
 #include <string>
 
 namespace renderer {
@@ -46,6 +47,8 @@ struct PLINTH_EXPORT WindowSettings {
     bool transparent_framebuffer = false; ///< Whether the framebuffer should be transparent.
     bool focus_on_show = true;            ///< Whether the window should be focused when shown.
     bool scale_to_monitor = true; ///< Whether the window content should be scaled based on the monitor content scale.
+    renderer::UiMode ui_mode = renderer::UiMode::Release; ///< Which control surface the ImGui overlay starts in.
+                                                          ///< Release is the game-like panel; Debug exposes all controls.
     bool debug_context = false;   ///< Request a debug-capable GL context (GL 4.3 core +
                                    ///< GLFW_OPENGL_DEBUG_CONTEXT) instead of the default GL 4.1 core.
                                    ///< Intended for development builds only - see OpenGL/ErrorReporting.hpp.

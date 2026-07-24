@@ -243,6 +243,7 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 
     renderer->update_scene_viewport();
     renderer->wire_callbacks();
+    renderer->set_ui_mode(settings.ui_mode);
 
     return renderer;
 }
@@ -655,20 +656,14 @@ void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
 
     m_imgui->new_frame();
     CameraProjectionType projectionType = m_camera->get_projection_type();
-    m_imgui->add_camera_controls(autoFitEnabled, projectionType, homeRequested);
+    CameraInteractor::PivotMode pivotMode = m_camera->get_pivot_mode();
+    m_imgui->add_camera_controls(autoFitEnabled, projectionType, pivotMode, homeRequested);
 
-    std::array<float, 3> fogColorArr{m_fogColorR, m_fogColorG, m_fogColorB};
-    m_imgui->add_post_processing_controls(
-        m_exposureStops,
-        m_toneMapMode,
-        m_fogEnabled, m_fogMode, m_fogStart, m_fogEnd, m_fogDensity,
-        fogColorArr,
-        m_visualizationMode, m_hdrDisplayMax,
-        m_grayscale,
-        m_fxaaEnabled, m_fxaaEdgeThreshold, m_fxaaEdgeThresholdMin, m_fxaaSubpixelAmount);
-    m_fogColorR = fogColorArr[0];
-    m_fogColorG = fogColorArr[1];
-    m_fogColorB = fogColorArr[2];
+    if (m_uiMode == renderer::UiMode::Debug) {
+        m_imgui->add_post_processing_controls(*this);
+    } else {
+        m_imgui->add_release_post_processing_controls(*this);
+    }
 
     present_scene();
     m_imgui->render();
@@ -678,6 +673,10 @@ void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
 
     if (projectionType != m_camera->get_projection_type()) {
         m_camera->set_projection_type(projectionType);
+    }
+
+    if (pivotMode != m_camera->get_pivot_mode()) {
+        m_camera->set_pivot_mode(pivotMode);
     }
 
     m_autoFitEnabled = autoFitEnabled;
@@ -851,6 +850,16 @@ void Renderer::set_fxaa_subpixel_amount(float amount) {
         return;
     }
     m_fxaaSubpixelAmount = amount;
+}
+
+void Renderer::set_ui_mode(renderer::UiMode mode) {
+    if (mode == renderer::UiMode::Release) {
+        // Pin debug-only state so a leftover debug visualization (e.g. Depth)
+        // cannot persist into the game-like release panel.
+        m_visualizationMode = renderer::VisualizationMode::Final;
+        m_grayscale = false;
+    }
+    m_uiMode = mode;
 }
 
 // --- Camera navigation (geometry-fit aware) ---

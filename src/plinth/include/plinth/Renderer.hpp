@@ -1,6 +1,7 @@
 #ifndef RENDERER_RENDERER_HPP
 #define RENDERER_RENDERER_HPP
 
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -16,6 +17,7 @@
 #include <plinth/LineType.hpp>
 #include <plinth/PostProcessingEnums.hpp>
 #include <plinth/Texture.hpp>
+#include <plinth/UiMode.hpp>
 #include <plinth/WindowSettings.hpp>
 #include <span>
 #include <utility>
@@ -253,6 +255,30 @@ class Renderer {
     void set_fxaa_edge_threshold_min(float threshold);
     void set_fxaa_subpixel_amount(float amount);
 
+    /// Current post-processing state. These mirror the values applied by the
+    /// pipeline and are used by the ImGui overlay to render its controls.
+    [[nodiscard]] float get_exposure_stops() const { return m_exposureStops; }
+    [[nodiscard]] renderer::ToneMapMode get_tone_map_mode() const { return m_toneMapMode; }
+    [[nodiscard]] bool get_fog_enabled() const { return m_fogEnabled; }
+    [[nodiscard]] renderer::FogMode get_fog_mode() const { return m_fogMode; }
+    [[nodiscard]] float get_fog_start() const { return m_fogStart; }
+    [[nodiscard]] float get_fog_end() const { return m_fogEnd; }
+    [[nodiscard]] float get_fog_density() const { return m_fogDensity; }
+    [[nodiscard]] std::array<float, 3> get_fog_color() const { return {m_fogColorR, m_fogColorG, m_fogColorB}; }
+    [[nodiscard]] renderer::VisualizationMode get_visualization_mode() const { return m_visualizationMode; }
+    [[nodiscard]] float get_hdr_display_max() const { return m_hdrDisplayMax; }
+    [[nodiscard]] bool get_grayscale() const { return m_grayscale; }
+    [[nodiscard]] bool get_fxaa_enabled() const { return m_fxaaEnabled; }
+    [[nodiscard]] float get_fxaa_edge_threshold() const { return m_fxaaEdgeThreshold; }
+    [[nodiscard]] float get_fxaa_edge_threshold_min() const { return m_fxaaEdgeThresholdMin; }
+    [[nodiscard]] float get_fxaa_subpixel_amount() const { return m_fxaaSubpixelAmount; }
+
+    /// Selects the ImGui control surface. Switching to Release pins debug-only
+    /// state (visualization mode, grayscale) back to sensible defaults so leftover
+    /// debug state cannot persist into the release panel. Callable at any time.
+    void set_ui_mode(renderer::UiMode mode);
+    [[nodiscard]] renderer::UiMode ui_mode() const { return m_uiMode; }
+
     /// Renderer owns one GLFW/OpenGL context. All methods that access the window,
     /// renderer state, or GL must be called on its creating thread. Frame methods
     /// make that context current before GL work. Per frame, call poll_events(),
@@ -321,7 +347,7 @@ class Renderer {
     /// lock() if the Renderer has been destroyed.
     ImGuiOverlayView get_imgui() { return ImGuiOverlayView{m_imgui.get(), m_imguiLifetime}; }
 
-    static constexpr renderer::ClearColor defaultClearColor{0.05F, 0.05F, 0.08F, 1.0F};
+    static constexpr renderer::ClearColor defaultClearColor{0.05F, 0.05F, 0.05F, 1.0F};
 
   private:
     Renderer(GlfwWindow window,
@@ -410,6 +436,7 @@ class Renderer {
     float m_fxaaEdgeThreshold{0.166f};
     float m_fxaaEdgeThresholdMin{0.0833f};
     float m_fxaaSubpixelAmount{0.75f};
+    renderer::UiMode m_uiMode{renderer::UiMode::Release};
 };
 
 } // namespace renderer

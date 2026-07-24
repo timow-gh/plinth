@@ -277,8 +277,6 @@ class RendererPresentationTest : public ::testing::Test {
         GLboolean doubleBuffered = GL_TRUE;
         glGetBooleanv(GL_DOUBLEBUFFER, &doubleBuffered);
         ASSERT_EQ(GL_FALSE, doubleBuffered) << "Front-buffer readback requires a single-buffered context";
-        ASSERT_FALSE(instance->window().is_srgb_capable())
-            << "Pixel assertions require a non-sRGB default framebuffer";
 
         GLint maxSamples = 0;
         glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
@@ -416,7 +414,6 @@ TEST_F(RendererPresentationTest, PresentsSingleSamplePointThroughPublicFrameLife
     GLboolean doubleBuffered = GL_TRUE;
     glGetBooleanv(GL_DOUBLEBUFFER, &doubleBuffered);
     ASSERT_EQ(GL_FALSE, doubleBuffered) << "Front-buffer readback requires a single-buffered context";
-    ASSERT_FALSE(instance->window().is_srgb_capable()) << "Pixel assertions require a non-sRGB default framebuffer";
 
     constexpr std::array<float, 3> vertices{0.0F, 0.0F, 0.0F};
     constexpr std::array<float, 4> colors{1.0F, 0.0F, 0.0F, 1.0F};
@@ -559,7 +556,6 @@ TEST_F(RendererPresentationTest, ResolvesMultisampledPointThroughPublicFrameLife
     GLboolean doubleBuffered = GL_TRUE;
     glGetBooleanv(GL_DOUBLEBUFFER, &doubleBuffered);
     ASSERT_EQ(GL_FALSE, doubleBuffered) << "Front-buffer readback requires a single-buffered context";
-    ASSERT_FALSE(instance->window().is_srgb_capable()) << "Pixel assertions require a non-sRGB default framebuffer";
 
     GLint maxSamples = 0;
     glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);

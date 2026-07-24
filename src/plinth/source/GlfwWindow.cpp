@@ -163,9 +163,17 @@ std::pair<double, double> GlfwWindow::get_framebuffer_scale() const {
     return {xScale, yScale};
 }
 
-bool GlfwWindow::is_srgb_capable() const {
+bool GlfwWindow::is_srgb_capable() const { // NOLINT(readability-convert-member-functions-to-static)
     RENDERER_ASSERT(m_impl && m_impl->window);
-    return glfwGetWindowAttrib(m_impl->window, GLFW_SRGB_CAPABLE) == GLFW_TRUE;
+    // GLFW framebuffer hints such as GLFW_SRGB_CAPABLE are not queryable via
+    // glfwGetWindowAttrib (it raises GLFW_INVALID_ENUM and returns 0). Ask the
+    // driver about the default framebuffer's color encoding instead. The
+    // caller must have this window's context current and the default
+    // framebuffer bound.
+    GLint encoding = GL_LINEAR;
+    glGetFramebufferAttachmentParameteriv(
+        GL_FRAMEBUFFER, GL_BACK_LEFT, GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING, &encoding);
+    return encoding == GL_SRGB;
 }
 
 InputState& GlfwWindow::get_input_state() const {

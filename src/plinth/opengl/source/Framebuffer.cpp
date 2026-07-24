@@ -19,12 +19,16 @@ class ScopedFramebufferState {
     }
 
     ~ScopedFramebufferState() {
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(m_readFramebuffer));
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(m_drawFramebuffer));
-        glBindRenderbuffer(GL_RENDERBUFFER, static_cast<GLuint>(m_renderbuffer));
+        // Restore the captured active unit before the per-unit texture
+        // bindings: glBindTexture writes to the *currently active* unit, so
+        // rebinding before selecting the unit would land the captured
+        // bindings on the wrong one.
+        glActiveTexture(static_cast<GLenum>(m_activeTexture));
         glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(m_texture2d));
         glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, static_cast<GLuint>(m_texture2dMultisample));
-        glActiveTexture(static_cast<GLenum>(m_activeTexture));
+        glBindRenderbuffer(GL_RENDERBUFFER, static_cast<GLuint>(m_renderbuffer));
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(m_readFramebuffer));
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(m_drawFramebuffer));
     }
 
   private:

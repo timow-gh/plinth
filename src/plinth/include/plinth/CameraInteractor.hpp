@@ -34,12 +34,6 @@ struct CameraSettings {
     double m_zoomPerspFactor{0.2};  /**< The zoom factor used to translate the camera in perspective mode. */
     double m_zoomOrthoFactor{0.05}; /**< The zoom factor used to translate the camera in ortho mode. */
 
-    bool m_isPanStart{false};
-    linal::double3 m_panStartFar{0.0};          /**< The far vector at the start of panning. */
-    linal::double3 m_panSceneStart{0.0};        /**< The scene vector at the start of panning. */
-    linal::double3 m_panCamaraStartPos{0.0};    /**< The camera position at the start of panning. */
-    linal::double3 m_panCameraTargetStart{0.0}; /**< The camera target at the start of panning. */
-
     bool m_isRotateStart{false};
     linal::double3 m_pivot{0.0};           /**< The pivot point of rotation. */
     glm::dvec2 m_rotateScreenXYStart{0.0}; /**< The screen vector at the start of rotation. */
@@ -421,8 +415,15 @@ class CameraInteractor : private CameraSettings {
                                       m_transitionStartDirection[2]};
                 direction = linal::normalize(to_linal(rotated));
             }
-            const linal::double3 up =
-                linal::normalize(m_transitionStartUp * (1.0 - easedT) + m_transitionEndUp * easedT);
+            // Antiparallel start/end up vectors cancel at the lerp midpoint,
+            // which would normalize to NaN and poison the view matrix. Snap to
+            // the nearer endpoint up for that degenerate instant instead; the
+            // visible pop is bounded to one frame of an extreme transition.
+            const linal::double3 lerpedUp =
+                m_transitionStartUp * (1.0 - easedT) + m_transitionEndUp * easedT;
+            const linal::double3 up = linal::length(lerpedUp) > 1.0e-9
+                                          ? linal::normalize(lerpedUp)
+                                          : (easedT < 0.5 ? m_transitionStartUp : m_transitionEndUp);
             const linal::double3 target =
                 m_transitionStartTarget * (1.0 - easedT) + m_transitionEndTarget * easedT;
             const double distanceValue =
@@ -616,7 +617,6 @@ class CameraInteractor : private CameraSettings {
             }
             case 2: { // GLFW_MOUSE_BUTTON_MIDDLE
                 m_cameraMode = CameraMode::PAN;
-                m_isPanStart = true;
                 return;
             }
             default:
@@ -625,7 +625,12 @@ class CameraInteractor : private CameraSettings {
                 return;
             }
         } else if (action == Action::RELEASE) {
-            m_cameraMode = CameraMode::NO_MODE;
+            // End the gesture only when the button that started it comes up;
+            // releasing an unrelated button mid-gesture must not cancel it.
+            if ((button == 1 && m_cameraMode == CameraMode::ORBIT) || // GLFW_MOUSE_BUTTON_RIGHT
+                (button == 2 && m_cameraMode == CameraMode::PAN)) {   // GLFW_MOUSE_BUTTON_MIDDLE
+                m_cameraMode = CameraMode::NO_MODE;
+            }
             return;
         }
     }

@@ -423,6 +423,51 @@ TEST(CameraInteractorTest, PresetViewTopAndBottomUseAlternateUpVector) {
     EXPECT_NEAR(linal::length(interactor.get_vertical() - linal::double3{0.0, 1.0, 0.0}), 0.0, tolerance);
 }
 
+TEST(CameraInteractorTest, OrbitSurvivesUnrelatedButtonRelease) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    interactor.on_cursor_position(400.0, 300.0);
+    interactor.on_mouse_button(1, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_cursor_position(440.0, 300.0);
+    const linal::double3 afterFirstDrag = interactor.get_position();
+
+    // Click the middle button mid-orbit: press is ignored, release must not
+    // cancel the right-button orbit gesture.
+    interactor.on_mouse_button(2, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_mouse_button(2, renderer::Action::RELEASE, renderer::Mods::NONE);
+    interactor.on_cursor_position(480.0, 300.0);
+
+    EXPECT_NE(interactor.get_position(), afterFirstDrag);
+
+    // Releasing the right button really ends the gesture.
+    interactor.on_mouse_button(1, renderer::Action::RELEASE, renderer::Mods::NONE);
+    const linal::double3 afterOrbitRelease = interactor.get_position();
+    interactor.on_cursor_position(520.0, 300.0);
+    EXPECT_EQ(interactor.get_position(), afterOrbitRelease);
+}
+
+TEST(CameraInteractorTest, PanSurvivesUnrelatedButtonRelease) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    interactor.on_cursor_position(400.0, 300.0);
+    interactor.on_mouse_button(2, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_cursor_position(440.0, 300.0);
+    const linal::double3 afterFirstDrag = interactor.get_position();
+
+    interactor.on_mouse_button(1, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_mouse_button(1, renderer::Action::RELEASE, renderer::Mods::NONE);
+    interactor.on_cursor_position(480.0, 300.0);
+
+    EXPECT_NE(interactor.get_position(), afterFirstDrag);
+
+    interactor.on_mouse_button(2, renderer::Action::RELEASE, renderer::Mods::NONE);
+    const linal::double3 afterPanRelease = interactor.get_position();
+    interactor.on_cursor_position(520.0, 300.0);
+    EXPECT_EQ(interactor.get_position(), afterPanRelease);
+}
+
 TEST(CameraInteractorTest, PresetViewTransitionBetweenExactOppositesStaysFinite) {
     renderer::InputState inputState;
     renderer::CameraInteractor interactor = make_interactor(inputState);
@@ -669,4 +714,42 @@ TEST(CameraInteractorTest, OriginPivotModeStillAllowsScrollZoom) {
 
     EXPECT_TRUE(interactor.get_was_blocking());
     EXPECT_NE(interactor.get_position(), initialPosition);
+}
+
+TEST(CameraInteractorTest, PoseTransitionWithAntiparallelUpVectorsStaysFinite) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    const linal::double3 startPosition = interactor.get_position();
+    const linal::double3 startTarget = interactor.get_target();
+    const linal::double3 endUp = linal::double3{0.0, 0.0, -1.0}; // antiparallel to the (0,0,1) start up
+
+    constexpr double duration = 0.4;
+    interactor.set_view_transition_duration(duration);
+    interactor.transition_to_pose(startPosition, startTarget, endUp);
+    ASSERT_TRUE(interactor.is_transitioning_view());
+
+    // Step through the degenerate midpoint: every pose component must stay
+    // finite (pre-fix, the up vector normalized to NaN near easedT == 0.5).
+    constexpr int steps = 10;
+    constexpr double stepSeconds = duration / steps;
+    for (int i = 0; i < steps; ++i) {
+        interactor.update(stepSeconds, no_key_pressed);
+        const linal::double3 position = interactor.get_position();
+        const linal::double3 target = interactor.get_target();
+        const linal::double3 up = interactor.get_vertical();
+        for (int c = 0; c < 3; ++c) {
+            EXPECT_TRUE(std::isfinite(position[c]));
+            EXPECT_TRUE(std::isfinite(target[c]));
+            EXPECT_TRUE(std::isfinite(up[c]));
+        }
+        EXPECT_NEAR(linal::length(up), 1.0, tolerance);
+    }
+
+    // The transition still completes to the exact requested end pose.
+    interactor.update(duration, no_key_pressed);
+    EXPECT_FALSE(interactor.is_transitioning_view());
+    EXPECT_NEAR(linal::length(interactor.get_vertical() - endUp), 0.0, tolerance);
+    EXPECT_NEAR(linal::length(interactor.get_position() - startPosition), 0.0, tolerance);
+    EXPECT_NEAR(linal::length(interactor.get_target() - startTarget), 0.0, tolerance);
 }

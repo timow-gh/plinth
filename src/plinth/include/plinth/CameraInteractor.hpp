@@ -3,6 +3,7 @@
 
 #include <plinth/Camera.hpp>
 #include <plinth/CameraAutoFit.hpp>
+#include <plinth/CameraPivotMode.hpp>
 #include <plinth/CameraProjectionType.hpp>
 #include <plinth/InputState.hpp>
 #include <plinth/PickRay.hpp>
@@ -104,6 +105,10 @@ class CameraInteractor : private CameraSettings {
      *  that prefer to write CameraInteractor::PresetView. */
     using PresetView = renderer::PresetView;
 
+    /** @brief Alias for the free-standing renderer::CameraPivotMode, exposed as a nested name for
+     *  callers that prefer to write CameraInteractor::PivotMode. */
+    using PivotMode = renderer::CameraPivotMode;
+
   private:
     InputState* m_inputState{nullptr};
     CameraMode m_cameraMode{CameraMode::NO_MODE};
@@ -113,6 +118,7 @@ class CameraInteractor : private CameraSettings {
                                   manipulated the position. */
 
     NavigationStyle m_navigationStyle{NavigationStyle::ORBIT};
+    PivotMode m_pivotMode{PivotMode::GROUND_CURSOR};
     double m_flySpeed{5.0}; // world units per second
 
     bool m_isTransitioning{false};
@@ -256,6 +262,11 @@ class CameraInteractor : private CameraSettings {
     [[nodiscard]]
     NavigationStyle get_navigation_style() const noexcept {
         return m_navigationStyle;
+    }
+    void set_pivot_mode(PivotMode mode) noexcept { m_pivotMode = mode; }
+    [[nodiscard]]
+    PivotMode get_pivot_mode() const noexcept {
+        return m_pivotMode;
     }
     void set_fly_speed(double unitsPerSecond) noexcept { m_flySpeed = unitsPerSecond; }
     [[nodiscard]]
@@ -539,12 +550,20 @@ class CameraInteractor : private CameraSettings {
 
             if (m_isRotateStart) {
                 m_isRotateStart = false;
-                linal::double3 pos = to_linal(m_camera.get_position());
-                linal::double3 gaze = to_linal(m_camera.gaze());
-                if (!ray_plane_intersection(pos, gaze, m_groundPlane, m_pivot)) {
-                    m_isRotateStart = true;
-                    m_wasBlocking = false;
-                    return;
+                if (m_pivotMode == PivotMode::ORIGIN) {
+                    m_pivot = linal::double3{0.0, 0.0, 0.0};
+                } else {
+                    // Pivot around where the ray through the mouse cursor hits the ground plane,
+                    // captured once at drag start. If the cursor ray misses the ground plane, block
+                    // rotation and re-arm so it can be retried on the next event.
+                    linal::double3 pos = to_linal(m_camera.get_position());
+                    const PickRay ray = get_pick_ray(m_inputState->cursorPosState.xpos,
+                                                     m_inputState->cursorPosState.ypos);
+                    if (!ray_plane_intersection(pos, ray.direction, m_groundPlane, m_pivot)) {
+                        m_isRotateStart = true;
+                        m_wasBlocking = false;
+                        return;
+                    }
                 }
                 m_rotateScreenXYStart = glm::vec2{xpos, ypos};
             }
@@ -576,15 +595,13 @@ class CameraInteractor : private CameraSettings {
                 glm::angleAxis(glm::radians(-deltaYPos * m_rotateSpeed), glm::dvec3{right[0], right[1], right[2]});
             const glm::dquat rotQuat = zQuat * rightQuat;
 
-            glm::dvec3 position = m_camera.get_position();
-            glm::dvec3 pivot = to_glm(m_pivot);
-            glm::dvec3 pivotToEye = position - pivot;
-            const double pivotToEyeDist = glm::length(pivotToEye);
-            pivotToEye = glm::normalize(pivotToEye);
-            const glm::dvec3 newPivotToEye = rotQuat * pivotToEye;
-            const glm::dvec3 newEye = pivot + glm::normalize(newPivotToEye) * pivotToEyeDist;
+            const glm::dvec3 pivot = to_glm(m_pivot);
+            const glm::dvec3 position = m_camera.get_position();
+            const glm::dvec3 target = m_camera.get_target();
+            const glm::dvec3 newEye = pivot + rotQuat * (position - pivot);
+            const glm::dvec3 newTarget = pivot + rotQuat * (target - pivot);
 
-            m_camera.look_at(newEye, pivot, m_camera.get_vertical());
+            m_camera.look_at(newEye, newTarget, m_camera.get_vertical());
             update_mvp();
         }
     }

@@ -8,7 +8,7 @@ namespace opengl {
 
 using renderer::LineType;
 
-constexpr unsigned int to_gl_primitive(const LineType& lineType) {
+inline unsigned int to_gl_primitive(const LineType& lineType) {
     if (lineType.is_line_strip()) {
         return GL_LINE_STRIP;
     }

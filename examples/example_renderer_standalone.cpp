@@ -37,14 +37,30 @@ int main() {
     const std::array<float, 16>
         lineColors{1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F};
     const std::array<std::uint32_t, 4> lineIndices{0, 1, 2, 3};
-    renderer->add_line_drawable(lineVertices, lineIndices, lineColors, renderer::LineType::lines(), standaloneLineWidth);
+    renderer->add_line_drawable(lineVertices,
+                                lineIndices,
+                                lineColors,
+                                renderer::LineType::lines(),
+                                standaloneLineWidth);
+
+    // F1 toggles between the game-like Release control panel (the default) and the full
+    // Debug panel exposing every post-processing and visualization control.
+    const auto uiModeSubscription = renderer->add_key_callback([&renderer](renderer::Key key,
+                                                                           renderer::Scancode /*scancode*/,
+                                                                           renderer::Action action,
+                                                                           renderer::Mods /*mods*/) {
+        if (key == renderer::Key::KEY_F1 && action == renderer::Action::PRESS) {
+            renderer->set_ui_mode(renderer->ui_mode() == renderer::UiMode::Release ? renderer::UiMode::Debug
+                                                                                   : renderer::UiMode::Release);
+        }
+    });
 
     // Tab toggles between orbit navigation and fly (WASD+QE) navigation, proving the new
     // CameraInteractor::NavigationStyle switch works end-to-end.
     const auto navigationStyleSubscription = renderer->add_key_callback([&renderer](renderer::Key key,
-                                                                                     renderer::Scancode /*scancode*/,
-                                                                                     renderer::Action action,
-                                                                                     renderer::Mods /*mods*/) {
+                                                                                    renderer::Scancode /*scancode*/,
+                                                                                    renderer::Action action,
+                                                                                    renderer::Mods /*mods*/) {
         if (key == renderer::Key::KEY_TAB && action == renderer::Action::PRESS) {
             auto camera = renderer->get_camera().lock();
             if (camera) {
@@ -61,9 +77,9 @@ int main() {
     // (not CameraInteractor::go_to_preset_view directly) so the jump actually frames current
     // geometry instead of just rotating around whatever pivot/distance the camera happened to have.
     const auto presetViewSubscription = renderer->add_key_callback([&renderer](renderer::Key key,
-                                                                                renderer::Scancode /*scancode*/,
-                                                                                renderer::Action action,
-                                                                                renderer::Mods /*mods*/) {
+                                                                               renderer::Scancode /*scancode*/,
+                                                                               renderer::Action action,
+                                                                               renderer::Mods /*mods*/) {
         if (action != renderer::Action::PRESS) {
             return;
         }

@@ -439,6 +439,22 @@ TEST_F(RendererTest, FrameBoundaryRestoresRendererContext) {
     glfwDestroyWindow(other);
 }
 
+TEST_F(RendererTest, IsSrgbCapableLeavesNoGlfwErrorAndMatchesDriverReport) {
+    // Drain any GLFW errors left over from window setup.
+    while (glfwGetError(nullptr) != GLFW_NO_ERROR) {
+    }
+
+    const bool reported = m_renderer->window().is_srgb_capable();
+    EXPECT_EQ(GLFW_NO_ERROR, glfwGetError(nullptr))
+        << "is_srgb_capable must not raise a GLFW error";
+
+    GLint encoding = GL_LINEAR;
+    glGetFramebufferAttachmentParameteriv(
+        GL_FRAMEBUFFER, GL_BACK_LEFT, GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING, &encoding);
+    EXPECT_EQ(reported, encoding == GL_SRGB)
+        << "is_srgb_capable must agree with the driver-reported default-framebuffer encoding";
+}
+
 TEST(OneSampleRendererTest, OneSampleFrameDoesNotCrash) {
     ASSERT_EQ(GLFW_TRUE, glfwInit());
 

@@ -49,6 +49,9 @@ class GlfwWindow {
     std::pair<int, int> get_framebuffer_size() const;
     [[nodiscard]]
     std::pair<double, double> get_framebuffer_scale() const;
+    /// Reports whether the default framebuffer is sRGB-capable. Must be called
+    /// on the creating thread with this window's context current and the
+    /// default framebuffer bound.
     [[nodiscard]]
     bool is_srgb_capable() const;
 

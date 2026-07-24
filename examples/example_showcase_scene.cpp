@@ -75,11 +75,11 @@ CubeMesh make_textured_cube(float h) {
     for (const Face& face: faces) {
         const std::array<std::array<float, 2>, 4> corners{{{0, 0}, {1, 0}, {1, 1}, {0, 1}}};
         for (const auto& corner: corners) {
-            for (int axis = 0; axis < 3; ++axis) {
-                mesh.positions.push_back(face.origin[axis] + corner[0] * face.edgeU[axis] +
-                                         corner[1] * face.edgeV[axis]);
+            for (std::size_t axis = 0; axis < 3; ++axis) {
+                mesh.positions.push_back(face.origin[axis] + (corner[0] * face.edgeU[axis]) +
+                                         (corner[1] * face.edgeV[axis]));
             }
-            for (int axis = 0; axis < 3; ++axis) {
+            for (std::size_t axis = 0; axis < 3; ++axis) {
                 mesh.normals.push_back(face.normal[axis]);
             }
             mesh.uvs.push_back(corner[0]);

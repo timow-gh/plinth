@@ -671,8 +671,6 @@ void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
     m_imgui->render();
     m_imgui->end_frame();
 
-    glEnable(GL_FRAMEBUFFER_SRGB);
-
     if (projectionType != m_camera->get_projection_type()) {
         m_camera->set_projection_type(projectionType);
     }
@@ -733,7 +731,6 @@ void Renderer::present_scene() {
     m_postProcessingPass->process(hdrColorTex, depthTex, w, h);
 
     opengl::Framebuffer::unbind();
-    glDisable(GL_FRAMEBUFFER_SRGB);
 
     m_fxaaPass->set_enabled(m_fxaaEnabled);
     m_fxaaPass->set_edge_threshold(m_fxaaEdgeThreshold);

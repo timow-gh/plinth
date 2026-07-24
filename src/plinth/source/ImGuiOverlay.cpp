@@ -162,6 +162,142 @@ void apply_fog_range(Renderer& renderer, float start, float end) {
     }
 }
 
+void build_visualization_combo(Renderer& renderer) {
+    constexpr std::array<const char*, 10> visItems = {
+        "Final", "Raw HDR", "Linear LDR (unencoded)", "Luminance",
+        "Log Luminance", "Depth", "Overexposure",
+        "Underexposure", "NaN & Infinity", "Grayscale"
+    };
+    int currentVis = static_cast<int>(renderer.get_visualization_mode());
+    if (ImGui::Combo("Visualization", &currentVis, visItems.data(), static_cast<int>(visItems.size()))) {
+        renderer.set_visualization_mode(static_cast<renderer::VisualizationMode>(currentVis));
+    }
+}
+
+void build_exposure_control(Renderer& renderer, renderer::VisualizationMode mode) {
+    const bool exposureApplies = mode == renderer::VisualizationMode::Final ||
+                                 mode == renderer::VisualizationMode::LinearLdr ||
+                                 mode == renderer::VisualizationMode::Overexposure ||
+                                 mode == renderer::VisualizationMode::Underexposure ||
+                                 mode == renderer::VisualizationMode::Grayscale;
+    if (!exposureApplies) {
+        return;
+    }
+    float exposureStops = renderer.get_exposure_stops();
+    if (ImGui::SliderFloat("Exposure (stops)", &exposureStops, -10.0F, 10.0F, "%.1F")) {  // NOLINT(readability-magic-numbers)
+        renderer.set_exposure_stops(exposureStops);
+    }
+    ImGui::TextUnformatted("-1 = half, 0 = unchanged, +1 = twice");
+}
+
+void build_tone_mapping_control(Renderer& renderer, renderer::VisualizationMode mode) {
+    const bool toneMappingApplies = mode == renderer::VisualizationMode::Final ||
+                                    mode == renderer::VisualizationMode::LinearLdr ||
+                                    mode == renderer::VisualizationMode::Grayscale;
+    if (!toneMappingApplies) {
+        return;
+    }
+    constexpr std::array<const char*, 2> toneMapItems = {"None (clamp)", "Reinhard"};
+    int currentTM = static_cast<int>(renderer.get_tone_map_mode());
+    if (ImGui::Combo("Tone Mapping", &currentTM, toneMapItems.data(), static_cast<int>(toneMapItems.size()))) {
+        renderer.set_tone_map_mode(static_cast<renderer::ToneMapMode>(currentTM));
+    }
+}
+
+void build_fog_control(Renderer& renderer, renderer::VisualizationMode mode) {
+    const bool fogApplies = mode != renderer::VisualizationMode::Depth &&
+                            mode != renderer::VisualizationMode::NaNAndInfinity;
+    if (!fogApplies || !ImGui::TreeNode("Fog")) {
+        return;
+    }
+    bool fogEnabled = renderer.get_fog_enabled();
+    if (ImGui::Checkbox("Enabled", &fogEnabled)) {
+        renderer.set_fog_enabled(fogEnabled);
+    }
+    constexpr std::array<const char*, 2> fogItems = {"Linear", "Exponential"};
+    int currentFog = static_cast<int>(renderer.get_fog_mode());
+    if (ImGui::Combo("Mode", &currentFog, fogItems.data(), static_cast<int>(fogItems.size()))) {
+        renderer.set_fog_mode(static_cast<renderer::FogMode>(currentFog));
+    }
+
+    if (renderer.get_fog_mode() == renderer::FogMode::Linear) {
+        constexpr float fogStartStep{0.1F};
+        constexpr float fogEndMin{0.1F};
+        constexpr float fogEndMax{500.0F};
+        float fogStart = renderer.get_fog_start();
+        float fogEnd = renderer.get_fog_end();
+        const bool startChanged =
+            ImGui::SliderFloat("Start", &fogStart, 0.0F, fogEnd - fogStartStep);  // NOLINT(readability-magic-numbers)
+        const bool endChanged =
+            ImGui::SliderFloat("End", &fogEnd, fogStart + fogEndMin, fogEndMax);  // NOLINT(readability-magic-numbers)
+        if (startChanged || endChanged) {
+            apply_fog_range(renderer, fogStart, fogEnd);
+        }
+    } else {
+        constexpr float fogDensityMin{0.001F};
+        constexpr float fogDensityMax{1.0F};
+        float fogDensity = renderer.get_fog_density();
+        if (ImGui::SliderFloat("Density", &fogDensity, fogDensityMin, fogDensityMax, "%.4F")) {
+            renderer.set_fog_density(fogDensity);
+        }
+    }
+    std::array<float, 3> fogColor = renderer.get_fog_color();
+    if (ImGui::ColorEdit3("Color", fogColor.data())) {
+        renderer.set_fog_color(fogColor[0], fogColor[1], fogColor[2]);
+    }
+    ImGui::TreePop();
+}
+
+void build_hdr_display_control(Renderer& renderer, renderer::VisualizationMode mode) {
+    if (mode != renderer::VisualizationMode::RawHdr && mode != renderer::VisualizationMode::Luminance) {
+        return;
+    }
+    constexpr float hdrMin{0.1F};
+    constexpr float hdrMax{100.0F};
+    float hdrDisplayMax = renderer.get_hdr_display_max();
+    if (ImGui::SliderFloat("HDR Max", &hdrDisplayMax, hdrMin, hdrMax, "%.1F")) {
+        renderer.set_hdr_display_max(hdrDisplayMax);
+    }
+}
+
+void build_grayscale_control(Renderer& renderer, renderer::VisualizationMode mode) {
+    if (mode != renderer::VisualizationMode::Final) {
+        return;
+    }
+    bool grayscale = renderer.get_grayscale();
+    if (ImGui::Checkbox("Grayscale", &grayscale)) {
+        renderer.set_grayscale(grayscale);
+    }
+}
+
+void build_fxaa_control(Renderer& renderer) {
+    bool fxaaEnabled = renderer.get_fxaa_enabled();
+    if (ImGui::Checkbox("FXAA", &fxaaEnabled)) {
+        renderer.set_fxaa_enabled(fxaaEnabled);
+    }
+    if (!renderer.get_fxaa_enabled()) {
+        return;
+    }
+    constexpr float edgeMin{0.0F};
+    constexpr float edgeMax{0.5F};
+    constexpr float edgeMinMin{0.0F};
+    constexpr float edgeMinMax{0.25F};
+    constexpr float subpixMin{0.0F};
+    constexpr float subpixMax{1.0F};
+    float edgeThreshold = renderer.get_fxaa_edge_threshold();
+    if (ImGui::SliderFloat("Edge Threshold", &edgeThreshold, edgeMin, edgeMax, "%.3F")) {
+        renderer.set_fxaa_edge_threshold(edgeThreshold);
+    }
+    float edgeThresholdMin = renderer.get_fxaa_edge_threshold_min();
+    if (ImGui::SliderFloat("Minimum Edge Contrast", &edgeThresholdMin, edgeMinMin, edgeMinMax, "%.4F")) {
+        renderer.set_fxaa_edge_threshold_min(edgeThresholdMin);
+    }
+    float subpixelAmount = renderer.get_fxaa_subpixel_amount();
+    if (ImGui::SliderFloat("Subpixel Amount", &subpixelAmount, subpixMin, subpixMax, "%.2F")) {
+        renderer.set_fxaa_subpixel_amount(subpixelAmount);
+    }
+}
+
 } // namespace
 
 void ImGuiOverlay::add_post_processing_controls(Renderer& renderer) {
@@ -169,125 +305,15 @@ void ImGuiOverlay::add_post_processing_controls(Renderer& renderer) {
         if (!ImGui::CollapsingHeader("Post Processing", ImGuiTreeNodeFlags_DefaultOpen)) {
             return;
         }
-
-        constexpr std::array<const char*, 10> visItems = {
-            "Final", "Raw HDR", "Linear LDR (unencoded)", "Luminance",
-            "Log Luminance", "Depth", "Overexposure",
-            "Underexposure", "NaN & Infinity", "Grayscale"
-        };
-        int currentVis = static_cast<int>(renderer.get_visualization_mode());
-        if (ImGui::Combo("Visualization", &currentVis, visItems.data(), static_cast<int>(visItems.size()))) {
-            renderer.set_visualization_mode(static_cast<renderer::VisualizationMode>(currentVis));
-        }
-        const renderer::VisualizationMode visualizationMode = renderer.get_visualization_mode();
-
-        const bool exposureApplies = visualizationMode == renderer::VisualizationMode::Final ||
-                                     visualizationMode == renderer::VisualizationMode::LinearLdr ||
-                                     visualizationMode == renderer::VisualizationMode::Overexposure ||
-                                     visualizationMode == renderer::VisualizationMode::Underexposure ||
-                                     visualizationMode == renderer::VisualizationMode::Grayscale;
-        if (exposureApplies) {
-            float exposureStops = renderer.get_exposure_stops();
-            if (ImGui::SliderFloat("Exposure (stops)", &exposureStops, -10.0F, 10.0F, "%.1F")) {  // NOLINT(readability-magic-numbers)
-                renderer.set_exposure_stops(exposureStops);
-            }
-            ImGui::TextUnformatted("-1 = half, 0 = unchanged, +1 = twice");
-        }
-
-        const bool toneMappingApplies = visualizationMode == renderer::VisualizationMode::Final ||
-                                        visualizationMode == renderer::VisualizationMode::LinearLdr ||
-                                        visualizationMode == renderer::VisualizationMode::Grayscale;
-        if (toneMappingApplies) {
-            constexpr std::array<const char*, 2> toneMapItems = {"None (clamp)", "Reinhard"};
-            int currentTM = static_cast<int>(renderer.get_tone_map_mode());
-            if (ImGui::Combo("Tone Mapping", &currentTM, toneMapItems.data(), static_cast<int>(toneMapItems.size()))) {
-                renderer.set_tone_map_mode(static_cast<renderer::ToneMapMode>(currentTM));
-            }
-        }
-
-        const bool fogApplies = visualizationMode != renderer::VisualizationMode::Depth &&
-                                visualizationMode != renderer::VisualizationMode::NaNAndInfinity;
-        if (fogApplies && ImGui::TreeNode("Fog")) {
-            bool fogEnabled = renderer.get_fog_enabled();
-            if (ImGui::Checkbox("Enabled", &fogEnabled)) {
-                renderer.set_fog_enabled(fogEnabled);
-            }
-            constexpr std::array<const char*, 2> fogItems = {"Linear", "Exponential"};
-            int currentFog = static_cast<int>(renderer.get_fog_mode());
-            if (ImGui::Combo("Mode", &currentFog, fogItems.data(), static_cast<int>(fogItems.size()))) {
-                renderer.set_fog_mode(static_cast<renderer::FogMode>(currentFog));
-            }
-
-            if (renderer.get_fog_mode() == renderer::FogMode::Linear) {
-                constexpr float fogStartStep{0.1F};
-                constexpr float fogEndMin{0.1F};
-                constexpr float fogEndMax{500.0F};
-                float fogStart = renderer.get_fog_start();
-                float fogEnd = renderer.get_fog_end();
-                const bool startChanged =
-                    ImGui::SliderFloat("Start", &fogStart, 0.0F, fogEnd - fogStartStep);  // NOLINT(readability-magic-numbers)
-                const bool endChanged =
-                    ImGui::SliderFloat("End", &fogEnd, fogStart + fogEndMin, fogEndMax);  // NOLINT(readability-magic-numbers)
-                if (startChanged || endChanged) {
-                    apply_fog_range(renderer, fogStart, fogEnd);
-                }
-            } else {
-                constexpr float fogDensityMin{0.001F};
-                constexpr float fogDensityMax{1.0F};
-                float fogDensity = renderer.get_fog_density();
-                if (ImGui::SliderFloat("Density", &fogDensity, fogDensityMin, fogDensityMax, "%.4F")) {
-                    renderer.set_fog_density(fogDensity);
-                }
-            }
-            std::array<float, 3> fogColor = renderer.get_fog_color();
-            if (ImGui::ColorEdit3("Color", fogColor.data())) {
-                renderer.set_fog_color(fogColor[0], fogColor[1], fogColor[2]);
-            }
-            ImGui::TreePop();
-        }
-
-        if (visualizationMode == renderer::VisualizationMode::RawHdr ||
-            visualizationMode == renderer::VisualizationMode::Luminance) {
-            constexpr float hdrMin{0.1F};
-            constexpr float hdrMax{100.0F};
-            float hdrDisplayMax = renderer.get_hdr_display_max();
-            if (ImGui::SliderFloat("HDR Max", &hdrDisplayMax, hdrMin, hdrMax, "%.1F")) {
-                renderer.set_hdr_display_max(hdrDisplayMax);
-            }
-        }
-
-        if (visualizationMode == renderer::VisualizationMode::Final) {
-            bool grayscale = renderer.get_grayscale();
-            if (ImGui::Checkbox("Grayscale", &grayscale)) {
-                renderer.set_grayscale(grayscale);
-            }
-        }
-
+        build_visualization_combo(renderer);
+        const renderer::VisualizationMode vizMode = renderer.get_visualization_mode();
+        build_exposure_control(renderer, vizMode);
+        build_tone_mapping_control(renderer, vizMode);
+        build_fog_control(renderer, vizMode);
+        build_hdr_display_control(renderer, vizMode);
+        build_grayscale_control(renderer, vizMode);
         ImGui::Separator();
-        bool fxaaEnabled = renderer.get_fxaa_enabled();
-        if (ImGui::Checkbox("FXAA", &fxaaEnabled)) {
-            renderer.set_fxaa_enabled(fxaaEnabled);
-        }
-        if (renderer.get_fxaa_enabled()) {
-            constexpr float edgeMin{0.0F};
-            constexpr float edgeMax{0.5F};
-            constexpr float edgeMinMin{0.0F};
-            constexpr float edgeMinMax{0.25F};
-            constexpr float subpixMin{0.0F};
-            constexpr float subpixMax{1.0F};
-            float edgeThreshold = renderer.get_fxaa_edge_threshold();
-            if (ImGui::SliderFloat("Edge Threshold", &edgeThreshold, edgeMin, edgeMax, "%.3F")) {
-                renderer.set_fxaa_edge_threshold(edgeThreshold);
-            }
-            float edgeThresholdMin = renderer.get_fxaa_edge_threshold_min();
-            if (ImGui::SliderFloat("Minimum Edge Contrast", &edgeThresholdMin, edgeMinMin, edgeMinMax, "%.4F")) {
-                renderer.set_fxaa_edge_threshold_min(edgeThresholdMin);
-            }
-            float subpixelAmount = renderer.get_fxaa_subpixel_amount();
-            if (ImGui::SliderFloat("Subpixel Amount", &subpixelAmount, subpixMin, subpixMax, "%.2F")) {
-                renderer.set_fxaa_subpixel_amount(subpixelAmount);
-            }
-        }
+        build_fxaa_control(renderer);
     });
 }
 
@@ -306,7 +332,7 @@ void ImGuiOverlay::add_release_post_processing_controls(Renderer& renderer) {
         constexpr float highEdgeThresholdMin{0.0625F};
         constexpr float highSubpixel{1.0F};
 
-        enum QualityPreset { QualityOff = 0, QualityLow = 1, QualityHigh = 2 };
+        enum QualityPreset : std::uint8_t { QualityOff = 0, QualityLow = 1, QualityHigh = 2 };
         int quality = QualityOff;
         if (renderer.get_fxaa_enabled()) {
             quality = renderer.get_fxaa_edge_threshold() <= highEdgeThreshold ? QualityHigh : QualityLow;

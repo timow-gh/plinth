@@ -812,27 +812,6 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerTransformAccessorsRoundTripAndRejectU
     EXPECT_TRUE(manager->get_mesh_drawable_transform(meshId)->is_identity());
     EXPECT_TRUE(manager->set_mesh_drawable_transform(meshId, translation));
     EXPECT_FALSE(manager->get_mesh_drawable_transform(meshId)->is_identity());
-
-    // Overlay kinds (meshSegment/meshVertex) share the same DrawableEntry template - verify at
-    // least one representative each to confirm they're wired up too.
-    const std::vector<float> segmentPositions = {0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F};
-    const std::vector<std::uint32_t> segmentIndices = {0U, 1U};
-    const std::vector<float> segmentColor = {1.0F, 1.0F, 1.0F, 1.0F};
-    const auto segmentIdOpt = manager->add_mesh_segment_drawable(segmentPositions, segmentIndices, segmentColor, 1.0F);
-    ASSERT_TRUE(segmentIdOpt.has_value());
-    const opengl::DrawablesManager::DrawableId segmentId = *segmentIdOpt;
-    EXPECT_TRUE(manager->get_mesh_segment_drawable_transform(segmentId)->is_identity());
-    EXPECT_TRUE(manager->set_mesh_segment_drawable_transform(segmentId, translation));
-    EXPECT_FALSE(manager->get_mesh_segment_drawable_transform(segmentId)->is_identity());
-
-    const std::vector<float> vertexPositions = {0.0F, 0.0F, 0.0F};
-    const std::vector<float> vertexColor = {1.0F, 1.0F, 1.0F, 1.0F};
-    const auto vertexIdOpt = manager->add_mesh_vertex_drawable(vertexPositions, vertexColor, 2.0F);
-    ASSERT_TRUE(vertexIdOpt.has_value());
-    const opengl::DrawablesManager::DrawableId vertexId = *vertexIdOpt;
-    EXPECT_TRUE(manager->get_mesh_vertex_drawable_transform(vertexId)->is_identity());
-    EXPECT_TRUE(manager->set_mesh_vertex_drawable_transform(vertexId, translation));
-    EXPECT_FALSE(manager->get_mesh_vertex_drawable_transform(vertexId)->is_identity());
 }
 
 TEST_F(OpenGLDrawableTest, CollectVertexPositionBuffersAppliesNonIdentityTransform) {

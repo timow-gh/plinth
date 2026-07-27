@@ -435,26 +435,6 @@ DrawableHandle Renderer::add_textured_mesh_drawable(std::span<const float> verti
     return id ? DrawableHandle{DrawableKind::mesh, *id, m_rendererInstance} : DrawableHandle{};
 }
 
-DrawableHandle Renderer::add_mesh_segment_drawable(std::span<const float> positions,
-                                                   std::span<const std::uint32_t> indices,
-                                                   std::span<const float> color,
-                                                   float lineWidth) {
-    const auto id = m_drawablesManager->add_mesh_segment_drawable(positions, indices, color, lineWidth);
-    if (!id.has_value()) {
-        return DrawableHandle{};
-    }
-    return DrawableHandle{DrawableKind::meshSegment, *id, m_rendererInstance};
-}
-
-DrawableHandle
-Renderer::add_mesh_vertex_drawable(std::span<const float> positions, std::span<const float> color, float pointSize) {
-    const auto id = m_drawablesManager->add_mesh_vertex_drawable(positions, color, pointSize);
-    if (!id.has_value()) {
-        return DrawableHandle{};
-    }
-    return DrawableHandle{DrawableKind::meshVertex, *id, m_rendererInstance};
-}
-
 void Renderer::set_mesh_drawable_cull_mode(DrawableHandle handle, renderer::MeshCullFaceMode mode) {
     if (handle.kind == DrawableKind::mesh && handle.is_valid() && handle.rendererInstance == m_rendererInstance) {
         m_drawablesManager->set_mesh_drawable_cull_mode(handle.id, mode);
@@ -470,8 +450,6 @@ bool Renderer::remove_drawable(DrawableHandle handle) {
     case DrawableKind::point:       return m_drawablesManager->remove_point_drawable(handle.id);
     case DrawableKind::line:        return m_drawablesManager->remove_line_drawable(handle.id);
     case DrawableKind::mesh:        return m_drawablesManager->remove_mesh_drawable(handle.id);
-    case DrawableKind::meshSegment: return m_drawablesManager->remove_mesh_segment_drawable(handle.id);
-    case DrawableKind::meshVertex:  return m_drawablesManager->remove_mesh_vertex_drawable(handle.id);
     case DrawableKind::invalid:     return false;
     }
 
@@ -487,10 +465,7 @@ bool Renderer::set_drawable_transform(DrawableHandle handle, const linal::hmatf&
     case DrawableKind::point: return m_drawablesManager->set_point_drawable_transform(handle.id, transform);
     case DrawableKind::line:  return m_drawablesManager->set_line_drawable_transform(handle.id, transform);
     case DrawableKind::mesh:  return m_drawablesManager->set_mesh_drawable_transform(handle.id, transform);
-    case DrawableKind::meshSegment:
-        return m_drawablesManager->set_mesh_segment_drawable_transform(handle.id, transform);
-    case DrawableKind::meshVertex: return m_drawablesManager->set_mesh_vertex_drawable_transform(handle.id, transform);
-    case DrawableKind::invalid:    return false;
+    case DrawableKind::invalid: return false;
     }
 
     return false;
@@ -505,8 +480,6 @@ std::optional<linal::hmatf> Renderer::get_drawable_transform(DrawableHandle hand
     case DrawableKind::point:       return m_drawablesManager->get_point_drawable_transform(handle.id);
     case DrawableKind::line:        return m_drawablesManager->get_line_drawable_transform(handle.id);
     case DrawableKind::mesh:        return m_drawablesManager->get_mesh_drawable_transform(handle.id);
-    case DrawableKind::meshSegment: return m_drawablesManager->get_mesh_segment_drawable_transform(handle.id);
-    case DrawableKind::meshVertex:  return m_drawablesManager->get_mesh_vertex_drawable_transform(handle.id);
     case DrawableKind::invalid:     return std::nullopt;
     }
 
@@ -641,14 +614,6 @@ void Renderer::draw(const renderer::LightingConfig& lighting) {
                                         m_camera->get_projection_matrix(),
                                         viewPosF,
                                         effectiveLighting);
-    }
-
-    if (m_drawablesManager->has_mesh_segment_drawables()) {
-        m_drawablesManager->draw_mesh_segment_overlays(m_camera->get_current_MVP());
-    }
-
-    if (m_drawablesManager->has_mesh_vertex_drawables()) {
-        m_drawablesManager->draw_mesh_vertex_overlays(m_camera->get_current_MVP());
     }
 }
 

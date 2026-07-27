@@ -37,8 +37,6 @@ enum class DrawableKind {
     point,
     line,
     mesh,
-    meshSegment,
-    meshVertex,
 };
 
 struct DrawableHandle {
@@ -184,16 +182,6 @@ class Renderer {
                                std::span<const std::uint32_t> triangleIndices,
                                TextureHandle texture,
                                renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
-
-    /// Returns an invalid handle when creation fails. Input spans are copied.
-    DrawableHandle add_mesh_segment_drawable(std::span<const float> positions,
-                                             std::span<const std::uint32_t> indices,
-                                             std::span<const float> color,
-                                             float lineWidth);
-
-    /// Returns an invalid handle when creation fails. Input spans are copied.
-    DrawableHandle
-    add_mesh_vertex_drawable(std::span<const float> positions, std::span<const float> color, float pointSize);
 
     /// Invalid, foreign, removed, and stale handles leave state unchanged.
     void set_mesh_drawable_cull_mode(DrawableHandle handle, renderer::MeshCullFaceMode mode);

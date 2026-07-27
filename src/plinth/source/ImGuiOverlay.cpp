@@ -149,7 +149,11 @@ void ImGuiOverlay::add_lighting_controls(LightingConfig& lighting) {
         if (ImGui::TreeNodeEx("Key Light", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::SliderFloat3("Position", lighting.lightPosition.data(), positionMin, positionMax, "%.1F");
             ImGui::ColorEdit3("Color", lighting.lightColor.data());
-            ImGui::SliderFloat3("Attenuation", lighting.lightAttenuation.data(), attenuationMin, attenuationMax, "%.3F");
+            ImGui::SliderFloat3("Attenuation",
+                                lighting.lightAttenuation.data(),
+                                attenuationMin,
+                                attenuationMax,
+                                "%.3F");
             ImGui::TreePop();
         }
 
@@ -201,11 +205,16 @@ void apply_fog_range(Renderer& renderer, float start, float end) {
 }
 
 void build_visualization_combo(Renderer& renderer) {
-    constexpr std::array<const char*, 10> visItems = {
-        "Final", "Raw HDR", "Linear LDR (unencoded)", "Luminance",
-        "Log Luminance", "Depth", "Overexposure",
-        "Underexposure", "NaN & Infinity", "Grayscale"
-    };
+    constexpr std::array<const char*, 10> visItems = {"Final",
+                                                      "Raw HDR",
+                                                      "Linear LDR (unencoded)",
+                                                      "Luminance",
+                                                      "Log Luminance",
+                                                      "Depth",
+                                                      "Overexposure",
+                                                      "Underexposure",
+                                                      "NaN & Infinity",
+                                                      "Grayscale"};
     int currentVis = static_cast<int>(renderer.get_visualization_mode());
     if (ImGui::Combo("Visualization", &currentVis, visItems.data(), static_cast<int>(visItems.size()))) {
         renderer.set_visualization_mode(static_cast<renderer::VisualizationMode>(currentVis));
@@ -213,16 +222,19 @@ void build_visualization_combo(Renderer& renderer) {
 }
 
 void build_exposure_control(Renderer& renderer, renderer::VisualizationMode mode) {
-    const bool exposureApplies = mode == renderer::VisualizationMode::Final ||
-                                 mode == renderer::VisualizationMode::LinearLdr ||
-                                 mode == renderer::VisualizationMode::Overexposure ||
-                                 mode == renderer::VisualizationMode::Underexposure ||
-                                 mode == renderer::VisualizationMode::Grayscale;
+    const bool exposureApplies =
+        mode == renderer::VisualizationMode::Final || mode == renderer::VisualizationMode::LinearLdr ||
+        mode == renderer::VisualizationMode::Overexposure || mode == renderer::VisualizationMode::Underexposure ||
+        mode == renderer::VisualizationMode::Grayscale;
     if (!exposureApplies) {
         return;
     }
     float exposureStops = renderer.get_exposure_stops();
-    if (ImGui::SliderFloat("Exposure (stops)", &exposureStops, -10.0F, 10.0F, "%.1F")) {  // NOLINT(readability-magic-numbers)
+    if (ImGui::SliderFloat("Exposure (stops)",
+                           &exposureStops,
+                           -10.0F,
+                           10.0F,
+                           "%.1F")) { // NOLINT(readability-magic-numbers)
         renderer.set_exposure_stops(exposureStops);
     }
     ImGui::TextUnformatted("-1 = half, 0 = unchanged, +1 = twice");
@@ -243,8 +255,8 @@ void build_tone_mapping_control(Renderer& renderer, renderer::VisualizationMode 
 }
 
 void build_fog_control(Renderer& renderer, renderer::VisualizationMode mode) {
-    const bool fogApplies = mode != renderer::VisualizationMode::Depth &&
-                            mode != renderer::VisualizationMode::NaNAndInfinity;
+    const bool fogApplies =
+        mode != renderer::VisualizationMode::Depth && mode != renderer::VisualizationMode::NaNAndInfinity;
     if (!fogApplies || !ImGui::TreeNode("Fog")) {
         return;
     }
@@ -265,9 +277,9 @@ void build_fog_control(Renderer& renderer, renderer::VisualizationMode mode) {
         float fogStart = renderer.get_fog_start();
         float fogEnd = renderer.get_fog_end();
         const bool startChanged =
-            ImGui::SliderFloat("Start", &fogStart, 0.0F, fogEnd - fogStartStep);  // NOLINT(readability-magic-numbers)
+            ImGui::SliderFloat("Start", &fogStart, 0.0F, fogEnd - fogStartStep); // NOLINT(readability-magic-numbers)
         const bool endChanged =
-            ImGui::SliderFloat("End", &fogEnd, fogStart + fogEndMin, fogEndMax);  // NOLINT(readability-magic-numbers)
+            ImGui::SliderFloat("End", &fogEnd, fogStart + fogEndMin, fogEndMax); // NOLINT(readability-magic-numbers)
         if (startChanged || endChanged) {
             apply_fog_range(renderer, fogStart, fogEnd);
         }
@@ -370,7 +382,11 @@ void ImGuiOverlay::add_release_post_processing_controls(Renderer& renderer) {
         constexpr float highEdgeThresholdMin{0.0625F};
         constexpr float highSubpixel{1.0F};
 
-        enum QualityPreset : std::uint8_t { QualityOff = 0, QualityLow = 1, QualityHigh = 2 };
+        enum QualityPreset : std::uint8_t {
+            QualityOff = 0,
+            QualityLow = 1,
+            QualityHigh = 2
+        };
         int quality = QualityOff;
         if (renderer.get_fxaa_enabled()) {
             quality = renderer.get_fxaa_edge_threshold() <= highEdgeThreshold ? QualityHigh : QualityLow;
@@ -378,9 +394,7 @@ void ImGuiOverlay::add_release_post_processing_controls(Renderer& renderer) {
         constexpr std::array<const char*, 3> qualityItems = {"Off", "Low", "High"};
         if (ImGui::Combo("Anti-aliasing", &quality, qualityItems.data(), static_cast<int>(qualityItems.size()))) {
             switch (quality) {
-            case QualityOff:
-                renderer.set_fxaa_enabled(false);
-                break;
+            case QualityOff: renderer.set_fxaa_enabled(false); break;
             case QualityHigh:
                 renderer.set_fxaa_enabled(true);
                 renderer.set_fxaa_edge_threshold(highEdgeThreshold);
@@ -398,7 +412,11 @@ void ImGuiOverlay::add_release_post_processing_controls(Renderer& renderer) {
         }
 
         float exposureStops = renderer.get_exposure_stops();
-        if (ImGui::SliderFloat("Exposure (stops)", &exposureStops, -10.0F, 10.0F, "%.1F")) {  // NOLINT(readability-magic-numbers)
+        if (ImGui::SliderFloat("Exposure (stops)",
+                               &exposureStops,
+                               -10.0F,
+                               10.0F,
+                               "%.1F")) { // NOLINT(readability-magic-numbers)
             renderer.set_exposure_stops(exposureStops);
         }
 

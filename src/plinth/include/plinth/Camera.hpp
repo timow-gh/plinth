@@ -1,13 +1,13 @@
 #ifndef RENDERER_CAMERA_HPP
 #define RENDERER_CAMERA_HPP
 
+#include <cstdint>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <plinth/Assert.hpp>
 #include <plinth/CameraProjectionType.hpp>
 #include <plinth/PickRay.hpp>
 #include <plinth/Viewport.hpp>
-#include <cstdint>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <vector>
 
 namespace renderer {

@@ -5,12 +5,6 @@
 
 namespace renderer {
 
-enum class MeshCullFaceMode {
-    back,
-    front,
-    none,
-};
-
 struct LightingConfig {
     // Key light: slightly up-and-right of the camera.
     linal::float3 lightPosition{4.0F, 6.0F, 10.0F};

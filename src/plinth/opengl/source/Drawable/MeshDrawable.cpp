@@ -19,11 +19,11 @@ std::optional<Drawable> make_failed_drawable() {
 MeshDrawable::MeshDrawable(MeshProgram& program,
                            VertexArray vertexArray,
                            VertexBuffer vertexBuffer,
-                            VertexBuffer vertexNormalsBuffer,
-                            VertexBuffer colorBuffer,
-                            VertexBuffer textureCoordinateBuffer,
-                            IndexBuffer triangleIndicesBuffer,
-                            std::shared_ptr<Texture2D> texture,
+                           VertexBuffer vertexNormalsBuffer,
+                           VertexBuffer colorBuffer,
+                           VertexBuffer textureCoordinateBuffer,
+                           IndexBuffer triangleIndicesBuffer,
+                           std::shared_ptr<Texture2D> texture,
                            DrawableTransparencyInfo transparencyInfo,
                            std::int32_t vertexDimension,
                            std::int32_t colorDimension,
@@ -99,10 +99,10 @@ void MeshDrawable::draw(const linal::hmatf& modelMatrix,
     const auto& prog = *m_program;
     prog.use();
 
-    glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_FALSE, modelMatrix.data());
-    glUniformMatrix4fv(prog.get_view_matrix_location().get_value(), 1, GL_FALSE, viewMatrix.data());
-    glUniformMatrix4fv(prog.get_projection_matrix_location().get_value(), 1, GL_FALSE, projectionMatrix.data());
-    glUniformMatrix4fv(prog.get_normal_matrix_location().get_value(), 1, GL_FALSE, normalMatrix.data());
+    glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
+    glUniformMatrix4fv(prog.get_view_matrix_location().get_value(), 1, GL_TRUE, viewMatrix.data());
+    glUniformMatrix4fv(prog.get_projection_matrix_location().get_value(), 1, GL_TRUE, projectionMatrix.data());
+    glUniformMatrix4fv(prog.get_normal_matrix_location().get_value(), 1, GL_TRUE, normalMatrix.data());
 
     glUniform3fv(prog.get_light_pos_location().get_value(), 1, lightPosition.data());
     glUniform3fv(prog.get_view_pos_location().get_value(), 1, viewPos.data());
@@ -131,31 +131,38 @@ void MeshDrawable::draw(const linal::hmatf& modelMatrix,
 }
 
 std::optional<MeshDrawable> make_mesh_soup(MeshProgram& program,
-                                            std::span<const float> vertices,
-                                            std::int32_t vertexDimension,
-                                            std::span<const float> normals,
-                                            std::span<const float> colors,
-                                            std::int32_t colorDimension,
-                                            std::span<const std::uint32_t> triangleIndices,
-                                            BufferAccessPattern accessPattern) {
+                                           std::span<const float> vertices,
+                                           std::int32_t vertexDimension,
+                                           std::span<const float> normals,
+                                           std::span<const float> colors,
+                                           std::int32_t colorDimension,
+                                           std::span<const std::uint32_t> triangleIndices,
+                                           BufferAccessPattern accessPattern) {
     if (vertexDimension <= 0) {
         return make_failed_drawable<MeshDrawable>();
     }
     std::vector<float> textureCoordinates((vertices.size() / static_cast<std::size_t>(vertexDimension)) * 2U, 0.0F);
-    return make_mesh_soup(program, vertices, vertexDimension, normals, textureCoordinates, colors, colorDimension,
-                          triangleIndices, accessPattern);
+    return make_mesh_soup(program,
+                          vertices,
+                          vertexDimension,
+                          normals,
+                          textureCoordinates,
+                          colors,
+                          colorDimension,
+                          triangleIndices,
+                          accessPattern);
 }
 
 std::optional<MeshDrawable> make_mesh_soup(MeshProgram& program,
                                            std::span<const float> vertices,
-                                            std::int32_t vertexDimension,
-                                            std::span<const float> normals,
-                                            std::span<const float> textureCoordinates,
-                                            std::span<const float> colors,
+                                           std::int32_t vertexDimension,
+                                           std::span<const float> normals,
+                                           std::span<const float> textureCoordinates,
+                                           std::span<const float> colors,
                                            std::int32_t colorDimension,
                                            std::span<const std::uint32_t> triangleIndices,
-                                            BufferAccessPattern accessPattern,
-                                            std::shared_ptr<Texture2D> texture) {
+                                           BufferAccessPattern accessPattern,
+                                           std::shared_ptr<Texture2D> texture) {
     const std::size_t vertexCount = vertices.size() / static_cast<std::size_t>(vertexDimension);
     if (vertexDimension <= 0 || vertices.size() % static_cast<std::size_t>(vertexDimension) != 0 ||
         textureCoordinates.size() != vertexCount * 2U) {
@@ -185,11 +192,13 @@ std::optional<MeshDrawable> make_mesh_soup(MeshProgram& program,
         linearColors = renderer::srgb_to_linear_copy(colors);
         colorsToUpload = linearColors;
     }
-    auto colorBuffer = VertexBuffer::create(colorsToUpload, colorDimension, program.get_color_location(), accessPattern);
+    auto colorBuffer =
+        VertexBuffer::create(colorsToUpload, colorDimension, program.get_color_location(), accessPattern);
     if (!colorBuffer.has_value()) {
         return make_failed_drawable<MeshDrawable>();
     }
-    auto textureCoordinateBuffer = VertexBuffer::create(textureCoordinates, 2, program.get_tex_coord_location(), accessPattern);
+    auto textureCoordinateBuffer =
+        VertexBuffer::create(textureCoordinates, 2, program.get_tex_coord_location(), accessPattern);
     if (!textureCoordinateBuffer.has_value()) {
         return make_failed_drawable<MeshDrawable>();
     }
@@ -201,10 +210,10 @@ std::optional<MeshDrawable> make_mesh_soup(MeshProgram& program,
                         std::move(vertexArray.value()),
                         std::move(vertexBuffer.value()),
                         std::move(vertexNormalsBuffer.value()),
-                         std::move(colorBuffer.value()),
-                         std::move(textureCoordinateBuffer.value()),
-                         std::move(triangleIndicesBuffer.value()),
-                         std::move(texture),
+                        std::move(colorBuffer.value()),
+                        std::move(textureCoordinateBuffer.value()),
+                        std::move(triangleIndicesBuffer.value()),
+                        std::move(texture),
                         make_drawable_transparency_info(vertices, vertexDimension, colors, colorDimension),
                         vertexDimension,
                         colorDimension,

@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <linal/vec.hpp>
 #include <string>
 #include <string_view>
 
@@ -112,6 +113,64 @@ double valid_logical_dimension(int dimension) {
 
 int round_to_framebuffer_pixel(double value) {
     return static_cast<int>(std::round(value));
+}
+
+// Default geometry computed for the convenience add_*_drawable overloads that
+// omit indices, per-vertex colors, or normals. Each helper produces the buffer
+// the fully-parameterized path expects, so the shorter overloads can delegate.
+
+// Sequential indices 0..N-1 for N = vertices.size()/3, used when the caller
+// supplies no explicit index buffer. Mirrors DrawablesManager::add_mesh_vertex_drawable.
+std::vector<std::uint32_t> make_sequential_indices(std::span<const float> vertices) {
+    std::vector<std::uint32_t> indices(vertices.size() / 3U);
+    std::iota(indices.begin(), indices.end(), 0U);
+    return indices;
+}
+
+// Replicate a single RGBA color into one color per vertex.
+std::vector<float> expand_color(std::span<const float> vertices, std::array<float, 4> color) {
+    const std::size_t vertexCount = vertices.size() / 3U;
+    std::vector<float> colors(vertexCount * 4U);
+    for (std::size_t v = 0; v < vertexCount; ++v) {
+        for (std::size_t c = 0; c < 4U; ++c) {
+            colors[(v * 4U) + c] = color[c];
+        }
+    }
+    return colors;
+}
+
+// Area-weighted smooth per-vertex normals from triangle indices. Vertices are
+// xyz triplets; indices are triples. Triangles referencing out-of-range vertices
+// are skipped; vertices with a zero-length accumulation fall back to {0,0,1}.
+std::vector<float> compute_vertex_normals(std::span<const float> vertices,
+                                          std::span<const std::uint32_t> triangleIndices) {
+    const std::size_t vertexCount = vertices.size() / 3U;
+    std::vector<linal::float3> accum(vertexCount, linal::float3{0.0F, 0.0F, 0.0F});
+    for (std::size_t t = 0; t + 2U < triangleIndices.size(); t += 3U) {
+        const std::uint32_t i0 = triangleIndices[t];
+        const std::uint32_t i1 = triangleIndices[t + 1U];
+        const std::uint32_t i2 = triangleIndices[t + 2U];
+        if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount) {
+            continue;
+        }
+        const linal::float3 v0{vertices[(i0 * 3U)], vertices[(i0 * 3U) + 1U], vertices[(i0 * 3U) + 2U]};
+        const linal::float3 v1{vertices[(i1 * 3U)], vertices[(i1 * 3U) + 1U], vertices[(i1 * 3U) + 2U]};
+        const linal::float3 v2{vertices[(i2 * 3U)], vertices[(i2 * 3U) + 1U], vertices[(i2 * 3U) + 2U]};
+        const linal::float3 faceNormal = linal::cross(v1 - v0, v2 - v0); // un-normalized => area weighting
+        accum[i0] = accum[i0] + faceNormal;
+        accum[i1] = accum[i1] + faceNormal;
+        accum[i2] = accum[i2] + faceNormal;
+    }
+    std::vector<float> normals(vertexCount * 3U, 0.0F);
+    for (std::size_t v = 0; v < vertexCount; ++v) {
+        const linal::float3 unit = linal::length(accum[v]) > 1.0e-6F
+                                       ? linal::normalize(accum[v])
+                                       : linal::float3{0.0F, 0.0F, 1.0F};
+        normals[v * 3U] = unit[0];
+        normals[(v * 3U) + 1U] = unit[1];
+        normals[(v * 3U) + 2U] = unit[2];
+    }
+    return normals;
 }
 
 } // namespace
@@ -364,8 +423,25 @@ void Renderer::wire_callbacks() {
 // --- Geometry ---
 
 DrawableHandle Renderer::add_point_drawable(std::span<const float> vertices,
+                                            std::array<float, 4> color,
+                                            float pointSize,
+                                            renderer::BufferAccessPattern accessPattern) {
+    const std::vector<float> colors = expand_color(vertices, color);
+    const std::vector<std::uint32_t> indices = make_sequential_indices(vertices);
+    return add_point_drawable(vertices, indices, colors, pointSize, accessPattern);
+}
+
+DrawableHandle Renderer::add_point_drawable(std::span<const float> vertices,
                                             std::span<const float> colors,
+                                            float pointSize,
+                                            renderer::BufferAccessPattern accessPattern) {
+    const std::vector<std::uint32_t> indices = make_sequential_indices(vertices);
+    return add_point_drawable(vertices, indices, colors, pointSize, accessPattern);
+}
+
+DrawableHandle Renderer::add_point_drawable(std::span<const float> vertices,
                                             std::span<const std::uint32_t> indices,
+                                            std::span<const float> colors,
                                             float pointSize,
                                             renderer::BufferAccessPattern accessPattern) {
     const auto id = m_drawablesManager->add_point_drawable(vertices, colors, indices, pointSize, accessPattern);
@@ -373,6 +449,27 @@ DrawableHandle Renderer::add_point_drawable(std::span<const float> vertices,
         return DrawableHandle{};
     }
     return DrawableHandle{DrawableKind::point, *id, m_rendererInstance};
+}
+
+DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
+                                           std::array<float, 4> color,
+                                           renderer::LineType lineType,
+                                           float lineWidth,
+                                           float pointSize,
+                                           renderer::BufferAccessPattern accessPattern) {
+    const std::vector<float> colors = expand_color(vertices, color);
+    const std::vector<std::uint32_t> indices = make_sequential_indices(vertices);
+    return add_line_drawable(vertices, indices, colors, lineType, lineWidth, pointSize, accessPattern);
+}
+
+DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
+                                           std::span<const float> color,
+                                           renderer::LineType lineType,
+                                           float lineWidth,
+                                           float pointSize,
+                                           renderer::BufferAccessPattern accessPattern) {
+    const std::vector<std::uint32_t> indices = make_sequential_indices(vertices);
+    return add_line_drawable(vertices, indices, color, lineType, lineWidth, pointSize, accessPattern);
 }
 
 DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
@@ -391,15 +488,46 @@ DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
 }
 
 DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
+                                           std::span<const std::uint32_t> triangleIndices,
+                                           std::array<float, 4> color,
+                                           renderer::MeshCullFaceMode cullMode,
+                                           renderer::BufferAccessPattern accessPattern) {
+    const std::vector<float> colors = expand_color(vertices, color);
+    const std::vector<float> normals = compute_vertex_normals(vertices, triangleIndices);
+    return add_mesh_drawable(vertices, triangleIndices, normals, colors, cullMode, accessPattern);
+}
+
+DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
+                                           std::span<const std::uint32_t> triangleIndices,
+                                           std::span<const float> colors,
+                                           renderer::MeshCullFaceMode cullMode,
+                                           renderer::BufferAccessPattern accessPattern) {
+    const std::vector<float> normals = compute_vertex_normals(vertices, triangleIndices);
+    return add_mesh_drawable(vertices, triangleIndices, normals, colors, cullMode, accessPattern);
+}
+
+DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
+                                           std::span<const std::uint32_t> triangleIndices,
+                                           std::array<float, 4> color,
+                                           std::span<const float> normals,
+                                           renderer::MeshCullFaceMode cullMode,
+                                           renderer::BufferAccessPattern accessPattern) {
+    const std::vector<float> colors = expand_color(vertices, color);
+    return add_mesh_drawable(vertices, triangleIndices, normals, colors, cullMode, accessPattern);
+}
+
+DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
+                                           std::span<const std::uint32_t> triangleIndices,
                                            std::span<const float> normals,
                                            std::span<const float> colors,
-                                           std::span<const std::uint32_t> triangleIndices,
+                                           renderer::MeshCullFaceMode cullMode,
                                            renderer::BufferAccessPattern accessPattern) {
     const auto id =
         m_drawablesManager->add_mesh_drawable(vertices, 3, normals, colors, 4, triangleIndices, accessPattern);
     if (!id.has_value()) {
         return DrawableHandle{};
     }
+    m_drawablesManager->set_mesh_drawable_cull_mode(*id, cullMode);
     return DrawableHandle{DrawableKind::mesh, *id, m_rendererInstance};
 }
 

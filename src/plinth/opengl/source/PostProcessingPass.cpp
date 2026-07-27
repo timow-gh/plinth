@@ -219,7 +219,7 @@ void PostProcessingPass::process(GLuint hdrColorTexture, GLuint depthTexture, in
 
 void PostProcessingPass::set_inv_projection(const float* data) const {
     glUseProgram(m_program.get_value());
-    glUniformMatrix4fv(m_invProjection.get_location().get_value(), 1, GL_FALSE, data);
+    glUniformMatrix4fv(m_invProjection.get_location().get_value(), 1, GL_TRUE, data);
 }
 
 void PostProcessingPass::set_fog_enabled(bool enabled) const {

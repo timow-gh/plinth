@@ -10,6 +10,7 @@
 #include "plinth/InputState.hpp"
 #include "plinth/LightingConfig.hpp"
 #include "plinth/LineType.hpp"
+#include "plinth/MeshCullFaceMode.hpp"
 #include "plinth/PostProcessingEnums.hpp"
 #include "plinth/Texture.hpp"
 #include "plinth/UiMode.hpp"
@@ -138,39 +139,82 @@ class Renderer {
     static std::optional<std::pair<double, double>>
     to_scene_framebuffer_coordinates(const SceneViewport& sceneViewport, double xpos, double ypos);
 
-    /// Geometry input uses three floats per position or normal, four floats per
-    /// color, and two floats per texture coordinate. Indices address vertices and
-    /// use pairs for lines or triples for triangles. Input spans are copied during
-    /// the call and may be released afterwards. All add_*_drawable functions return
-    /// an invalid handle when creation fails; they do not throw.
+    DrawableHandle
+    add_point_drawable(std::span<const float> vertices,
+                       std::array<float, 4> color,
+                       float pointSize = 2.0F,
+                       BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
     DrawableHandle
     add_point_drawable(std::span<const float> vertices,
                        std::span<const float> colors,
+                       float pointSize = 2.0F,
+                       BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
+    DrawableHandle
+    add_point_drawable(std::span<const float> vertices,
                        std::span<const std::uint32_t> indices,
-                       float pointSize,
-                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                       std::span<const float> colors,
+                       float pointSize = 2.0F,
+                       BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
+    DrawableHandle
+    add_line_drawable(std::span<const float> vertices,
+                      std::array<float, 4> color,
+                      renderer::LineType lineType,
+                      float lineWidth = 2.0F,
+                      float pointSize = 0.0F,
+                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
+    DrawableHandle
+    add_line_drawable(std::span<const float> vertices,
+                      std::span<const float> color,
+                      renderer::LineType lineType,
+                      float lineWidth = 2.0F,
+                      float pointSize = 0.0F,
+                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     DrawableHandle
     add_line_drawable(std::span<const float> vertices,
                       std::span<const std::uint32_t> indices,
                       std::span<const float> colors,
                       renderer::LineType lineType,
-                      float lineWidth,
+                      float lineWidth = 2.0F,
                       float pointSize = 0.0F,
-                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
-    /// Returns an invalid handle when creation fails. Does not set a texture;
-    /// use add_textured_mesh_drawable for textured geometry.
     DrawableHandle
     add_mesh_drawable(std::span<const float> vertices,
+                      std::span<const std::uint32_t> triangleIndices,
+                      std::array<float, 4> color,
+                      MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
+                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
+    DrawableHandle
+    add_mesh_drawable(std::span<const float> vertices,
+                      std::span<const std::uint32_t> triangleIndices,
+                      std::span<const float> colors,
+                      MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
+                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
+    DrawableHandle
+    add_mesh_drawable(std::span<const float> vertices,
+                      std::span<const std::uint32_t> triangleIndices,
+                      std::array<float, 4> color,
+                      std::span<const float> normals,
+                      MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
+                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
+    DrawableHandle
+    add_mesh_drawable(std::span<const float> vertices,
+                      std::span<const std::uint32_t> triangleIndices,
                       std::span<const float> normals,
                       std::span<const float> colors,
-                      std::span<const std::uint32_t> triangleIndices,
-                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                      MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
+                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
-    /// Returns an invalid handle when creation fails. TextureData::rgba8 is copied.
+    /// TextureData::rgba8 is copied.
     TextureHandle create_texture_2d(TextureData data);
-    /// Returns false for invalid, foreign, removed, or stale handles.
     bool remove_texture(TextureHandle texture);
     /// Returns an invalid handle when creation fails. The texture must outlive
     /// this drawable or be re-registered before removal.
@@ -181,10 +225,10 @@ class Renderer {
                                std::span<const float> colors,
                                std::span<const std::uint32_t> triangleIndices,
                                TextureHandle texture,
-                               renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                               BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     /// Invalid, foreign, removed, and stale handles leave state unchanged.
-    void set_mesh_drawable_cull_mode(DrawableHandle handle, renderer::MeshCullFaceMode mode);
+    void set_mesh_drawable_cull_mode(DrawableHandle handle, MeshCullFaceMode mode);
 
     /// Returns false for invalid, foreign, removed, or stale handles.
     bool remove_drawable(DrawableHandle handle);
@@ -201,12 +245,12 @@ class Renderer {
     void update_last_point_drawable(std::span<const float> vertices,
                                     std::span<const float> colors,
                                     std::span<const std::uint32_t> indices,
-                                    renderer::BufferAccessPattern accessPattern);
+                                    BufferAccessPattern accessPattern);
 
     void update_last_line_drawable(std::span<const float> vertices,
                                    std::span<const float> colors,
                                    std::span<const std::uint32_t> indices,
-                                   renderer::BufferAccessPattern accessPattern);
+                                   BufferAccessPattern accessPattern);
 
     /// Removes all drawables of the given kind. Handles previously returned for
     /// those drawables become invalid and are rejected by subsequent operations.

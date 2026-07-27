@@ -151,22 +151,8 @@ int main() {
         0.0F,
         1.0F, //
     };
-    const std::array<float, 12> pointColors{
-        1.0F,
-        1.0F,
-        0.0F,
-        1.0F, //
-        1.0F,
-        1.0F,
-        0.0F,
-        1.0F, //
-        1.0F,
-        1.0F,
-        0.0F,
-        1.0F, //
-    };
-    const std::array<std::uint32_t, 3> pointIndices{0U, 1U, 2U};
-    renderer->add_point_drawable(pointVertices, pointColors, pointIndices, axisPointSize);
+    const std::array<float, 4> pointColor{1.0F, 1.0F, 0.0F, 1.0F}; // yellow
+    renderer->add_point_drawable(pointVertices, pointColor, axisPointSize);
 
     while (!renderer->should_close()) {
         renderer::Renderer::poll_events();

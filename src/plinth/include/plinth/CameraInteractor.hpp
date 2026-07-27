@@ -704,9 +704,12 @@ class CameraInteractor : private CameraSettings {
     static linal::hmatf to_hmatf(const glm::dmat4& mat) {
         linal::hmatf result;
         using size_type = linal::hmatf::size_type;
+        // glm is column-major (mat[col][row]); linal::hmatf is row-major (result(row,col)).
+        // Read glm's column j / row i into result's (i,j) so the matrix is preserved rather
+        // than transposed. Uploads to GL use GL_TRUE to account for the row-major storage.
         for (size_type i{0}; i < 4; ++i) {
             for (size_type j{0}; j < 4; ++j) {
-                result(i, j) = static_cast<float>(mat[i][j]);
+                result(i, j) = static_cast<float>(mat[j][i]);
             }
         }
         return result;

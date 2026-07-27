@@ -8,6 +8,7 @@
 #include "OpenGL/Programs/ProgramManager.hpp"
 #include "OpenGL/Texture2D.hpp"
 #include "plinth/LightingConfig.hpp"
+#include "plinth/MeshCullFaceMode.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -281,7 +282,7 @@ class DrawablesManager {
     }
 
     void set_mesh_drawable_cull_mode(DrawableId id, MeshCullFaceMode mode) {
-        if (mode == MeshCullFaceMode::back)
+        if (mode == MeshCullFaceMode::BACK)
             m_meshCullModes.erase(id); // back is the default; no need to store
         else
             m_meshCullModes[id] = mode;
@@ -477,12 +478,12 @@ class DrawablesManager {
             auto cullIt = m_meshCullModes.find(entry.id);
             if (cullIt != m_meshCullModes.end()) {
                 switch (cullIt->second) {
-                case MeshCullFaceMode::front:
+                case MeshCullFaceMode::FRONT:
                     glEnable(GL_CULL_FACE);
                     glCullFace(GL_FRONT);
                     break;
-                case MeshCullFaceMode::none: glDisable(GL_CULL_FACE); break;
-                case MeshCullFaceMode::back:
+                case MeshCullFaceMode::NONE: glDisable(GL_CULL_FACE); break;
+                case MeshCullFaceMode::BACK:
                 default:
                     glEnable(GL_CULL_FACE);
                     glCullFace(GL_BACK);

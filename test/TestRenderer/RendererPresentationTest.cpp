@@ -288,7 +288,7 @@ class RendererPresentationTest : public ::testing::Test {
         constexpr std::array<float, 3> vertices{0.0F, 0.0F, 0.0F};
         constexpr std::array<float, 4> colors{0.0F, 0.0F, 1.0F, 1.0F};
         constexpr std::array<std::uint32_t, 1> indices{0U};
-        const renderer::DrawableHandle handle = instance->add_point_drawable(vertices, colors, indices, 64.0F);
+        const renderer::DrawableHandle handle = instance->add_point_drawable(vertices, indices, colors, 64.0F);
         ASSERT_TRUE(handle.is_valid());
 
         const auto imgui = instance->get_imgui().lock();
@@ -418,7 +418,7 @@ TEST_F(RendererPresentationTest, PresentsSingleSamplePointThroughPublicFrameLife
     constexpr std::array<float, 3> vertices{0.0F, 0.0F, 0.0F};
     constexpr std::array<float, 4> colors{1.0F, 0.0F, 0.0F, 1.0F};
     constexpr std::array<std::uint32_t, 1> indices{0U};
-    const renderer::DrawableHandle handle = instance->add_point_drawable(vertices, colors, indices, 32.0F);
+    const renderer::DrawableHandle handle = instance->add_point_drawable(vertices, indices, colors, 32.0F);
     ASSERT_TRUE(handle.is_valid());
 
     instance->begin_frame({0.0F, 0.0F, 0.2F, 1.0F});
@@ -565,7 +565,7 @@ TEST_F(RendererPresentationTest, ResolvesMultisampledPointThroughPublicFrameLife
     constexpr std::array<float, 3> vertices{0.0F, 0.0F, 0.0F};
     constexpr std::array<float, 4> colors{1.0F, 0.0F, 0.0F, 1.0F};
     constexpr std::array<std::uint32_t, 1> indices{0U};
-    const renderer::DrawableHandle handle = instance->add_point_drawable(vertices, colors, indices, 32.0F);
+    const renderer::DrawableHandle handle = instance->add_point_drawable(vertices, indices, colors, 32.0F);
     ASSERT_TRUE(handle.is_valid());
 
     instance->begin_frame({0.0F, 0.0F, 0.2F, 1.0F});

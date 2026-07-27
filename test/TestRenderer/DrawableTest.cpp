@@ -1,9 +1,9 @@
 #include <GLFW/glfw3.h>
-#include <OpenGL/Drawable/DrawablesManager.hpp>
-#include <OpenGL/Drawable/LineDrawable.hpp>
-#include <OpenGL/Drawable/MeshDrawable.hpp>
-#include <OpenGL/Drawable/PointDrawable.hpp>
-#include <OpenGL/OpenGL.hpp>
+#include "OpenGL/Drawable/DrawablesManager.hpp"
+#include "OpenGL/Drawable/LineDrawable.hpp"
+#include "OpenGL/Drawable/MeshDrawable.hpp"
+#include "OpenGL/Drawable/PointDrawable.hpp"
+#include "OpenGL/OpenGL.hpp"
 #include <array>
 #include <cstdint>
 #include <gtest/gtest.h>

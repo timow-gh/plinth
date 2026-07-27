@@ -3,8 +3,8 @@
 #include <GLFW/glfw3.h>
 #include <gtest/gtest.h>
 #include <linal/hmat.hpp>
-#include <plinth/Renderer.hpp>
-#include <plinth/WindowSettings.hpp>
+#include "plinth/Renderer.hpp"
+#include "plinth/WindowSettings.hpp"
 #include <array>
 #include <cstdint>
 

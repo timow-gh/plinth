@@ -1,15 +1,15 @@
 #include <GLFW/glfw3.h>
-#include <OpenGL/Drawable/DrawablesManager.hpp>
-#include <OpenGL/Framebuffer.hpp>
-#include <OpenGL/OpenGL.hpp>
+#include "OpenGL/Drawable/DrawablesManager.hpp"
+#include "OpenGL/Framebuffer.hpp"
+#include "OpenGL/OpenGL.hpp"
 #include <array>
 #include <cmath>
 #include <cstdint>
 #include <gtest/gtest.h>
-#include <plinth/LightingConfig.hpp>
-#include <plinth/Renderer.hpp>
-#include <plinth/Texture.hpp>
-#include <plinth/WindowSettings.hpp>
+#include "plinth/LightingConfig.hpp"
+#include "plinth/Renderer.hpp"
+#include "plinth/Texture.hpp"
+#include "plinth/WindowSettings.hpp"
 
 namespace {
 

@@ -1,8 +1,8 @@
 #ifndef OPENGL_FRAMESTATE_HPP
 #define OPENGL_FRAMESTATE_HPP
 
-#include <plinth/FrameState.hpp>
-#include <OpenGL/opengl_export.h>
+#include "OpenGL/opengl_export.h"
+#include "plinth/FrameState.hpp"
 
 namespace opengl {
 

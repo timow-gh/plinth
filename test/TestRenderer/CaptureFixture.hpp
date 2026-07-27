@@ -10,7 +10,7 @@
 // test author cannot construct one wrong.
 
 #include <GLFW/glfw3.h>
-#include <OpenGL/OpenGL.hpp>
+#include "OpenGL/OpenGL.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <vector>

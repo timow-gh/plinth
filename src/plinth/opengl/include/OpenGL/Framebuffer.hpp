@@ -1,8 +1,8 @@
 #ifndef OPENGL_FRAMEBUFFER_HPP
 #define OPENGL_FRAMEBUFFER_HPP
 
-#include <OpenGL/OpenGL.hpp>
-#include <OpenGL/opengl_export.h>
+#include "OpenGL/OpenGL.hpp"
+#include "OpenGL/opengl_export.h"
 #include <optional>
 
 namespace opengl {

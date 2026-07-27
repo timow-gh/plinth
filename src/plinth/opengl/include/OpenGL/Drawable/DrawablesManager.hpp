@@ -1,12 +1,13 @@
 #ifndef OPENGL_DRAWABLE_DRAWABLESMANAGER_HPP
 #define OPENGL_DRAWABLE_DRAWABLESMANAGER_HPP
 
-#include <OpenGL/Drawable/LineDrawable.hpp>
-#include <OpenGL/Drawable/MeshDrawable.hpp>
-#include <OpenGL/Drawable/PointDrawable.hpp>
-#include <OpenGL/OpenGL.hpp>
-#include <OpenGL/Programs/ProgramManager.hpp>
-#include <OpenGL/Texture2D.hpp>
+#include "OpenGL/Drawable/LineDrawable.hpp"
+#include "OpenGL/Drawable/MeshDrawable.hpp"
+#include "OpenGL/Drawable/PointDrawable.hpp"
+#include "OpenGL/OpenGL.hpp"
+#include "OpenGL/Programs/ProgramManager.hpp"
+#include "OpenGL/Texture2D.hpp"
+#include "plinth/LightingConfig.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -15,7 +16,6 @@
 #include <memory>
 #include <numeric>
 #include <optional>
-#include <plinth/LightingConfig.hpp>
 #include <unordered_map>
 #include <utility>
 #include <vector>

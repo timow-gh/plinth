@@ -1,9 +1,9 @@
+#include "plinth/GlfwWindow.hpp"
 #include "InputStateInternal.hpp"
+#include "plinth/Assert.hpp"
 #include <GLFW/glfw3.h>
-#include <OpenGL/ErrorReporting.hpp>
+#include "OpenGL/ErrorReporting.hpp"
 #include <glad/glad.h>
-#include <plinth/Assert.hpp>
-#include <plinth/GlfwWindow.hpp>
 #include <print>
 
 namespace renderer {
@@ -171,8 +171,10 @@ bool GlfwWindow::is_srgb_capable() const { // NOLINT(readability-convert-member-
     // caller must have this window's context current and the default
     // framebuffer bound.
     GLint encoding = GL_LINEAR;
-    glGetFramebufferAttachmentParameteriv(
-        GL_FRAMEBUFFER, GL_BACK_LEFT, GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING, &encoding);
+    glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER,
+                                          GL_BACK_LEFT,
+                                          GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING,
+                                          &encoding);
     return encoding == GL_SRGB;
 }
 

@@ -1,5 +1,5 @@
-#include <OpenGL/ErrorReporting.hpp>
-#include <OpenGL/Texture2D.hpp>
+#include "OpenGL/ErrorReporting.hpp"
+#include "OpenGL/Texture2D.hpp"
 #include <cstddef>
 #include <limits>
 #include <utility>

@@ -2,7 +2,7 @@
 #include "OpenGL/ErrorReporting.hpp"
 #include <cstdint>
 #include <limits>
-#include <plinth/Assert.hpp>
+#include "plinth/Assert.hpp"
 #include <utility>
 
 namespace opengl {

@@ -1,7 +1,7 @@
 #ifndef BUFFER_HPP
 #define BUFFER_HPP
 
-#include <plinth/Assert.hpp>
+#include "plinth/Assert.hpp"
 #include <cstring>
 #include <memory>
 #include <span>

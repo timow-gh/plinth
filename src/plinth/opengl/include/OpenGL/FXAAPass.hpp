@@ -1,10 +1,10 @@
 #ifndef OPENGL_FXAAPASS_HPP
 #define OPENGL_FXAAPASS_HPP
 
-#include <OpenGL/OpenGL.hpp>
-#include <OpenGL/Programs/ProgramId.hpp>
-#include <OpenGL/Uniform.hpp>
-#include <OpenGL/opengl_export.h>
+#include "OpenGL/OpenGL.hpp"
+#include "OpenGL/Programs/ProgramId.hpp"
+#include "OpenGL/Uniform.hpp"
+#include "OpenGL/opengl_export.h"
 #include <optional>
 
 namespace opengl {

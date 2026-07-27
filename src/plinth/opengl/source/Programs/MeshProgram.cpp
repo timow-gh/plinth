@@ -3,7 +3,7 @@
 #include "OpenGL/Programs/CreateProgram.hpp"
 #include "OpenGL/ShaderSources.hpp"
 #include <format>
-#include <plinth/Assert.hpp>
+#include "plinth/Assert.hpp"
 #include <utility>
 
 namespace opengl {

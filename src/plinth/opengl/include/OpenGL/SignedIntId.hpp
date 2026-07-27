@@ -3,7 +3,7 @@
 
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/opengl_export.h"
-#include <plinth/Assert.hpp>
+#include "plinth/Assert.hpp"
 
 namespace opengl {
 

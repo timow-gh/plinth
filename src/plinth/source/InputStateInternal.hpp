@@ -1,7 +1,7 @@
 #ifndef RENDERER_INPUTSTATEINTERNAL_HPP
 #define RENDERER_INPUTSTATEINTERNAL_HPP
 
-#include <plinth/InputState.hpp>
+#include "plinth/InputState.hpp"
 
 struct GLFWwindow;
 

@@ -2,7 +2,7 @@
 #define OPENGL_BUFFERACCESSPATTERN_HPP
 
 #include "OpenGL/OpenGL.hpp"
-#include <plinth/BufferAccessPattern.hpp>
+#include "plinth/BufferAccessPattern.hpp"
 
 namespace opengl {
 

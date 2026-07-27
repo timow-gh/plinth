@@ -1,8 +1,8 @@
 #ifndef OPENGL_GPUCAPABILITIES_HPP
 #define OPENGL_GPUCAPABILITIES_HPP
 
-#include <OpenGL/opengl_export.h>
-#include <plinth/DLLWarnings.hpp>
+#include "OpenGL/opengl_export.h"
+#include "plinth/DLLWarnings.hpp"
 #include <string>
 
 namespace opengl {

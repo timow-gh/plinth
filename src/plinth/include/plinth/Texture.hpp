@@ -1,7 +1,7 @@
 #ifndef RENDERER_TEXTURE_HPP
 #define RENDERER_TEXTURE_HPP
 
-#include <plinth/plinth_export.h>
+#include "plinth/plinth_export.h"
 #include <cstdint>
 #include <span>
 

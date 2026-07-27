@@ -1,4 +1,4 @@
-#include <plinth/CameraInteractor.hpp>
+#include "plinth/CameraInteractor.hpp"
 #include <gtest/gtest.h>
 #include <cmath>
 

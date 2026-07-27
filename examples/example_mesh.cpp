@@ -3,10 +3,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <numeric>
-#include <plinth/LightingConfig.hpp>
-#include <plinth/Renderer.hpp>
-#include <plinth/Texture.hpp>
-#include <plinth/WindowSettings.hpp>
+#include "plinth/LightingConfig.hpp"
+#include "plinth/Renderer.hpp"
+#include "plinth/Texture.hpp"
+#include "plinth/WindowSettings.hpp"
 
 namespace {
 constexpr std::size_t kVertexCount = 4;

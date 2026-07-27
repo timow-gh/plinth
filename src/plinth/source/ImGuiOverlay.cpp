@@ -1,9 +1,9 @@
+#include "plinth/ImGuiOverlay.hpp"
+#include "plinth/Assert.hpp"
+#include "plinth/Renderer.hpp"
+#include "plinth/Warnings.hpp"
 #include <algorithm>
 #include <array>
-#include <plinth/Assert.hpp>
-#include <plinth/ImGuiOverlay.hpp>
-#include <plinth/Renderer.hpp>
-#include <plinth/Warnings.hpp>
 #include <utility>
 
 RENDERER_DISABLE_ALL_WARNINGS

@@ -1,4 +1,4 @@
-#include <plinth/CameraAutoFit.hpp>
+#include "plinth/CameraAutoFit.hpp"
 #include <array>
 #include <cmath>
 #include <cstdint>

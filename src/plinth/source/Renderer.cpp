@@ -1,18 +1,18 @@
-#include <OpenGL/Drawable/DrawablesManager.hpp>
-#include <OpenGL/ErrorReporting.hpp>
-#include <OpenGL/FXAAPass.hpp>
-#include <OpenGL/FrameState.hpp>
-#include <OpenGL/Framebuffer.hpp>
-#include <OpenGL/GpuCapabilities.hpp>
-#include <OpenGL/OpenGL.hpp>
-#include <OpenGL/PostProcessingPass.hpp>
+#include "plinth/Renderer.hpp"
+#include "OpenGL/Drawable/DrawablesManager.hpp"
+#include "OpenGL/ErrorReporting.hpp"
+#include "OpenGL/FXAAPass.hpp"
+#include "OpenGL/FrameState.hpp"
+#include "OpenGL/Framebuffer.hpp"
+#include "OpenGL/GpuCapabilities.hpp"
+#include "OpenGL/OpenGL.hpp"
+#include "OpenGL/PostProcessingPass.hpp"
 #include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <limits>
-#include <plinth/Renderer.hpp>
 #include <string>
 #include <string_view>
 
@@ -23,7 +23,8 @@ struct CallbackConnection {
 };
 
 CallbackSubscription::CallbackSubscription(std::shared_ptr<CallbackConnection> connection)
-    : m_connection(std::move(connection)) {}
+    : m_connection(std::move(connection)) {
+}
 
 CallbackSubscription::CallbackSubscription(CallbackSubscription&& other) noexcept = default;
 CallbackSubscription& CallbackSubscription::operator=(CallbackSubscription&& other) noexcept {
@@ -33,7 +34,9 @@ CallbackSubscription& CallbackSubscription::operator=(CallbackSubscription&& oth
     }
     return *this;
 }
-CallbackSubscription::~CallbackSubscription() { disconnect(); }
+CallbackSubscription::~CallbackSubscription() {
+    disconnect();
+}
 
 void CallbackSubscription::disconnect() noexcept {
     if (m_connection) {
@@ -227,19 +230,20 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
         return nullptr;
     }
 
-    std::unique_ptr<Renderer> renderer(new Renderer(std::move(window.value()),
-                                                       std::move(drawablesManager),
-                                                       std::move(camera),
-                                                       std::move(imgui),
-                                                       std::make_unique<opengl::Framebuffer>(std::move(*hdrSceneFb)),
-                                                       std::move(hdrResolveFb),
-                                                        std::make_unique<opengl::Framebuffer>(std::move(*ldrFb)),
-                                                        std::make_unique<opengl::PostProcessingPass>(std::move(*postProcess)),
-                                                       std::make_unique<opengl::FXAAPass>(std::move(*fxaa)),
-                                                       sceneSamples,
-                                                        capabilities.maxTextureSize,
-                                                        capabilities.maxAnisotropy,
-                                                        *rendererInstance));
+    std::unique_ptr<Renderer> renderer(
+        new Renderer(std::move(window.value()),
+                     std::move(drawablesManager),
+                     std::move(camera),
+                     std::move(imgui),
+                     std::make_unique<opengl::Framebuffer>(std::move(*hdrSceneFb)),
+                     std::move(hdrResolveFb),
+                     std::make_unique<opengl::Framebuffer>(std::move(*ldrFb)),
+                     std::make_unique<opengl::PostProcessingPass>(std::move(*postProcess)),
+                     std::make_unique<opengl::FXAAPass>(std::move(*fxaa)),
+                     sceneSamples,
+                     capabilities.maxTextureSize,
+                     capabilities.maxAnisotropy,
+                     *rendererInstance));
 
     renderer->update_scene_viewport();
     renderer->wire_callbacks();
@@ -249,18 +253,18 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 }
 
 Renderer::Renderer(GlfwWindow window,
-                    std::unique_ptr<opengl::DrawablesManager> drawables,
-                    std::shared_ptr<CameraInteractor> camera,
-                    std::unique_ptr<ImGuiOverlay> imgui,
-                    std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
-                    std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
-                     std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
-                     std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
-                     std::unique_ptr<opengl::FXAAPass> fxaaPass,
-                     int sceneSamples,
-                     int maxTextureSize,
-                     int maxAnisotropy,
-                     std::uint64_t rendererInstance)
+                   std::unique_ptr<opengl::DrawablesManager> drawables,
+                   std::shared_ptr<CameraInteractor> camera,
+                   std::unique_ptr<ImGuiOverlay> imgui,
+                   std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
+                   std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
+                   std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
+                   std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
+                   std::unique_ptr<opengl::FXAAPass> fxaaPass,
+                   int sceneSamples,
+                   int maxTextureSize,
+                   int maxAnisotropy,
+                   std::uint64_t rendererInstance)
     : m_window(std::move(window))
     , m_drawablesManager(std::move(drawables))
     , m_camera(std::move(camera))
@@ -353,8 +357,8 @@ void Renderer::wire_callbacks() {
     m_window.set_char_callback([this](std::uint32_t codepoint) { m_imgui->handle_char(codepoint); });
 
     m_window.set_framebuffer_size_callback([this]([[maybe_unused]] std::uint32_t width,
-                                                   [[maybe_unused]]
-                                                   std::uint32_t height) { update_scene_viewport(); });
+                                                  [[maybe_unused]]
+                                                  std::uint32_t height) { update_scene_viewport(); });
 }
 
 // --- Geometry ---
@@ -409,15 +413,25 @@ bool Renderer::remove_texture(TextureHandle texture) {
            m_drawablesManager->remove_texture(texture.id);
 }
 
-DrawableHandle Renderer::add_textured_mesh_drawable(std::span<const float> vertices, std::span<const float> normals,
-                                                     std::span<const float> textureCoordinates, std::span<const float> colors,
-                                                     std::span<const std::uint32_t> triangleIndices, TextureHandle texture,
-                                                     renderer::BufferAccessPattern accessPattern) {
+DrawableHandle Renderer::add_textured_mesh_drawable(std::span<const float> vertices,
+                                                    std::span<const float> normals,
+                                                    std::span<const float> textureCoordinates,
+                                                    std::span<const float> colors,
+                                                    std::span<const std::uint32_t> triangleIndices,
+                                                    TextureHandle texture,
+                                                    renderer::BufferAccessPattern accessPattern) {
     if (!texture.is_valid() || texture.rendererInstance != m_rendererInstance) {
         return {};
     }
-    const auto id = m_drawablesManager->add_textured_mesh_drawable(vertices, 3, normals, textureCoordinates, colors, 4,
-                                                                      triangleIndices, texture.id, accessPattern);
+    const auto id = m_drawablesManager->add_textured_mesh_drawable(vertices,
+                                                                   3,
+                                                                   normals,
+                                                                   textureCoordinates,
+                                                                   colors,
+                                                                   4,
+                                                                   triangleIndices,
+                                                                   texture.id,
+                                                                   accessPattern);
     return id ? DrawableHandle{DrawableKind::mesh, *id, m_rendererInstance} : DrawableHandle{};
 }
 
@@ -470,12 +484,13 @@ bool Renderer::set_drawable_transform(DrawableHandle handle, const linal::hmatf&
     }
 
     switch (handle.kind) {
-    case DrawableKind::point:       return m_drawablesManager->set_point_drawable_transform(handle.id, transform);
-    case DrawableKind::line:        return m_drawablesManager->set_line_drawable_transform(handle.id, transform);
-    case DrawableKind::mesh:        return m_drawablesManager->set_mesh_drawable_transform(handle.id, transform);
-    case DrawableKind::meshSegment: return m_drawablesManager->set_mesh_segment_drawable_transform(handle.id, transform);
-    case DrawableKind::meshVertex:  return m_drawablesManager->set_mesh_vertex_drawable_transform(handle.id, transform);
-    case DrawableKind::invalid:     return false;
+    case DrawableKind::point: return m_drawablesManager->set_point_drawable_transform(handle.id, transform);
+    case DrawableKind::line:  return m_drawablesManager->set_line_drawable_transform(handle.id, transform);
+    case DrawableKind::mesh:  return m_drawablesManager->set_mesh_drawable_transform(handle.id, transform);
+    case DrawableKind::meshSegment:
+        return m_drawablesManager->set_mesh_segment_drawable_transform(handle.id, transform);
+    case DrawableKind::meshVertex: return m_drawablesManager->set_mesh_vertex_drawable_transform(handle.id, transform);
+    case DrawableKind::invalid:    return false;
     }
 
     return false;
@@ -560,9 +575,8 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
         std::min(maxFrameDeltaSeconds, std::chrono::duration<double>(now - m_lastFrameTime).count());
     m_lastFrameTime = now;
 
-    m_camera->update(deltaSeconds, [this](Key key) {
-        return !m_imgui->wants_keyboard() && m_window.is_key_pressed(key);
-    });
+    m_camera->update(deltaSeconds,
+                     [this](Key key) { return !m_imgui->wants_keyboard() && m_window.is_key_pressed(key); });
 
     maybe_update_auto_fit(now);
 
@@ -624,9 +638,9 @@ void Renderer::draw(const renderer::LightingConfig& lighting) {
         renderer::LightingConfig effectiveLighting = lighting;
         effectiveLighting.lightPosition = viewPosF;
         m_drawablesManager->draw_meshes(m_camera->get_view_matrix(),
-                                       m_camera->get_projection_matrix(),
-                                       viewPosF,
-                                       effectiveLighting);
+                                        m_camera->get_projection_matrix(),
+                                        viewPosF,
+                                        effectiveLighting);
     }
 
     if (m_drawablesManager->has_mesh_segment_drawables()) {
@@ -897,8 +911,8 @@ void Renderer::maybe_update_auto_fit(std::chrono::steady_clock::time_point now) 
         const linal::double3 currentPosition = m_camera->get_position();
         const linal::double3 currentTarget = m_camera->get_target();
         const double currentDistance = linal::length(currentPosition - currentTarget);
-        const linal::double3 direction =
-            currentDistance > 1.0e-9 ? linal::normalize(currentPosition - currentTarget) : linal::double3{0.0, -1.0, 0.0};
+        const linal::double3 direction = currentDistance > 1.0e-9 ? linal::normalize(currentPosition - currentTarget)
+                                                                  : linal::double3{0.0, -1.0, 0.0};
 
         const CameraAutoFitResult result =
             compute_fit_destination(direction, m_camera->get_vertical(), currentTarget, currentDistance);

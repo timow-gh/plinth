@@ -8,10 +8,10 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <plinth/LineType.hpp>
-#include <plinth/Renderer.hpp>
-#include <plinth/Texture.hpp>
-#include <plinth/WindowSettings.hpp>
+#include "plinth/LineType.hpp"
+#include "plinth/Renderer.hpp"
+#include "plinth/Texture.hpp"
+#include "plinth/WindowSettings.hpp"
 #include <vector>
 
 namespace {

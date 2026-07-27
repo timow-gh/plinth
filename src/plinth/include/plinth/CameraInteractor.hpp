@@ -1,17 +1,17 @@
 #ifndef RENDERER_CAMERAINTERACTOR_HPP
 #define RENDERER_CAMERAINTERACTOR_HPP
 
+#include "plinth/Camera.hpp"
+#include "plinth/CameraAutoFit.hpp"
+#include "plinth/CameraProjectionType.hpp"
+#include "plinth/InputState.hpp"
+#include "plinth/PickRay.hpp"
+#include "plinth/Plane.hpp"
+#include "plinth/RayPlaneIntersection.hpp"
+#include "plinth/Warnings.hpp"
 #include <algorithm>
 #include <cmath>
 #include <functional>
-#include <plinth/Camera.hpp>
-#include <plinth/CameraAutoFit.hpp>
-#include <plinth/CameraProjectionType.hpp>
-#include <plinth/InputState.hpp>
-#include <plinth/PickRay.hpp>
-#include <plinth/Plane.hpp>
-#include <plinth/RayPlaneIntersection.hpp>
-#include <plinth/Warnings.hpp>
 RENDERER_DISABLE_ALL_WARNINGS
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/ext/quaternion_double.hpp>

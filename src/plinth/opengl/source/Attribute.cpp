@@ -2,7 +2,7 @@
 #include "OpenGL/ErrorReporting.hpp"
 #include <cstdlib>
 #include <format>
-#include <plinth/Assert.hpp>
+#include "plinth/Assert.hpp"
 
 namespace opengl {
 

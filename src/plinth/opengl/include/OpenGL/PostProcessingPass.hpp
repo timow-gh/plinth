@@ -1,10 +1,10 @@
 #ifndef OPENGL_POSTPROCESSINGPASS_HPP
 #define OPENGL_POSTPROCESSINGPASS_HPP
 
-#include <OpenGL/OpenGL.hpp>
-#include <OpenGL/Programs/ProgramId.hpp>
-#include <OpenGL/Uniform.hpp>
-#include <OpenGL/opengl_export.h>
+#include "OpenGL/OpenGL.hpp"
+#include "OpenGL/Programs/ProgramId.hpp"
+#include "OpenGL/Uniform.hpp"
+#include "OpenGL/opengl_export.h"
 #include <optional>
 
 namespace opengl {

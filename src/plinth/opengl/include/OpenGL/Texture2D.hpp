@@ -1,9 +1,9 @@
 #ifndef OPENGL_TEXTURE2D_HPP
 #define OPENGL_TEXTURE2D_HPP
 
-#include <OpenGL/OpenGL.hpp>
-#include <OpenGL/opengl_export.h>
-#include <plinth/Texture.hpp>
+#include "OpenGL/OpenGL.hpp"
+#include "OpenGL/opengl_export.h"
+#include "plinth/Texture.hpp"
 #include <optional>
 
 namespace opengl {

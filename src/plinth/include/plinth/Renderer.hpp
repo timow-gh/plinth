@@ -138,34 +138,74 @@ class Renderer {
     static std::optional<std::pair<double, double>>
     to_scene_framebuffer_coordinates(const SceneViewport& sceneViewport, double xpos, double ypos);
 
-    /// Geometry input uses three floats per position or normal, four floats per
-    /// color, and two floats per texture coordinate. Indices address vertices and
-    /// use pairs for lines or triples for triangles. Input spans are copied during
-    /// the call and may be released afterwards. All add_*_drawable functions return
-    /// an invalid handle when creation fails; they do not throw.
+    DrawableHandle
+    add_point_drawable(std::span<const float> vertices,
+                       std::array<float, 4> color,
+                       float pointSize = 2.0F,
+                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+
     DrawableHandle
     add_point_drawable(std::span<const float> vertices,
                        std::span<const float> colors,
-                       std::span<const std::uint32_t> indices,
-                       float pointSize,
+                       float pointSize = 2.0F,
                        renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+
+    DrawableHandle
+    add_point_drawable(std::span<const float> vertices,
+                       std::span<const std::uint32_t> indices,
+                       std::span<const float> colors,
+                       float pointSize = 2.0F,
+                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+
+    DrawableHandle
+    add_line_drawable(std::span<const float> vertices,
+                      std::array<float, 4> color,
+                      renderer::LineType lineType,
+                      float lineWidth = 2.0F,
+                      float pointSize = 0.0F,
+                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+
+    DrawableHandle
+    add_line_drawable(std::span<const float> vertices,
+                      std::span<const float> color,
+                      renderer::LineType lineType,
+                      float lineWidth = 2.0F,
+                      float pointSize = 0.0F,
+                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
     DrawableHandle
     add_line_drawable(std::span<const float> vertices,
                       std::span<const std::uint32_t> indices,
                       std::span<const float> colors,
                       renderer::LineType lineType,
-                      float lineWidth,
+                      float lineWidth = 2.0F,
                       float pointSize = 0.0F,
                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
-    /// Returns an invalid handle when creation fails. Does not set a texture;
-    /// use add_textured_mesh_drawable for textured geometry.
     DrawableHandle
     add_mesh_drawable(std::span<const float> vertices,
+                      std::span<const std::uint32_t> triangleIndices,
+                      std::array<float, 4> color,
+                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+
+    DrawableHandle
+    add_mesh_drawable(std::span<const float> vertices,
+                      std::span<const std::uint32_t> triangleIndices,
+                      std::span<const float> colors,
+                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+
+    DrawableHandle
+    add_mesh_drawable(std::span<const float> vertices,
+                      std::span<const std::uint32_t> triangleIndices,
+                      std::array<float, 4> color,
+                      std::span<const float> normals,
+                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+
+    DrawableHandle
+    add_mesh_drawable(std::span<const float> vertices,
+                      std::span<const std::uint32_t> triangleIndices,
                       std::span<const float> normals,
                       std::span<const float> colors,
-                      std::span<const std::uint32_t> triangleIndices,
                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
     /// Returns an invalid handle when creation fails. TextureData::rgba8 is copied.

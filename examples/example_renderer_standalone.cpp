@@ -21,15 +21,15 @@ int main() {
         return 1;
     }
 
-    // One point at the origin.
+    // One point at the origin. The single-color overload replicates the color
+    // and generates sequential indices for us.
     const std::array<float, 3> pointVertices{0.0F, 0.0F, 0.0F};
-    const std::array<float, 4> pointColors{1.0F, 1.0F, 0.0F, 1.0F}; // yellow
-    const std::array<std::uint32_t, 1> pointIndices{0};
-    renderer->add_point_drawable(pointVertices, pointColors, pointIndices, standalonePointSize);
+    const std::array<float, 4> pointColor{1.0F, 1.0F, 0.0F, 1.0F}; // yellow
+    renderer->add_point_drawable(pointVertices, pointColor, standalonePointSize);
 
     const std::array<float, 3> removablePointVertices{0.0F, 0.0F, 1.0F};
     const auto removablePoint =
-        renderer->add_point_drawable(removablePointVertices, pointColors, pointIndices, standalonePointSize);
+        renderer->add_point_drawable(removablePointVertices, pointColor, standalonePointSize);
     renderer->remove_drawable(removablePoint);
 
     // A cross made of two line segments through the origin.

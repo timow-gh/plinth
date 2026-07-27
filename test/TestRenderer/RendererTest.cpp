@@ -7,6 +7,7 @@
 #include "plinth/WindowSettings.hpp"
 #include <array>
 #include <cstdint>
+#include <span>
 
 namespace {
 
@@ -89,7 +90,7 @@ TEST_F(RendererTest, AddPointDrawableReturnsValidHandle) {
     };
     const std::array<std::uint32_t, 3> indices = {0U, 1U, 2U};
 
-    const renderer::DrawableHandle handle = m_renderer->add_point_drawable(vertices, colors, indices, 1.0F);
+    const renderer::DrawableHandle handle = m_renderer->add_point_drawable(vertices, indices, colors, 1.0F);
 
     EXPECT_TRUE(handle.is_valid());
     EXPECT_EQ(renderer::DrawableKind::point, handle.kind);
@@ -125,7 +126,7 @@ TEST_F(RendererTest, BufferAccessPatternsCreateBuffersWithoutGlErrors) {
                                                                renderer::BufferAccessPattern::Dynamic}) {
         while (glGetError() != GL_NO_ERROR) {
         }
-        EXPECT_TRUE(m_renderer->add_point_drawable(vertices, colors, indices, 1.0F, accessPattern).is_valid());
+        EXPECT_TRUE(m_renderer->add_point_drawable(vertices, indices, colors, 1.0F, accessPattern).is_valid());
         EXPECT_EQ(GL_NO_ERROR, glGetError());
     }
 }
@@ -167,10 +168,184 @@ TEST_F(RendererTest, AddMeshDrawableReturnsValidHandle) {
     const std::array<std::uint32_t, 3> triangleIndices = {0U, 1U, 2U};
 
     const renderer::DrawableHandle handle =
-        m_renderer->add_mesh_drawable(vertices, normals, colors, triangleIndices);
+        m_renderer->add_mesh_drawable(vertices, triangleIndices, normals, colors);
 
     EXPECT_TRUE(handle.is_valid());
     EXPECT_EQ(renderer::DrawableKind::mesh, handle.kind);
+}
+
+// --- Convenience overloads: computed defaults ---
+
+TEST_F(RendererTest, AddPointDrawableSingleColorNoIndicesReturnsValidHandle) {
+    const std::array<float, 9> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F,
+    };
+    const std::array<float, 4> color = {1.0F, 0.0F, 0.0F, 1.0F};
+
+    const renderer::DrawableHandle handle = m_renderer->add_point_drawable(vertices, color);
+
+    EXPECT_TRUE(handle.is_valid());
+    EXPECT_EQ(renderer::DrawableKind::point, handle.kind);
+}
+
+TEST_F(RendererTest, AddPointDrawablePerVertexColorNoIndicesReturnsValidHandle) {
+    const std::array<float, 9> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F,
+    };
+    const std::array<float, 12> colors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+    };
+
+    const renderer::DrawableHandle handle = m_renderer->add_point_drawable(vertices, std::span<const float>(colors));
+
+    EXPECT_TRUE(handle.is_valid());
+    EXPECT_EQ(renderer::DrawableKind::point, handle.kind);
+}
+
+TEST_F(RendererTest, AddLineDrawableSingleColorReturnsValidHandle) {
+    const std::array<float, 12> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F,
+    };
+    const std::array<float, 4> color = {0.0F, 1.0F, 0.0F, 1.0F};
+
+    const renderer::DrawableHandle handle =
+        m_renderer->add_line_drawable(vertices, color, renderer::LineType::lines());
+
+    EXPECT_TRUE(handle.is_valid());
+    EXPECT_EQ(renderer::DrawableKind::line, handle.kind);
+}
+
+TEST_F(RendererTest, AddLineDrawablePerVertexColorNoIndicesReturnsValidHandle) {
+    const std::array<float, 12> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F,
+    };
+    const std::array<float, 16> colors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F, 1.0F,
+    };
+
+    const renderer::DrawableHandle handle =
+        m_renderer->add_line_drawable(vertices, std::span<const float>(colors), renderer::LineType::lines());
+
+    EXPECT_TRUE(handle.is_valid());
+    EXPECT_EQ(renderer::DrawableKind::line, handle.kind);
+}
+
+TEST_F(RendererTest, AddMeshDrawableSingleColorComputesNormals) {
+    const std::array<float, 9> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F,
+    };
+    const std::array<float, 4> color = {0.5F, 0.5F, 0.5F, 1.0F};
+    const std::array<std::uint32_t, 3> triangleIndices = {0U, 1U, 2U};
+
+    while (glGetError() != GL_NO_ERROR) {
+    }
+    const renderer::DrawableHandle handle = m_renderer->add_mesh_drawable(vertices, triangleIndices, color);
+    ASSERT_TRUE(handle.is_valid());
+    EXPECT_EQ(renderer::DrawableKind::mesh, handle.kind);
+
+    m_renderer->begin_frame();
+    m_renderer->draw();
+    m_renderer->end_frame();
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(RendererTest, AddMeshDrawablePerVertexColorComputesNormals) {
+    const std::array<float, 9> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F,
+    };
+    const std::array<float, 12> colors = {
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+    };
+    const std::array<std::uint32_t, 3> triangleIndices = {0U, 1U, 2U};
+
+    while (glGetError() != GL_NO_ERROR) {
+    }
+    const renderer::DrawableHandle handle =
+        m_renderer->add_mesh_drawable(vertices, triangleIndices, std::span<const float>(colors));
+    ASSERT_TRUE(handle.is_valid());
+    EXPECT_EQ(renderer::DrawableKind::mesh, handle.kind);
+
+    m_renderer->begin_frame();
+    m_renderer->draw();
+    m_renderer->end_frame();
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(RendererTest, AddMeshDrawableSingleColorExplicitNormals) {
+    const std::array<float, 9> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F,
+    };
+    const std::array<float, 9> normals = {
+        0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F,
+    };
+    const std::array<float, 4> color = {0.5F, 0.5F, 0.5F, 1.0F};
+    const std::array<std::uint32_t, 3> triangleIndices = {0U, 1U, 2U};
+
+    const renderer::DrawableHandle handle =
+        m_renderer->add_mesh_drawable(vertices, triangleIndices, color, std::span<const float>(normals));
+
+    EXPECT_TRUE(handle.is_valid());
+    EXPECT_EQ(renderer::DrawableKind::mesh, handle.kind);
+}
+
+TEST_F(RendererTest, AddMeshDrawableComputedNormalsSingleTriangle) {
+    // A single CCW triangle in the z=0 plane. Normals are computed internally and
+    // are not publicly readable, so assert the drawable renders without GL errors.
+    const std::array<float, 9> vertices = {
+        0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F,
+    };
+    const std::array<float, 4> color = {1.0F, 1.0F, 1.0F, 1.0F};
+    const std::array<std::uint32_t, 3> triangleIndices = {0U, 1U, 2U};
+
+    while (glGetError() != GL_NO_ERROR) {
+    }
+    const renderer::DrawableHandle handle = m_renderer->add_mesh_drawable(vertices, triangleIndices, color);
+    ASSERT_TRUE(handle.is_valid());
+
+    m_renderer->begin_frame();
+    m_renderer->draw();
+    m_renderer->end_frame();
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(RendererTest, AddMeshDrawableDegenerateTriangleFallsBackToZUp) {
+    // Three identical vertices produce a zero-length face normal; the computed
+    // normal falls back to {0,0,1}. The drawable must still be created and render.
+    const std::array<float, 9> vertices = {
+        0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F,
+    };
+    const std::array<float, 4> color = {1.0F, 1.0F, 1.0F, 1.0F};
+    const std::array<std::uint32_t, 3> triangleIndices = {0U, 1U, 2U};
+
+    while (glGetError() != GL_NO_ERROR) {
+    }
+    const renderer::DrawableHandle handle = m_renderer->add_mesh_drawable(vertices, triangleIndices, color);
+    ASSERT_TRUE(handle.is_valid());
+
+    m_renderer->begin_frame();
+    m_renderer->draw();
+    m_renderer->end_frame();
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(RendererTest, AddPointDrawableSingleColorEmptyVerticesDoesNotError) {
+    const std::span<const float> vertices;
+    const std::array<float, 4> color = {1.0F, 1.0F, 1.0F, 1.0F};
+
+    while (glGetError() != GL_NO_ERROR) {
+    }
+    // Empty vertices produce empty color/index buffers via the computed defaults.
+    // The fully-parameterized path accepts this and creates an (empty) point
+    // drawable of kind point; creation must not raise a GL error.
+    const renderer::DrawableHandle handle = m_renderer->add_point_drawable(vertices, color);
+
+    EXPECT_TRUE(handle.is_valid());
+    EXPECT_EQ(renderer::DrawableKind::point, handle.kind);
+
+    m_renderer->begin_frame();
+    m_renderer->draw();
+    m_renderer->end_frame();
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
 TEST_F(RendererTest, RemoveDrawableReturnsTrueForValidHandle) {
@@ -182,7 +357,7 @@ TEST_F(RendererTest, RemoveDrawableReturnsTrueForValidHandle) {
     };
     const std::array<std::uint32_t, 3> indices = {0U, 1U, 2U};
 
-    const renderer::DrawableHandle handle = m_renderer->add_point_drawable(vertices, colors, indices, 1.0F);
+    const renderer::DrawableHandle handle = m_renderer->add_point_drawable(vertices, indices, colors, 1.0F);
     ASSERT_TRUE(handle.is_valid());
 
     EXPECT_TRUE(m_renderer->remove_drawable(handle));
@@ -206,9 +381,9 @@ TEST_F(RendererTest, ClearDrawablesEmptiesState) {
         0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F,
     };
 
-    m_renderer->add_point_drawable(vertices, colors, indices, 1.0F);
+    m_renderer->add_point_drawable(vertices, indices, colors, 1.0F);
     m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), 2.0F);
-    m_renderer->add_mesh_drawable(vertices, normals, colors, indices);
+    m_renderer->add_mesh_drawable(vertices, indices, normals, colors);
 
     EXPECT_TRUE(m_renderer->has_point_drawables());
     EXPECT_TRUE(m_renderer->has_line_drawables());
@@ -232,7 +407,7 @@ TEST_F(RendererTest, SetAndGetTransformRoundTrips) {
     };
     const std::array<std::uint32_t, 3> indices = {0U, 1U, 2U};
 
-    const renderer::DrawableHandle handle = m_renderer->add_point_drawable(vertices, colors, indices, 1.0F);
+    const renderer::DrawableHandle handle = m_renderer->add_point_drawable(vertices, indices, colors, 1.0F);
     ASSERT_TRUE(handle.is_valid());
 
     const linal::hmatf translation = make_translation(1.0F, 2.0F, 3.0F);
@@ -263,7 +438,7 @@ TEST_F(RendererTest, ResetTransformSetsIdentity) {
     };
     const std::array<std::uint32_t, 3> indices = {0U, 1U, 2U};
 
-    const renderer::DrawableHandle handle = m_renderer->add_point_drawable(vertices, colors, indices, 1.0F);
+    const renderer::DrawableHandle handle = m_renderer->add_point_drawable(vertices, indices, colors, 1.0F);
     ASSERT_TRUE(handle.is_valid());
 
     const linal::hmatf translation = make_translation(1.0F, 2.0F, 3.0F);
@@ -287,9 +462,9 @@ TEST_F(RendererTest, DrawableKindsSupportTransformAndRemoval) {
     const std::array<std::uint32_t, 3> indices = {0U, 1U, 2U};
 
     const std::array handles = {
-        m_renderer->add_point_drawable(vertices, colors, indices, 1.0F),
+        m_renderer->add_point_drawable(vertices, indices, colors, 1.0F),
         m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), 1.0F),
-        m_renderer->add_mesh_drawable(vertices, normals, colors, indices),
+        m_renderer->add_mesh_drawable(vertices, indices, normals, colors),
     };
 
     for (const renderer::DrawableHandle handle: handles) {
@@ -314,7 +489,7 @@ TEST_F(RendererTest, StaleHandlesCannotAffectReplacementRenderer) {
     const std::array<std::uint32_t, 3> indices = {0U, 1U, 2U};
     const std::array<std::uint8_t, 4> pixels = {255U, 255U, 255U, 255U};
 
-    const renderer::DrawableHandle staleDrawable = m_renderer->add_mesh_drawable(vertices, normals, colors, indices);
+    const renderer::DrawableHandle staleDrawable = m_renderer->add_mesh_drawable(vertices, indices, normals, colors);
     const renderer::TextureHandle staleTexture = m_renderer->create_texture_2d({1U, 1U, pixels});
     ASSERT_TRUE(staleDrawable.is_valid());
     ASSERT_TRUE(staleTexture.is_valid());
@@ -330,7 +505,7 @@ TEST_F(RendererTest, StaleHandlesCannotAffectReplacementRenderer) {
     m_renderer = renderer::Renderer::create(settings);
     ASSERT_NE(nullptr, m_renderer);
 
-    const renderer::DrawableHandle replacement = m_renderer->add_mesh_drawable(vertices, normals, colors, indices);
+    const renderer::DrawableHandle replacement = m_renderer->add_mesh_drawable(vertices, indices, normals, colors);
     const renderer::TextureHandle replacementTexture = m_renderer->create_texture_2d({1U, 1U, pixels});
     ASSERT_TRUE(replacement.is_valid());
     ASSERT_TRUE(replacementTexture.is_valid());
@@ -370,9 +545,9 @@ TEST_F(RendererTest, FrameLoopWithDrawablesDoesNotCrash) {
         0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F,
     };
 
-    m_renderer->add_point_drawable(vertices, colors, indices, 1.0F);
+    m_renderer->add_point_drawable(vertices, indices, colors, 1.0F);
     m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), 2.0F);
-    m_renderer->add_mesh_drawable(vertices, normals, colors, indices);
+    m_renderer->add_mesh_drawable(vertices, indices, normals, colors);
 
     m_renderer->begin_frame();
     m_renderer->draw();

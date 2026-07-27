@@ -24,6 +24,8 @@ constexpr float controlPanelTinyViewportMinWidth = 160.0F;
 constexpr float resizeGripWidth = 8.0F;
 constexpr float resizeGripLineInset = 2.0F;
 constexpr float controlPanelSideCount = 2.0F;
+constexpr float exposureStopsMin = -10.0F;
+constexpr float exposureStopsMax = 10.0F;
 
 float panel_max_width(float viewportWidth) {
     const float visibleWidth =
@@ -232,9 +234,9 @@ void build_exposure_control(Renderer& renderer, renderer::VisualizationMode mode
     float exposureStops = renderer.get_exposure_stops();
     if (ImGui::SliderFloat("Exposure (stops)",
                            &exposureStops,
-                           -10.0F,
-                           10.0F,
-                           "%.1F")) { // NOLINT(readability-magic-numbers)
+                           exposureStopsMin,
+                           exposureStopsMax,
+                           "%.1F")) {
         renderer.set_exposure_stops(exposureStops);
     }
     ImGui::TextUnformatted("-1 = half, 0 = unchanged, +1 = twice");
@@ -414,9 +416,9 @@ void ImGuiOverlay::add_release_post_processing_controls(Renderer& renderer) {
         float exposureStops = renderer.get_exposure_stops();
         if (ImGui::SliderFloat("Exposure (stops)",
                                &exposureStops,
-                               -10.0F,
-                               10.0F,
-                               "%.1F")) { // NOLINT(readability-magic-numbers)
+                               exposureStopsMin,
+                               exposureStopsMax,
+                               "%.1F")) {
             renderer.set_exposure_stops(exposureStops);
         }
 

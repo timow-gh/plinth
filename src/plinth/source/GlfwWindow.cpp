@@ -1,9 +1,9 @@
 #include "plinth/GlfwWindow.hpp"
 #include "InputStateInternal.hpp"
-#include "plinth/Assert.hpp"
-#include <GLFW/glfw3.h>
 #include "OpenGL/ErrorReporting.hpp"
+#include "plinth/Assert.hpp"
 #include <glad/glad.h>
+#include <GLFW/glfw3.h>
 #include <print>
 
 namespace renderer {

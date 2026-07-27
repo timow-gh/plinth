@@ -1,9 +1,9 @@
-#include <array>
-#include <cstddef>
-#include <cstdint>
 #include "plinth/Renderer.hpp"
 #include "plinth/Texture.hpp"
 #include "plinth/WindowSettings.hpp"
+#include <array>
+#include <cstddef>
+#include <cstdint>
 
 int main() {
     renderer::WindowSettings settings;

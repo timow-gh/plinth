@@ -1,7 +1,7 @@
-#include <array>
-#include <cstdint>
 #include "plinth/Renderer.hpp"
 #include "plinth/WindowSettings.hpp"
+#include <array>
+#include <cstdint>
 
 namespace {
 constexpr std::uint32_t defaultWindowWidth = 1024;

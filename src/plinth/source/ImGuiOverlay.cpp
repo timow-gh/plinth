@@ -143,6 +143,56 @@ void ImGuiOverlay::add_camera_controls(bool& autoZoomEnabled,
     });
 }
 
+void ImGuiOverlay::add_lighting_controls(LightingConfig& lighting) {
+    m_controls.emplace_back([&lighting]() {
+        if (!ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen)) {
+            return;
+        }
+
+        constexpr float positionMin{-100.0F};
+        constexpr float positionMax{100.0F};
+        constexpr float directionMin{-1.0F};
+        constexpr float directionMax{1.0F};
+        constexpr float shininessMin{1.0F};
+        constexpr float shininessMax{256.0F};
+        constexpr float attenuationMin{0.0F};
+        constexpr float attenuationMax{2.0F};
+
+        if (ImGui::TreeNodeEx("Key Light", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::SliderFloat3("Position", lighting.lightPosition.data(), positionMin, positionMax, "%.1F");
+            ImGui::ColorEdit3("Color", lighting.lightColor.data());
+            ImGui::SliderFloat3("Attenuation", lighting.lightAttenuation.data(), attenuationMin, attenuationMax, "%.3F");
+            ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNodeEx("Fill Light", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::SliderFloat3("Direction", lighting.fillLightDir.data(), directionMin, directionMax, "%.2F");
+            ImGui::ColorEdit3("Color", lighting.fillLightColor.data());
+            ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNodeEx("Ambient", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::ColorEdit3("Color", lighting.ambientColor.data());
+            ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNodeEx("Material", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::ColorEdit3("Ambient", lighting.materialAmbient.data());
+            ImGui::ColorEdit3("Diffuse", lighting.materialDiffuse.data());
+            ImGui::ColorEdit3("Specular", lighting.materialSpecular.data());
+            ImGui::SliderFloat("Shininess", &lighting.shininess, shininessMin, shininessMax, "%.1F");
+            ImGui::TreePop();
+        }
+
+        ImGui::Separator();
+        // A default-constructed LightingConfig carries the member-initializer
+        // defaults, so it is the single source of truth for "reset".
+        if (full_width_button("Reset to defaults")) {
+            lighting = LightingConfig{};
+        }
+    });
+}
+
 namespace {
 
 // Applies fog Start/End together in an order the renderer's setters accept.

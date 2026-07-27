@@ -49,9 +49,10 @@ function(add_plinth_example target)
 endfunction()
 
 set(plinth_examples
+    example_mesh
     example_renderer_standalone
-    example_textured_mesh
     example_showcase_scene
+    example_textured_mesh
 )
 
 foreach(example IN LISTS plinth_examples)

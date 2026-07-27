@@ -5,6 +5,7 @@
 #include <plinth/CameraProjectionType.hpp>
 #include <plinth/InputCaptureState.hpp>
 #include <plinth/InputState.hpp>
+#include <plinth/LightingConfig.hpp>
 #include <plinth/PostProcessingEnums.hpp>
 #include <array>
 #include <cstdint>
@@ -33,6 +34,10 @@ class ImGuiOverlay {
                              CameraProjectionType& projectionType,
                              CameraPivotMode& pivotMode,
                              bool& homeRequested);
+    /// Edits the caller-owned LightingConfig that is passed to draw(). Every
+    /// widget mutates the referenced config in place; the config must outlive
+    /// the frame in which the controls are built.
+    void add_lighting_controls(LightingConfig& lighting);
     /// Full debug control surface. Reads current values from the renderer and
     /// routes every change back through its validated set_* methods.
     void add_post_processing_controls(Renderer& renderer);

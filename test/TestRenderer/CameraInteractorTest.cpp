@@ -699,3 +699,170 @@ TEST(CameraInteractorTest, PoseTransitionWithAntiparallelUpVectorsStaysFinite) {
     EXPECT_NEAR(linal::length(interactor.get_position() - startPosition), 0.0, tolerance);
     EXPECT_NEAR(linal::length(interactor.get_target() - startTarget), 0.0, tolerance);
 }
+
+TEST(CameraInteractorTest, ViewModeDefaultsToNone) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    EXPECT_EQ(interactor.get_view_mode(), renderer::CameraInteractor::CameraViewMode::NONE);
+}
+
+TEST(CameraInteractorTest, FixRotateBlocksRightMouseDrag) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+    interactor.set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ROTATE);
+
+    interactor.on_cursor_position(400.0, 300.0);
+    const linal::double3 initialPosition = interactor.get_position();
+
+    interactor.on_mouse_button(1, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_cursor_position(440.0, 320.0);
+    interactor.on_mouse_button(1, renderer::Action::RELEASE, renderer::Mods::NONE);
+
+    EXPECT_FALSE(interactor.get_was_blocking());
+    EXPECT_EQ(interactor.get_position(), initialPosition);
+}
+
+TEST(CameraInteractorTest, FixRotateStillAllowsPanAndZoom) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+    interactor.set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ROTATE);
+    inputState.cursorPosState = renderer::CursorPosState{400.0, 300.0};
+
+    interactor.on_cursor_position(400.0, 300.0);
+    const linal::double3 beforePan = interactor.get_position();
+    interactor.on_mouse_button(2, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_cursor_position(460.0, 300.0);
+    interactor.on_mouse_button(2, renderer::Action::RELEASE, renderer::Mods::NONE);
+    EXPECT_NE(interactor.get_position(), beforePan);
+
+    const linal::double3 beforeZoom = interactor.get_position();
+    interactor.on_scroll(0.0, 1.0);
+    EXPECT_NE(interactor.get_position(), beforeZoom);
+}
+
+TEST(CameraInteractorTest, FixPanBlocksMiddleMouseDrag) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+    interactor.set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_PAN);
+
+    interactor.on_cursor_position(400.0, 300.0);
+    const linal::double3 initialPosition = interactor.get_position();
+
+    interactor.on_mouse_button(2, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_cursor_position(460.0, 300.0);
+    interactor.on_mouse_button(2, renderer::Action::RELEASE, renderer::Mods::NONE);
+
+    EXPECT_FALSE(interactor.get_was_blocking());
+    EXPECT_EQ(interactor.get_position(), initialPosition);
+}
+
+TEST(CameraInteractorTest, FixPanBlocksFlyModeKeyboardTranslation) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+    interactor.set_navigation_style(renderer::CameraInteractor::NavigationStyle::FLY);
+    interactor.set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_PAN);
+
+    const linal::double3 initialPosition = interactor.get_position();
+    interactor.update(1.0, [](renderer::Key key) { return key == renderer::Key::KEY_W; });
+
+    EXPECT_EQ(interactor.get_position(), initialPosition);
+    EXPECT_FALSE(interactor.get_was_blocking());
+}
+
+TEST(CameraInteractorTest, FixZoomBlocksScroll) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+    interactor.set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ZOOM);
+    inputState.cursorPosState = renderer::CursorPosState{400.0, 300.0};
+
+    const linal::double3 initialPosition = interactor.get_position();
+    interactor.on_scroll(0.0, 1.0);
+
+    EXPECT_FALSE(interactor.get_was_blocking());
+    EXPECT_EQ(interactor.get_position(), initialPosition);
+}
+
+TEST(CameraInteractorTest, ViewModeFlagsCombine) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+    interactor.set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ROTATE |
+                             renderer::CameraInteractor::CameraViewMode::FIX_ZOOM);
+    inputState.cursorPosState = renderer::CursorPosState{400.0, 300.0};
+
+    interactor.on_cursor_position(400.0, 300.0);
+    const linal::double3 initialPosition = interactor.get_position();
+
+    // Rotate is fixed.
+    interactor.on_mouse_button(1, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_cursor_position(440.0, 320.0);
+    interactor.on_mouse_button(1, renderer::Action::RELEASE, renderer::Mods::NONE);
+    EXPECT_EQ(interactor.get_position(), initialPosition);
+
+    // Zoom is fixed.
+    interactor.on_scroll(0.0, 1.0);
+    EXPECT_EQ(interactor.get_position(), initialPosition);
+
+    // Pan is NOT fixed, so it still moves the camera.
+    interactor.on_mouse_button(2, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_cursor_position(460.0, 300.0);
+    interactor.on_mouse_button(2, renderer::Action::RELEASE, renderer::Mods::NONE);
+    EXPECT_NE(interactor.get_position(), initialPosition);
+}
+
+TEST(CameraInteractorTest, FixAllBlocksEveryInteractiveGesture) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+    interactor.set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ALL);
+    inputState.cursorPosState = renderer::CursorPosState{400.0, 300.0};
+
+    interactor.on_cursor_position(400.0, 300.0);
+    const linal::double3 initialPosition = interactor.get_position();
+
+    interactor.on_mouse_button(1, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_cursor_position(440.0, 320.0);
+    interactor.on_mouse_button(1, renderer::Action::RELEASE, renderer::Mods::NONE);
+
+    interactor.on_mouse_button(2, renderer::Action::PRESS, renderer::Mods::NONE);
+    interactor.on_cursor_position(460.0, 300.0);
+    interactor.on_mouse_button(2, renderer::Action::RELEASE, renderer::Mods::NONE);
+
+    interactor.on_scroll(0.0, 1.0);
+
+    EXPECT_FALSE(interactor.get_was_blocking());
+    EXPECT_EQ(interactor.get_position(), initialPosition);
+}
+
+TEST(CameraInteractorTest, FixAllStillAllowsProgrammaticPresetView) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+    interactor.set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ALL);
+
+    const linal::double3 target = interactor.get_target();
+    const double distance = linal::length(interactor.get_position() - target);
+
+    interactor.set_view_transition_duration(0.0);
+    interactor.go_to_preset_view(renderer::CameraInteractor::PresetView::TOP);
+
+    // Fixing all interactive movement must NOT prevent programmatic camera moves.
+    const linal::double3 expectedPosition = target + linal::double3{0.0, 0.0, 1.0} * distance;
+    EXPECT_NEAR(linal::length(interactor.get_position() - expectedPosition), 0.0, tolerance);
+}
+
+TEST(CameraInteractorTest, FixAllStillAllowsProgrammaticPoseTransition) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+    interactor.set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ALL);
+
+    const linal::double3 endPosition{5.0, 5.0, 5.0};
+    const linal::double3 endTarget{2.0, 3.0, 1.0};
+    const linal::double3 endUp{0.0, 0.0, 1.0};
+
+    constexpr double duration = 0.4;
+    interactor.set_view_transition_duration(duration);
+    interactor.transition_to_pose(endPosition, endTarget, endUp);
+    interactor.update(duration * 2.0, no_key_pressed);
+
+    EXPECT_NEAR(linal::length(interactor.get_position() - endPosition), 0.0, 1.0e-6);
+    EXPECT_NEAR(linal::length(interactor.get_target() - endTarget), 0.0, 1.0e-6);
+}

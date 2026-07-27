@@ -57,7 +57,8 @@ int main() {
 
     // A cross made of two line segments through the origin.
     const std::array<float, 12> lineVertices{-1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, -1.0F, 0.0F, 0.0F, 1.0F, 0.0F};
-    const std::array<float, 16> lineColors{1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F};
+    const std::array<float, 16>
+        lineColors{1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F};
     const std::array<std::uint32_t, 4> lineIndices{0, 1, 2, 3};
     renderer->add_line_drawable(lineVertices,
                                 lineIndices,
@@ -65,16 +66,17 @@ int main() {
                                 renderer::LineType::lines(),
                                 standaloneLineWidth);
 
-
-
-
+    // Add a rectangle
     const std::array<float, 4> darkBlue{0.0F, 0.0F, 0.5F, 1.0F};
-    const std::array<float, 12> rectangleVertices{0.0F, 0.0F, 0.0F, 3.0F, 0.0F, 0.0F, 3.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F};
-    auto rectangleLines = renderer->add_line_drawable(rectangleVertices, darkBlue, renderer::LineType::line_loop(), standaloneLineWidth);
+    const std::array<float, 12>
+        rectangleVertices{0.0F, 0.0F, 0.0F, 3.0F, 0.0F, 0.0F, 3.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F};
+    auto rectangleLines =
+        renderer->add_line_drawable(rectangleVertices, darkBlue, renderer::LineType::line_loop(), standaloneLineWidth);
 
     const std::array<float, 4> lightBlue{0.0F, 0.5F, 1.0F, 1.0F};
     const std::array<std::uint32_t, 6> triangleIndices{0, 1, 2, 0, 2, 3};
-    auto rectangleMesh = renderer->add_mesh_drawable(rectangleVertices, triangleIndices, lightBlue, renderer::MeshCullFaceMode::NONE);
+    auto rectangleMesh =
+        renderer->add_mesh_drawable(rectangleVertices, triangleIndices, lightBlue, renderer::MeshCullFaceMode::NONE);
 
     linal::hmatf transform = linal::hmatf::identity();
     transform.set_translation(linal::float3{0.0F, rectangleVerticalOffset, 0.0F});
@@ -116,7 +118,47 @@ int main() {
                                                                                renderer::Scancode /*scancode*/,
                                                                                renderer::Action action,
                                                                                renderer::Mods /*mods*/) {
-        handle_preset_view(*renderer, key, action);
+        if (action != renderer::Action::PRESS) {
+            return;
+        }
+        switch (key) {
+        case renderer::Key::KEY_1: {
+            renderer->go_to_preset_view(renderer::PresetView::FRONT);
+            renderer->get_camera().lock()->set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ROTATE);
+            break;
+        }
+        case renderer::Key::KEY_2: {
+            renderer->go_to_preset_view(renderer::PresetView::BACK);
+            renderer->get_camera().lock()->set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ROTATE);
+            break;
+        }
+        case renderer::Key::KEY_3: {
+            renderer->go_to_preset_view(renderer::PresetView::LEFT);
+            renderer->get_camera().lock()->set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ROTATE);
+            break;
+        }
+        case renderer::Key::KEY_4: {
+            renderer->go_to_preset_view(renderer::PresetView::RIGHT);
+            renderer->get_camera().lock()->set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ROTATE);
+            break;
+        }
+        case renderer::Key::KEY_5: {
+            renderer->go_to_preset_view(renderer::PresetView::TOP);
+            renderer->get_camera().lock()->set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ROTATE);
+            break;
+        }
+        case renderer::Key::KEY_6: {
+            renderer->go_to_preset_view(renderer::PresetView::BOTTOM);
+            renderer->get_camera().lock()->set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ROTATE);
+            break;
+        }
+        case renderer::Key::KEY_7: {
+            renderer->go_to_preset_view(renderer::PresetView::ISO);
+            renderer->get_camera().lock()->set_view_mode(renderer::CameraInteractor::CameraViewMode::NONE);
+            break;
+        }
+        default: break;
+        }
     });
 
     while (!renderer->should_close()) {

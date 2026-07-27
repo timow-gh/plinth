@@ -93,6 +93,21 @@ class CameraInteractor : private CameraSettings {
         FLY    // new: WASD(+QE) translates the camera, right-drag mouse-looks in place
     };
 
+    /** @brief Which camera movements are fixed for user interactions via mouse, keyboard or other
+     *  peripherals. It is still possible to move the camera programmatically (e.g. via
+     *  Renderer::go_to_preset_view) even if a movement is fixed.
+     *
+     *  Values are bit flags and may be combined, e.g. FIX_ROTATE | FIX_ZOOM. FIX_ALL fixes every
+     *  interactive movement.
+     */
+    enum class CameraViewMode : std::uint8_t {
+        NONE = 0,
+        FIX_ROTATE = 1U << 0U,
+        FIX_PAN = 1U << 1U,
+        FIX_ZOOM = 1U << 2U,
+        FIX_ALL = FIX_ROTATE | FIX_PAN | FIX_ZOOM,
+    };
+
     using KeyPressQuery = std::function<bool(Key)>;
 
     /** @brief Alias for the free-standing renderer::PresetView, exposed as a nested name for callers
@@ -109,6 +124,8 @@ class CameraInteractor : private CameraSettings {
 
     NavigationStyle m_navigationStyle{NavigationStyle::ORBIT};
     double m_flySpeed{5.0}; // world units per second
+
+    CameraViewMode m_viewMode{CameraViewMode::NONE};
 
     bool m_isTransitioning{false};
     double m_transitionElapsedSeconds{0.0};
@@ -258,6 +275,13 @@ class CameraInteractor : private CameraSettings {
         return m_flySpeed;
     }
 
+    /** @brief Fix (lock) or unlock camera movements for interactive input. See CameraViewMode. */
+    void set_view_mode(CameraViewMode viewMode) noexcept { m_viewMode = viewMode; }
+    [[nodiscard]]
+    CameraViewMode get_view_mode() const noexcept {
+        return m_viewMode;
+    }
+
     /** @brief Smoothly transition the camera to a named preset view (front/top/iso/...).
      *
      * The pivot (current gaze target) and camera-to-target distance are preserved; only the
@@ -305,6 +329,9 @@ class CameraInteractor : private CameraSettings {
     }
 
     void on_scroll([[maybe_unused]] double xoffset, double yoffset) {
+        if (is_fixed(CameraViewMode::FIX_ZOOM)) {
+            return;
+        }
         linal::double3 groundPlaneIntersection;
         linal::double3 pos = to_linal(m_camera.get_position());
 
@@ -346,7 +373,8 @@ class CameraInteractor : private CameraSettings {
      * @param isKeyPressed Query function returning whether a given key is currently held down.
      */
     void update(double deltaSeconds, const KeyPressQuery& isKeyPressed) {
-        if (m_navigationStyle == NavigationStyle::FLY && deltaSeconds > 0.0) {
+        if (m_navigationStyle == NavigationStyle::FLY && deltaSeconds > 0.0 &&
+            !is_fixed(CameraViewMode::FIX_PAN)) {
             const linal::double3 cameraPos = to_linal(m_camera.get_position());
             const linal::double3 cameraTarget = to_linal(m_camera.get_target());
             const linal::double3 forward = linal::normalize(cameraTarget - cameraPos);
@@ -461,7 +489,7 @@ class CameraInteractor : private CameraSettings {
             return;
         }
 
-        if (m_cameraMode == CameraMode::PAN) {
+        if (m_cameraMode == CameraMode::PAN && !is_fixed(CameraViewMode::FIX_PAN)) {
             m_wasBlocking = true;
 
             // Convert mouse delta to normalized device coordinates
@@ -500,7 +528,8 @@ class CameraInteractor : private CameraSettings {
             update_mvp();
         }
 
-        if (m_cameraMode == CameraMode::ORBIT && m_navigationStyle == NavigationStyle::FLY) {
+        if (m_cameraMode == CameraMode::ORBIT && m_navigationStyle == NavigationStyle::FLY &&
+            !is_fixed(CameraViewMode::FIX_ROTATE)) {
             m_wasBlocking = true;
 
             // Fly mode mouse-look always works, regardless of the ground plane, so just re-arm the
@@ -544,7 +573,7 @@ class CameraInteractor : private CameraSettings {
             return;
         }
 
-        if (m_cameraMode == CameraMode::ORBIT) {
+        if (m_cameraMode == CameraMode::ORBIT && !is_fixed(CameraViewMode::FIX_ROTATE)) {
             m_wasBlocking = true;
 
             if (m_isRotateStart) {
@@ -596,11 +625,17 @@ class CameraInteractor : private CameraSettings {
         if (action == Action::PRESS && m_cameraMode == CameraMode::NO_MODE) {
             switch (button) {
             case 1: { // GLFW_MOUSE_BUTTON_RIGHT
+                if (is_fixed(CameraViewMode::FIX_ROTATE)) {
+                    return; // rotation is locked: stay in NO_MODE, don't start an orbit gesture
+                }
                 m_cameraMode = CameraMode::ORBIT;
                 m_isRotateStart = true;
                 return;
             }
             case 2: { // GLFW_MOUSE_BUTTON_MIDDLE
+                if (is_fixed(CameraViewMode::FIX_PAN)) {
+                    return; // panning is locked: stay in NO_MODE, don't start a pan gesture
+                }
                 m_cameraMode = CameraMode::PAN;
                 return;
             }
@@ -668,6 +703,12 @@ class CameraInteractor : private CameraSettings {
     }
 
   private:
+    /** @brief Whether the given interactive movement is currently fixed (locked) for user input. */
+    [[nodiscard]]
+    bool is_fixed(CameraViewMode flag) const noexcept {
+        return (static_cast<std::uint8_t>(m_viewMode) & static_cast<std::uint8_t>(flag)) != 0U;
+    }
+
     // Begin an animated transition to an arbitrary full camera pose. Decomposes both the
     // current pose and the destination pose into (target, direction, distance, up) and
     // interpolates all four independently in update(); when the destination target/distance
@@ -739,6 +780,27 @@ class CameraInteractor : private CameraSettings {
         }
     }
 };
+
+/** @brief Combine camera view-mode flags, e.g. FIX_ROTATE | FIX_ZOOM. */
+[[nodiscard]]
+constexpr CameraInteractor::CameraViewMode operator|(CameraInteractor::CameraViewMode lhs,
+                                                     CameraInteractor::CameraViewMode rhs) noexcept {
+    return static_cast<CameraInteractor::CameraViewMode>(static_cast<std::uint8_t>(lhs) |
+                                                         static_cast<std::uint8_t>(rhs));
+}
+
+[[nodiscard]]
+constexpr CameraInteractor::CameraViewMode operator&(CameraInteractor::CameraViewMode lhs,
+                                                     CameraInteractor::CameraViewMode rhs) noexcept {
+    return static_cast<CameraInteractor::CameraViewMode>(static_cast<std::uint8_t>(lhs) &
+                                                         static_cast<std::uint8_t>(rhs));
+}
+
+constexpr CameraInteractor::CameraViewMode& operator|=(CameraInteractor::CameraViewMode& lhs,
+                                                       CameraInteractor::CameraViewMode rhs) noexcept {
+    lhs = lhs | rhs;
+    return lhs;
+}
 
 } // namespace renderer
 

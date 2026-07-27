@@ -16,6 +16,7 @@ set(plinth_HEADER_FILES
         include/plinth/PickRay.hpp
         include/plinth/Plane.hpp
         include/plinth/Color.hpp
+        include/plinth/ColorConversion.hpp
         include/plinth/Viewport.hpp
         include/plinth/Camera.hpp
         include/plinth/CameraAutoFit.hpp

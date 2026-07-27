@@ -135,7 +135,7 @@ class DrawablesManager {
     std::vector<std::vector<float>> collect_vertex_position_buffers() const {
         std::vector<std::vector<float>> buffers;
         buffers.reserve(m_pointDrawables.size() + m_lineDrawables.size() + m_meshDrawables.size() +
-                       m_meshSegmentDrawables.size() + m_meshVertexDrawables.size());
+                        m_meshSegmentDrawables.size() + m_meshVertexDrawables.size());
         const auto collect = [&buffers](const auto& drawables) {
             for (const auto& entry: drawables) {
                 const auto span = entry.drawable.get_vertex_positions();
@@ -145,8 +145,8 @@ class DrawablesManager {
                 std::vector<float> transformed;
                 transformed.reserve(span.size());
                 for (std::size_t i = 0; i + 2 < span.size(); i += 3) {
-                    const linal::float3 transformedPoint =
-                        linal::to_vec(entry.transform * linal::to_hvec(linal::float3{span[i], span[i + 1], span[i + 2]}));
+                    const linal::float3 transformedPoint = linal::to_vec(
+                        entry.transform * linal::to_hvec(linal::float3{span[i], span[i + 1], span[i + 2]}));
                     transformed.push_back(transformedPoint[0]);
                     transformed.push_back(transformedPoint[1]);
                     transformed.push_back(transformedPoint[2]);
@@ -219,11 +219,11 @@ class DrawablesManager {
                                                 opengl::BufferAccessPattern accessPattern) {
         std::vector<float> textureCoordinates((vertices.size() / static_cast<std::size_t>(vertexDimension)) * 2U, 0.0F);
         auto drawable = opengl::make_mesh_soup(get_mesh_program(),
-                                                vertices,
-                                                vertexDimension,
-                                                normals,
-                                                textureCoordinates,
-                                                colors,
+                                               vertices,
+                                               vertexDimension,
+                                               normals,
+                                               textureCoordinates,
+                                               colors,
                                                colorDimension,
                                                triangleIndices,
                                                accessPattern);
@@ -236,9 +236,11 @@ class DrawablesManager {
         return id;
     }
 
-    std::optional<DrawableId> create_texture_2d(const renderer::TextureData& data, int maxTextureSize, int maxAnisotropy) {
+    std::optional<DrawableId>
+    create_texture_2d(const renderer::TextureData& data, int maxTextureSize, int maxAnisotropy) {
         auto texture = Texture2D::create(data, maxTextureSize, maxAnisotropy);
-        if (!texture) return std::nullopt;
+        if (!texture)
+            return std::nullopt;
         const DrawableId id = m_nextTextureId++;
         m_textures.emplace(id, std::make_shared<Texture2D>(std::move(*texture)));
         return id;
@@ -251,25 +253,36 @@ class DrawablesManager {
 
     bool remove_texture(DrawableId id) {
         const auto it = m_textures.find(id);
-        if (it == m_textures.end() || it->second.use_count() > 1) return false;
+        if (it == m_textures.end() || it->second.use_count() > 1)
+            return false;
         m_textures.erase(it);
         return true;
     }
 
     std::optional<DrawableId> add_textured_mesh_drawable(std::span<const float> vertices,
-                                                          std::int32_t vertexDimension,
-                                                          std::span<const float> normals,
-                                                          std::span<const float> textureCoordinates,
-                                                          std::span<const float> colors,
-                                                          std::int32_t colorDimension,
-                                                          std::span<const std::uint32_t> triangleIndices,
-                                                          DrawableId textureId,
-                                                          opengl::BufferAccessPattern accessPattern) {
+                                                         std::int32_t vertexDimension,
+                                                         std::span<const float> normals,
+                                                         std::span<const float> textureCoordinates,
+                                                         std::span<const float> colors,
+                                                         std::int32_t colorDimension,
+                                                         std::span<const std::uint32_t> triangleIndices,
+                                                         DrawableId textureId,
+                                                         opengl::BufferAccessPattern accessPattern) {
         const auto texture = get_texture(textureId);
-        if (!texture) return std::nullopt;
-        auto drawable = opengl::make_mesh_soup(get_mesh_program(), vertices, vertexDimension, normals, textureCoordinates,
-                                                colors, colorDimension, triangleIndices, accessPattern, texture);
-        if (!drawable) return std::nullopt;
+        if (!texture)
+            return std::nullopt;
+        auto drawable = opengl::make_mesh_soup(get_mesh_program(),
+                                               vertices,
+                                               vertexDimension,
+                                               normals,
+                                               textureCoordinates,
+                                               colors,
+                                               colorDimension,
+                                               triangleIndices,
+                                               accessPattern,
+                                               texture);
+        if (!drawable)
+            return std::nullopt;
         const DrawableId id = next_drawable_id();
         m_meshDrawables.emplace_back(DrawableEntry<opengl::MeshDrawable>{id, std::move(*drawable)});
         return id;
@@ -318,7 +331,7 @@ class DrawablesManager {
                                                    opengl::LineType::lines(),
                                                    lineWidth,
                                                    1.0f,
-                                                    opengl::BufferAccessPattern::Static);
+                                                   opengl::BufferAccessPattern::Static);
         if (!drawable.has_value()) {
             return std::nullopt;
         }
@@ -531,10 +544,12 @@ class DrawablesManager {
         for (const auto& opaqueCommand: renderQueue.opaqueCommands) {
             if (opaqueCommand.type == RenderCommand::Type::line) {
                 m_lineDrawables[opaqueCommand.index].drawable.draw_opaque(
-                    mvp, m_lineDrawables[opaqueCommand.index].transform);
+                    mvp,
+                    m_lineDrawables[opaqueCommand.index].transform);
             } else {
                 m_pointDrawables[opaqueCommand.index].drawable.draw_opaque(
-                    mvp, m_pointDrawables[opaqueCommand.index].transform);
+                    mvp,
+                    m_pointDrawables[opaqueCommand.index].transform);
             }
         }
 
@@ -552,10 +567,14 @@ class DrawablesManager {
         for (const auto& transparentCommand: renderQueue.transparentCommands) {
             if (transparentCommand.type == RenderCommand::Type::line) {
                 m_lineDrawables[transparentCommand.index].drawable.draw_translucent(
-                    mvp, m_lineDrawables[transparentCommand.index].transform, viewPosition);
+                    mvp,
+                    m_lineDrawables[transparentCommand.index].transform,
+                    viewPosition);
             } else {
                 m_pointDrawables[transparentCommand.index].drawable.draw_translucent(
-                    mvp, m_pointDrawables[transparentCommand.index].transform, viewPosition);
+                    mvp,
+                    m_pointDrawables[transparentCommand.index].transform,
+                    viewPosition);
             }
         }
     }
@@ -697,8 +716,9 @@ class DrawablesManager {
     }
 
     template <typename Drawable>
-    static bool
-    set_drawable_transform_by_id(std::vector<DrawableEntry<Drawable>>& drawables, DrawableId id, const linal::hmatf& transform) {
+    static bool set_drawable_transform_by_id(std::vector<DrawableEntry<Drawable>>& drawables,
+                                             DrawableId id,
+                                             const linal::hmatf& transform) {
         if (id == 0U) {
             return false;
         }
@@ -715,8 +735,8 @@ class DrawablesManager {
     }
 
     template <typename Drawable>
-    static std::optional<linal::hmatf> get_drawable_transform_by_id(const std::vector<DrawableEntry<Drawable>>& drawables,
-                                                                    DrawableId id) {
+    static std::optional<linal::hmatf>
+    get_drawable_transform_by_id(const std::vector<DrawableEntry<Drawable>>& drawables, DrawableId id) {
         if (id == 0U) {
             return std::nullopt;
         }

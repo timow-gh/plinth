@@ -152,7 +152,11 @@ std::string mesh_fragment_shader_source() {
         // Specular lighting (Blinn-Phong)
         vec3 halfwayDir = normalize(lightDir + viewDir);
         float spec = pow(max(dot(norm, halfwayDir), 0.0), u_shininess);
-        vec3 specular = u_materialSpecular * u_lightColor * spec * attenuation;
+        // Mask by N.L so specular only appears on faces turned toward the light,
+        // and normalize energy so high-shininess highlights don't stack full
+        // intensity on top of an already-saturated diffuse term.
+        float specNorm = (u_shininess + 8.0) / 8.0;
+        vec3 specular = u_materialSpecular * u_lightColor * spec * specNorm * diff * attenuation;
 
         // Combine results
         vec3 result = ambient + diffuse + fillDiffuse + specular;

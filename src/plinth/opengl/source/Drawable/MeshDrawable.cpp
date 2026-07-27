@@ -1,6 +1,8 @@
 #include "OpenGL/Drawable/MeshDrawable.hpp"
 #include <plinth/Assert.hpp>
+#include <plinth/ColorConversion.hpp>
 #include <utility>
+#include <vector>
 
 namespace opengl {
 
@@ -173,7 +175,17 @@ std::optional<MeshDrawable> make_mesh_soup(MeshProgram& program,
     if (!vertexNormalsBuffer.has_value()) {
         return make_failed_drawable<MeshDrawable>();
     }
-    auto colorBuffer = VertexBuffer::create(colors, colorDimension, program.get_color_location(), accessPattern);
+    // Vertex colors are authored in sRGB; linearize them here so the lighting
+    // math in the fragment shader runs in linear space. The RGB channels are
+    // converted and alpha is left untouched. Only the RGBA (stride 4) layout is
+    // linearized; other layouts are uploaded as-is.
+    std::vector<float> linearColors;
+    std::span<const float> colorsToUpload = colors;
+    if (colorDimension == static_cast<std::int32_t>(renderer::ColorChannelCount)) {
+        linearColors = renderer::srgb_to_linear_copy(colors);
+        colorsToUpload = linearColors;
+    }
+    auto colorBuffer = VertexBuffer::create(colorsToUpload, colorDimension, program.get_color_location(), accessPattern);
     if (!colorBuffer.has_value()) {
         return make_failed_drawable<MeshDrawable>();
     }

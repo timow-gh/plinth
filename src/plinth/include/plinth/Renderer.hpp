@@ -208,9 +208,8 @@ class Renderer {
                       std::span<const float> colors,
                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
-    /// Returns an invalid handle when creation fails. TextureData::rgba8 is copied.
+    /// TextureData::rgba8 is copied.
     TextureHandle create_texture_2d(TextureData data);
-    /// Returns false for invalid, foreign, removed, or stale handles.
     bool remove_texture(TextureHandle texture);
     /// Returns an invalid handle when creation fails. The texture must outlive
     /// this drawable or be re-registered before removal.

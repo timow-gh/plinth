@@ -7,7 +7,7 @@ namespace {
 constexpr std::uint32_t defaultWindowWidth = 1024;
 constexpr std::uint32_t defaultWindowHeight = 768;
 constexpr float standalonePointSize = 12.0F;
-constexpr float standaloneLineWidth = 2.0F;
+constexpr float standaloneLineWidth = 3.0F;
 } // namespace
 
 int main() {
@@ -21,27 +21,48 @@ int main() {
         return 1;
     }
 
-    // One point at the origin. The single-color overload replicates the color
-    // and generates sequential indices for us.
-    const std::array<float, 3> pointVertices{0.0F, 0.0F, 0.0F};
-    const std::array<float, 4> pointColor{1.0F, 1.0F, 0.0F, 1.0F}; // yellow
-    renderer->add_point_drawable(pointVertices, pointColor, standalonePointSize);
+    const std::array<float, 9> pointVertices{0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F};
+    const std::array<float, 4> yellow{1.0F, 1.0F, 0.0F, 1.0F};
+    renderer->add_point_drawable(pointVertices, yellow, standalonePointSize);
 
-    const std::array<float, 3> removablePointVertices{0.0F, 0.0F, 1.0F};
-    const auto removablePoint =
-        renderer->add_point_drawable(removablePointVertices, pointColor, standalonePointSize);
-    renderer->remove_drawable(removablePoint);
+    const std::array<float, 9> removablePointVertices{-1.0F, 0.0F, 0.0F, 0.0F, -1.0F, 0.0F, -1.0F, -1.0F, 1.0F};
+    const std::array<float, 4> green{0.0F, 1.0F, 0.0F, 1.0F};
+    const auto removablePoints = renderer->add_point_drawable(removablePointVertices, green, standalonePointSize);
+    const auto deleteGreenPointsCallback =
+        renderer->add_key_callback([&renderer, removablePoints](renderer::Key key,
+                                                                renderer::Scancode /*scancode*/,
+                                                                renderer::Action action,
+                                                                renderer::Mods /*mods*/) {
+            if (key == renderer::Key::KEY_DELETE && action == renderer::Action::PRESS) {
+                renderer->remove_drawable(removablePoints);
+            }
+        });
 
     // A cross made of two line segments through the origin.
     const std::array<float, 12> lineVertices{-1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, -1.0F, 0.0F, 0.0F, 1.0F, 0.0F};
-    const std::array<float, 16>
-        lineColors{1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F};
+    const std::array<float, 16> lineColors{1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F};
     const std::array<std::uint32_t, 4> lineIndices{0, 1, 2, 3};
     renderer->add_line_drawable(lineVertices,
                                 lineIndices,
                                 lineColors,
                                 renderer::LineType::lines(),
                                 standaloneLineWidth);
+
+
+
+
+    const std::array<float, 4> darkBlue{0.0F, 0.0F, 0.5F, 1.0F};
+    const std::array<float, 12> rectangleVertices{0.0F, 0.0F, 0.0F, 3.0F, 0.0F, 0.0F, 3.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F};
+    auto rectangleLines = renderer->add_line_drawable(rectangleVertices, darkBlue, renderer::LineType::line_loop(), standaloneLineWidth);
+
+    const std::array<float, 4> lightBlue{0.0F, 0.5F, 1.0F, 1.0F};
+    const std::array<std::uint32_t, 6> triangleIndices{0, 1, 2, 0, 2, 3};
+    auto rectangleMesh = renderer->add_mesh_drawable(rectangleVertices, triangleIndices, lightBlue);
+
+    linal::hmatf transform = linal::hmatf::identity();
+    transform.set_translation(linal::float3{0.0F, 2.0F, 0.0F});
+    renderer->set_drawable_transform(rectangleLines, transform);
+    renderer->set_drawable_transform(rectangleMesh, transform);
 
     // F1 toggles between the game-like Release control panel (the default) and the full
     // Debug panel exposing every post-processing and visualization control.

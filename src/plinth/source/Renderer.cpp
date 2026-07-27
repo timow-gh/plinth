@@ -658,8 +658,7 @@ void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
 
     m_imgui->new_frame();
     CameraProjectionType projectionType = m_camera->get_projection_type();
-    CameraInteractor::PivotMode pivotMode = m_camera->get_pivot_mode();
-    m_imgui->add_camera_controls(autoFitEnabled, projectionType, pivotMode, homeRequested);
+    m_imgui->add_camera_controls(autoFitEnabled, projectionType, homeRequested);
 
     if (m_uiMode == renderer::UiMode::Debug) {
         m_imgui->add_post_processing_controls(*this);
@@ -673,10 +672,6 @@ void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
 
     if (projectionType != m_camera->get_projection_type()) {
         m_camera->set_projection_type(projectionType);
-    }
-
-    if (pivotMode != m_camera->get_pivot_mode()) {
-        m_camera->set_pivot_mode(pivotMode);
     }
 
     m_autoFitEnabled = autoFitEnabled;

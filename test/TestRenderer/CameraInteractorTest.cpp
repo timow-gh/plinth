@@ -582,38 +582,6 @@ TEST(CameraInteractorTest, PoseTransitionReachesExactEndPoseAtOrAfterDuration) {
     EXPECT_NEAR(linal::length(interactor.get_target() - endTarget), 0.0, 1.0e-6);
 }
 
-TEST(CameraInteractorTest, RightDragPivotsAroundCursorGroundIntersection) {
-    renderer::InputState inputState;
-    renderer::CameraInteractor interactor = make_interactor(inputState);
-
-    // Cursor off-center: the pivot is where the ray through this cursor position hits the ground
-    // plane (z=0), which is different from the gaze-ray (screen center) intersection at the origin.
-    constexpr double cursorX = 250.0;
-    constexpr double cursorY = 200.0;
-    inputState.cursorPosState = renderer::CursorPosState{cursorX, cursorY};
-
-    linal::double3 expectedPivot;
-    const renderer::PickRay ray = interactor.get_pick_ray(cursorX, cursorY);
-    ASSERT_TRUE(renderer::ray_plane_intersection(interactor.get_position(),
-                                                 ray.direction,
-                                                 renderer::Plane{linal::double3{0.0, 0.0, 0.0},
-                                                                 linal::double3{0.0, 0.0, 1.0}},
-                                                 expectedPivot));
-    ASSERT_GT(linal::length(expectedPivot), tolerance); // off-center: not the world origin
-
-    interactor.on_cursor_position(cursorX, cursorY);
-    const double distanceToPivot = linal::length(interactor.get_position() - expectedPivot);
-
-    interactor.on_mouse_button(1, renderer::Action::PRESS, renderer::Mods::NONE);
-    interactor.on_cursor_position(cursorX + 20.0, cursorY);
-    interactor.on_cursor_position(cursorX + 50.0, cursorY);
-    interactor.on_mouse_button(1, renderer::Action::RELEASE, renderer::Mods::NONE);
-
-    // Orbiting keeps the camera a constant distance from the (cursor-based) pivot.
-    EXPECT_TRUE(interactor.get_was_blocking());
-    EXPECT_NEAR(linal::length(interactor.get_position() - expectedPivot), distanceToPivot, 1.0e-6);
-}
-
 TEST(CameraInteractorTest, RightDragDoesNotSnapGazeOntoCursorPivot) {
     renderer::InputState inputState;
     renderer::CameraInteractor interactor = make_interactor(inputState);
@@ -649,29 +617,9 @@ TEST(CameraInteractorTest, RightDragDoesNotSnapGazeOntoCursorPivot) {
                 1.0e-6);
 }
 
-TEST(CameraInteractorTest, RightDragDoesNotOrbitWhenCursorRayMissesGroundPlane) {
+TEST(CameraInteractorTest, OrbitsAroundWorldOrigin) {
     renderer::InputState inputState;
     renderer::CameraInteractor interactor = make_interactor(inputState);
-    inputState.cursorPosState = renderer::CursorPosState{400.0, 300.0};
-    // A ground plane the cursor ray will never hit (mirrors ScrollDoesNotBlockWhenGroundPlaneIsNotHit).
-    interactor.set_ground_plane(renderer::Plane{linal::double3{0.0, 0.0, 100.0}, linal::double3{1.0, 0.0, 0.0}});
-
-    interactor.on_cursor_position(400.0, 300.0);
-    const linal::double3 initialPosition = interactor.get_position();
-
-    interactor.on_mouse_button(1, renderer::Action::PRESS, renderer::Mods::NONE);
-    interactor.on_cursor_position(430.0, 300.0);
-    interactor.on_cursor_position(460.0, 300.0);
-    interactor.on_mouse_button(1, renderer::Action::RELEASE, renderer::Mods::NONE);
-
-    EXPECT_FALSE(interactor.get_was_blocking());
-    EXPECT_EQ(interactor.get_position(), initialPosition);
-}
-
-TEST(CameraInteractorTest, OriginPivotModeOrbitsAroundWorldOrigin) {
-    renderer::InputState inputState;
-    renderer::CameraInteractor interactor = make_interactor(inputState);
-    interactor.set_pivot_mode(renderer::CameraInteractor::PivotMode::ORIGIN);
 
     const double distanceToOrigin = linal::length(interactor.get_position());
 
@@ -687,10 +635,9 @@ TEST(CameraInteractorTest, OriginPivotModeOrbitsAroundWorldOrigin) {
     EXPECT_NEAR(linal::length(interactor.get_target()), 0.0, 1.0e-6);
 }
 
-TEST(CameraInteractorTest, OriginPivotModeAllowsPanning) {
+TEST(CameraInteractorTest, AllowsPanning) {
     renderer::InputState inputState;
     renderer::CameraInteractor interactor = make_interactor(inputState);
-    interactor.set_pivot_mode(renderer::CameraInteractor::PivotMode::ORIGIN);
 
     interactor.on_cursor_position(400.0, 300.0);
     const linal::double3 initialPosition = interactor.get_position();
@@ -703,10 +650,9 @@ TEST(CameraInteractorTest, OriginPivotModeAllowsPanning) {
     EXPECT_NE(interactor.get_position(), initialPosition);
 }
 
-TEST(CameraInteractorTest, OriginPivotModeStillAllowsScrollZoom) {
+TEST(CameraInteractorTest, StillAllowsScrollZoom) {
     renderer::InputState inputState;
     renderer::CameraInteractor interactor = make_interactor(inputState);
-    interactor.set_pivot_mode(renderer::CameraInteractor::PivotMode::ORIGIN);
     inputState.cursorPosState = renderer::CursorPosState{400.0, 300.0};
 
     const linal::double3 initialPosition = interactor.get_position();

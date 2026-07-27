@@ -1,7 +1,6 @@
 #ifndef RENDERER_IMGUIOVERLAY_HPP
 #define RENDERER_IMGUIOVERLAY_HPP
 
-#include <plinth/CameraPivotMode.hpp>
 #include <plinth/CameraProjectionType.hpp>
 #include <plinth/InputCaptureState.hpp>
 #include <plinth/InputState.hpp>
@@ -32,7 +31,6 @@ class ImGuiOverlay {
     void add_control(std::function<void()> controlFunc);
     void add_camera_controls(bool& autoZoomEnabled,
                              CameraProjectionType& projectionType,
-                             CameraPivotMode& pivotMode,
                              bool& homeRequested);
     /// Edits the caller-owned LightingConfig that is passed to draw(). Every
     /// widget mutates the referenced config in place; the config must outlive

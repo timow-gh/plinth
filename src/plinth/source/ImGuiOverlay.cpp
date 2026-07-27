@@ -106,9 +106,8 @@ void ImGuiOverlay::add_control(std::function<void()> controlFunc) {
 
 void ImGuiOverlay::add_camera_controls(bool& autoZoomEnabled,
                                        CameraProjectionType& projectionType,
-                                       CameraPivotMode& pivotMode,
                                        bool& homeRequested) {
-    m_controls.emplace_back([&autoZoomEnabled, &projectionType, &pivotMode, &homeRequested]() {
+    m_controls.emplace_back([&autoZoomEnabled, &projectionType, &homeRequested]() {
         if (!ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
             return;
         }
@@ -124,17 +123,6 @@ void ImGuiOverlay::add_camera_controls(bool& autoZoomEnabled,
                          projectionItems.data(),
                          static_cast<int>(projectionItems.size()))) {
             projectionType = static_cast<CameraProjectionType>(currentItem);
-        }
-
-        constexpr std::array<const char*, 2> pivotItems = {"Orbit Ground", "Orbit origin"};
-        int currentPivot = static_cast<int>(pivotMode);
-        ImGui::TextUnformatted("Rotation pivot");
-        ImGui::SetNextItemWidth(-1.0F);
-        if (ImGui::Combo("##RotationPivot",
-                         &currentPivot,
-                         pivotItems.data(),
-                         static_cast<int>(pivotItems.size()))) {
-            pivotMode = static_cast<CameraPivotMode>(currentPivot);
         }
 
         if (full_width_button("Home")) {

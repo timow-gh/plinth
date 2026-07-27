@@ -1,9 +1,9 @@
 #ifndef RENDERER_COLORCONVERSION_HPP
 #define RENDERER_COLORCONVERSION_HPP
 
+#include "plinth/Color.hpp"
 #include <cmath>
 #include <cstddef>
-#include <plinth/Color.hpp>
 #include <span>
 #include <vector>
 

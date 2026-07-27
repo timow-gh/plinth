@@ -1,24 +1,24 @@
 #ifndef RENDERER_RENDERER_HPP
 #define RENDERER_RENDERER_HPP
 
+#include "plinth/BufferAccessPattern.hpp"
+#include "plinth/CameraAutoFit.hpp"
+#include "plinth/CameraInteractor.hpp"
+#include "plinth/FrameState.hpp"
+#include "plinth/GlfwWindow.hpp"
+#include "plinth/ImGuiOverlay.hpp"
+#include "plinth/InputState.hpp"
+#include "plinth/LightingConfig.hpp"
+#include "plinth/LineType.hpp"
+#include "plinth/PostProcessingEnums.hpp"
+#include "plinth/Texture.hpp"
+#include "plinth/UiMode.hpp"
+#include "plinth/WindowSettings.hpp"
 #include <array>
 #include <chrono>
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <plinth/BufferAccessPattern.hpp>
-#include <plinth/CameraAutoFit.hpp>
-#include <plinth/CameraInteractor.hpp>
-#include <plinth/FrameState.hpp>
-#include <plinth/GlfwWindow.hpp>
-#include <plinth/ImGuiOverlay.hpp>
-#include <plinth/InputState.hpp>
-#include <plinth/LightingConfig.hpp>
-#include <plinth/LineType.hpp>
-#include <plinth/PostProcessingEnums.hpp>
-#include <plinth/Texture.hpp>
-#include <plinth/UiMode.hpp>
-#include <plinth/WindowSettings.hpp>
 #include <span>
 #include <utility>
 #include <vector>
@@ -37,8 +37,6 @@ enum class DrawableKind {
     point,
     line,
     mesh,
-    meshSegment,
-    meshVertex,
 };
 
 struct DrawableHandle {
@@ -68,7 +66,8 @@ class CallbackSubscription {
     /// Disconnecting is idempotent. A disconnected callback is skipped even if
     /// dispatch is in progress.
     void disconnect() noexcept;
-    [[nodiscard]] bool is_connected() const noexcept;
+    [[nodiscard]]
+    bool is_connected() const noexcept;
 
   private:
     friend class Renderer;
@@ -104,7 +103,8 @@ class ImGuiOverlayView {
   private:
     friend class Renderer;
     ImGuiOverlayView(ImGuiOverlay* overlay, std::weak_ptr<void> lifetime)
-        : m_overlay(overlay), m_lifetime(std::move(lifetime)) {}
+        : m_overlay(overlay)
+        , m_lifetime(std::move(lifetime)) {}
 
     ImGuiOverlay* m_overlay{nullptr};
     std::weak_ptr<void> m_lifetime;
@@ -148,7 +148,7 @@ class Renderer {
                        std::span<const float> colors,
                        std::span<const std::uint32_t> indices,
                        float pointSize,
-                        renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
     DrawableHandle
     add_line_drawable(std::span<const float> vertices,
@@ -157,7 +157,7 @@ class Renderer {
                       renderer::LineType lineType,
                       float lineWidth,
                       float pointSize = 0.0F,
-                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
     /// Returns an invalid handle when creation fails. Does not set a texture;
     /// use add_textured_mesh_drawable for textured geometry.
@@ -166,7 +166,7 @@ class Renderer {
                       std::span<const float> normals,
                       std::span<const float> colors,
                       std::span<const std::uint32_t> triangleIndices,
-                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
     /// Returns an invalid handle when creation fails. TextureData::rgba8 is copied.
     TextureHandle create_texture_2d(TextureData data);
@@ -174,24 +174,14 @@ class Renderer {
     bool remove_texture(TextureHandle texture);
     /// Returns an invalid handle when creation fails. The texture must outlive
     /// this drawable or be re-registered before removal.
-    DrawableHandle add_textured_mesh_drawable(
-        std::span<const float> vertices,
-        std::span<const float> normals,
-        std::span<const float> textureCoordinates,
-        std::span<const float> colors,
-        std::span<const std::uint32_t> triangleIndices,
-        TextureHandle texture,
-         renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
-
-    /// Returns an invalid handle when creation fails. Input spans are copied.
-    DrawableHandle add_mesh_segment_drawable(std::span<const float> positions,
-                                             std::span<const std::uint32_t> indices,
-                                             std::span<const float> color,
-                                             float lineWidth);
-
-    /// Returns an invalid handle when creation fails. Input spans are copied.
     DrawableHandle
-    add_mesh_vertex_drawable(std::span<const float> positions, std::span<const float> color, float pointSize);
+    add_textured_mesh_drawable(std::span<const float> vertices,
+                               std::span<const float> normals,
+                               std::span<const float> textureCoordinates,
+                               std::span<const float> colors,
+                               std::span<const std::uint32_t> triangleIndices,
+                               TextureHandle texture,
+                               renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
 
     /// Invalid, foreign, removed, and stale handles leave state unchanged.
     void set_mesh_drawable_cull_mode(DrawableHandle handle, renderer::MeshCullFaceMode mode);
@@ -257,27 +247,75 @@ class Renderer {
 
     /// Current post-processing state. These mirror the values applied by the
     /// pipeline and are used by the ImGui overlay to render its controls.
-    [[nodiscard]] float get_exposure_stops() const { return m_exposureStops; }
-    [[nodiscard]] renderer::ToneMapMode get_tone_map_mode() const { return m_toneMapMode; }
-    [[nodiscard]] bool get_fog_enabled() const { return m_fogEnabled; }
-    [[nodiscard]] renderer::FogMode get_fog_mode() const { return m_fogMode; }
-    [[nodiscard]] float get_fog_start() const { return m_fogStart; }
-    [[nodiscard]] float get_fog_end() const { return m_fogEnd; }
-    [[nodiscard]] float get_fog_density() const { return m_fogDensity; }
-    [[nodiscard]] std::array<float, 3> get_fog_color() const { return {m_fogColorR, m_fogColorG, m_fogColorB}; }
-    [[nodiscard]] renderer::VisualizationMode get_visualization_mode() const { return m_visualizationMode; }
-    [[nodiscard]] float get_hdr_display_max() const { return m_hdrDisplayMax; }
-    [[nodiscard]] bool get_grayscale() const { return m_grayscale; }
-    [[nodiscard]] bool get_fxaa_enabled() const { return m_fxaaEnabled; }
-    [[nodiscard]] float get_fxaa_edge_threshold() const { return m_fxaaEdgeThreshold; }
-    [[nodiscard]] float get_fxaa_edge_threshold_min() const { return m_fxaaEdgeThresholdMin; }
-    [[nodiscard]] float get_fxaa_subpixel_amount() const { return m_fxaaSubpixelAmount; }
+    [[nodiscard]]
+    float get_exposure_stops() const {
+        return m_exposureStops;
+    }
+    [[nodiscard]]
+    renderer::ToneMapMode get_tone_map_mode() const {
+        return m_toneMapMode;
+    }
+    [[nodiscard]]
+    bool get_fog_enabled() const {
+        return m_fogEnabled;
+    }
+    [[nodiscard]]
+    renderer::FogMode get_fog_mode() const {
+        return m_fogMode;
+    }
+    [[nodiscard]]
+    float get_fog_start() const {
+        return m_fogStart;
+    }
+    [[nodiscard]]
+    float get_fog_end() const {
+        return m_fogEnd;
+    }
+    [[nodiscard]]
+    float get_fog_density() const {
+        return m_fogDensity;
+    }
+    [[nodiscard]]
+    std::array<float, 3> get_fog_color() const {
+        return {m_fogColorR, m_fogColorG, m_fogColorB};
+    }
+    [[nodiscard]]
+    renderer::VisualizationMode get_visualization_mode() const {
+        return m_visualizationMode;
+    }
+    [[nodiscard]]
+    float get_hdr_display_max() const {
+        return m_hdrDisplayMax;
+    }
+    [[nodiscard]]
+    bool get_grayscale() const {
+        return m_grayscale;
+    }
+    [[nodiscard]]
+    bool get_fxaa_enabled() const {
+        return m_fxaaEnabled;
+    }
+    [[nodiscard]]
+    float get_fxaa_edge_threshold() const {
+        return m_fxaaEdgeThreshold;
+    }
+    [[nodiscard]]
+    float get_fxaa_edge_threshold_min() const {
+        return m_fxaaEdgeThresholdMin;
+    }
+    [[nodiscard]]
+    float get_fxaa_subpixel_amount() const {
+        return m_fxaaSubpixelAmount;
+    }
 
     /// Selects the ImGui control surface. Switching to Release pins debug-only
     /// state (visualization mode, grayscale) back to sensible defaults so leftover
     /// debug state cannot persist into the release panel. Callable at any time.
     void set_ui_mode(renderer::UiMode mode);
-    [[nodiscard]] renderer::UiMode ui_mode() const { return m_uiMode; }
+    [[nodiscard]]
+    renderer::UiMode ui_mode() const {
+        return m_uiMode;
+    }
 
     /// Renderer owns one GLFW/OpenGL context. All methods that access the window,
     /// renderer state, or GL must be called on its creating thread. Frame methods
@@ -317,14 +355,17 @@ class Renderer {
     /// Cursor callbacks receive scene framebuffer coordinates and are suppressed
     /// outside the scene or when ImGui captures the event. Scroll, mouse, and key
     /// callbacks are likewise suppressed while ImGui captures their input.
-    [[nodiscard]] CallbackSubscription add_cursor_pos_callback(CursorPosCB cb);
-    [[nodiscard]] CallbackSubscription add_scroll_callback(ScrollCB cb);
-    [[nodiscard]] CallbackSubscription add_mouse_button_callback(MouseBtnCB cb);
-    [[nodiscard]] CallbackSubscription add_key_callback(KeyCB cb);
+    [[nodiscard]]
+    CallbackSubscription add_cursor_pos_callback(CursorPosCB cb);
+    [[nodiscard]]
+    CallbackSubscription add_scroll_callback(ScrollCB cb);
+    [[nodiscard]]
+    CallbackSubscription add_mouse_button_callback(MouseBtnCB cb);
+    [[nodiscard]]
+    CallbackSubscription add_key_callback(KeyCB cb);
 
     // --- Accessors ---
-    [[nodiscard]]
-    [[nodiscard]]
+    [[nodiscard]] [[nodiscard]]
     const GlfwWindow& window() const {
         return m_window;
     }
@@ -336,16 +377,23 @@ class Renderer {
     std::weak_ptr<const CameraInteractor> get_camera() const {
         return m_camera;
     }
-    [[nodiscard]] bool is_auto_fit_enabled() const noexcept { return m_autoFitEnabled; }
+    [[nodiscard]]
+    bool is_auto_fit_enabled() const noexcept {
+        return m_autoFitEnabled;
+    }
     [[nodiscard]]
     /// The returned overlay is owned by this Renderer and must not be used
     /// after the Renderer is destroyed. Use get_imgui() for a lifetime-safe view.
     [[nodiscard]]
-    ImGuiOverlay& imgui() { return *m_imgui; }
+    ImGuiOverlay& imgui() {
+        return *m_imgui;
+    }
     [[nodiscard]]
     /// Returns a lifetime-safe view of the ImGui overlay. Returns nullptr from
     /// lock() if the Renderer has been destroyed.
-    ImGuiOverlayView get_imgui() { return ImGuiOverlayView{m_imgui.get(), m_imguiLifetime}; }
+    ImGuiOverlayView get_imgui() {
+        return ImGuiOverlayView{m_imgui.get(), m_imguiLifetime};
+    }
 
     static constexpr renderer::ClearColor defaultClearColor{0.05F, 0.05F, 0.05F, 1.0F};
 
@@ -356,13 +404,13 @@ class Renderer {
              std::unique_ptr<ImGuiOverlay> imgui,
              std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
              std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
-              std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
-              std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
-              std::unique_ptr<opengl::FXAAPass> fxaaPass,
-              int sceneSamples,
-              int maxTextureSize,
-              int maxAnisotropy,
-              std::uint64_t rendererInstance);
+             std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
+             std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
+             std::unique_ptr<opengl::FXAAPass> fxaaPass,
+             int sceneSamples,
+             int maxTextureSize,
+             int maxAnisotropy,
+             std::uint64_t rendererInstance);
 
     void wire_callbacks();
     void update_scene_viewport();

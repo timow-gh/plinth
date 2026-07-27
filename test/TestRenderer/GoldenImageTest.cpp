@@ -7,9 +7,9 @@
 
 #include "CaptureFixture.hpp"
 #include <GLFW/glfw3.h>
-#include <OpenGL/Drawable/PointDrawable.hpp>
-#include <OpenGL/FrameState.hpp>
-#include <OpenGL/OpenGL.hpp>
+#include "OpenGL/Drawable/PointDrawable.hpp"
+#include "OpenGL/FrameState.hpp"
+#include "OpenGL/OpenGL.hpp"
 #include <array>
 #include <cstdint>
 #include <cstdlib>

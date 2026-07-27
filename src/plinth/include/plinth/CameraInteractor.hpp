@@ -1,15 +1,14 @@
 #ifndef RENDERER_CAMERAINTERACTOR_HPP
 #define RENDERER_CAMERAINTERACTOR_HPP
 
-#include <plinth/Camera.hpp>
-#include <plinth/CameraAutoFit.hpp>
-#include <plinth/CameraPivotMode.hpp>
-#include <plinth/CameraProjectionType.hpp>
-#include <plinth/InputState.hpp>
-#include <plinth/PickRay.hpp>
-#include <plinth/Plane.hpp>
-#include <plinth/RayPlaneIntersection.hpp>
-#include <plinth/Warnings.hpp>
+#include "plinth/Camera.hpp"
+#include "plinth/CameraAutoFit.hpp"
+#include "plinth/CameraProjectionType.hpp"
+#include "plinth/InputState.hpp"
+#include "plinth/PickRay.hpp"
+#include "plinth/Plane.hpp"
+#include "plinth/RayPlaneIntersection.hpp"
+#include "plinth/Warnings.hpp"
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -64,7 +63,8 @@ struct PresetViewDirection {
  *
  * Follows the same Z-up convention as CameraSettings::m_defaultUp.
  */
-[[nodiscard]] inline PresetViewDirection preset_view_direction(PresetView view) {
+[[nodiscard]]
+inline PresetViewDirection preset_view_direction(PresetView view) {
     switch (view) {
     case PresetView::FRONT: return {{0.0, -1.0, 0.0}, {0.0, 0.0, 1.0}};
     case PresetView::BACK:  return {{0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}};
@@ -99,10 +99,6 @@ class CameraInteractor : private CameraSettings {
      *  that prefer to write CameraInteractor::PresetView. */
     using PresetView = renderer::PresetView;
 
-    /** @brief Alias for the free-standing renderer::CameraPivotMode, exposed as a nested name for
-     *  callers that prefer to write CameraInteractor::PivotMode. */
-    using PivotMode = renderer::CameraPivotMode;
-
   private:
     InputState* m_inputState{nullptr};
     CameraMode m_cameraMode{CameraMode::NO_MODE};
@@ -112,7 +108,6 @@ class CameraInteractor : private CameraSettings {
                                   manipulated the position. */
 
     NavigationStyle m_navigationStyle{NavigationStyle::ORBIT};
-    PivotMode m_pivotMode{PivotMode::GROUND_CURSOR};
     double m_flySpeed{5.0}; // world units per second
 
     bool m_isTransitioning{false};
@@ -257,11 +252,6 @@ class CameraInteractor : private CameraSettings {
     NavigationStyle get_navigation_style() const noexcept {
         return m_navigationStyle;
     }
-    void set_pivot_mode(PivotMode mode) noexcept { m_pivotMode = mode; }
-    [[nodiscard]]
-    PivotMode get_pivot_mode() const noexcept {
-        return m_pivotMode;
-    }
     void set_fly_speed(double unitsPerSecond) noexcept { m_flySpeed = unitsPerSecond; }
     [[nodiscard]]
     double get_fly_speed() const noexcept {
@@ -364,12 +354,24 @@ class CameraInteractor : private CameraSettings {
             const linal::double3 right = linal::normalize(linal::cross(forward, upVec));
 
             linal::double3 move{0.0, 0.0, 0.0};
-            if (isKeyPressed(Key::KEY_W)) { move = move + forward; }
-            if (isKeyPressed(Key::KEY_S)) { move = move - forward; }
-            if (isKeyPressed(Key::KEY_D)) { move = move + right; }
-            if (isKeyPressed(Key::KEY_A)) { move = move - right; }
-            if (isKeyPressed(Key::KEY_E)) { move = move + upVec; }
-            if (isKeyPressed(Key::KEY_Q)) { move = move - upVec; }
+            if (isKeyPressed(Key::KEY_W)) {
+                move = move + forward;
+            }
+            if (isKeyPressed(Key::KEY_S)) {
+                move = move - forward;
+            }
+            if (isKeyPressed(Key::KEY_D)) {
+                move = move + right;
+            }
+            if (isKeyPressed(Key::KEY_A)) {
+                move = move - right;
+            }
+            if (isKeyPressed(Key::KEY_E)) {
+                move = move + upVec;
+            }
+            if (isKeyPressed(Key::KEY_Q)) {
+                move = move - upVec;
+            }
 
             if (linal::length(move) >= 1.0e-12) {
                 const linal::double3 translation = linal::normalize(move) * (m_flySpeed * deltaSeconds);
@@ -381,8 +383,8 @@ class CameraInteractor : private CameraSettings {
 
         if (m_isTransitioning) {
             m_transitionElapsedSeconds += std::max(0.0, deltaSeconds);
-            double t = m_transitionDurationSeconds > 0.0 ? m_transitionElapsedSeconds / m_transitionDurationSeconds
-                                                          : 1.0;
+            double t =
+                m_transitionDurationSeconds > 0.0 ? m_transitionElapsedSeconds / m_transitionDurationSeconds : 1.0;
             t = std::clamp(t, 0.0, 1.0);
             const double easedT = t * t * (3.0 - 2.0 * t); // smoothstep
 
@@ -403,31 +405,27 @@ class CameraInteractor : private CameraSettings {
                     // normalize to NaN. Rotate around an arbitrary axis perpendicular to the start
                     // direction instead - any such axis produces a valid 180-degree turn.
                     const linal::double3 arbitrary = std::abs(m_transitionStartDirection[0]) < 0.9
-                                                          ? linal::double3{1.0, 0.0, 0.0}
-                                                          : linal::double3{0.0, 1.0, 0.0};
+                                                         ? linal::double3{1.0, 0.0, 0.0}
+                                                         : linal::double3{0.0, 1.0, 0.0};
                     axis = linal::cross(m_transitionStartDirection, arbitrary);
                 }
                 axis = linal::normalize(axis);
                 const glm::dquat rot = glm::angleAxis(angle * easedT, glm::dvec3{axis[0], axis[1], axis[2]});
-                const glm::dvec3 rotated =
-                    rot * glm::dvec3{m_transitionStartDirection[0],
-                                      m_transitionStartDirection[1],
-                                      m_transitionStartDirection[2]};
+                const glm::dvec3 rotated = rot * glm::dvec3{m_transitionStartDirection[0],
+                                                            m_transitionStartDirection[1],
+                                                            m_transitionStartDirection[2]};
                 direction = linal::normalize(to_linal(rotated));
             }
             // Antiparallel start/end up vectors cancel at the lerp midpoint,
             // which would normalize to NaN and poison the view matrix. Snap to
             // the nearer endpoint up for that degenerate instant instead; the
             // visible pop is bounded to one frame of an extreme transition.
-            const linal::double3 lerpedUp =
-                m_transitionStartUp * (1.0 - easedT) + m_transitionEndUp * easedT;
+            const linal::double3 lerpedUp = m_transitionStartUp * (1.0 - easedT) + m_transitionEndUp * easedT;
             const linal::double3 up = linal::length(lerpedUp) > 1.0e-9
                                           ? linal::normalize(lerpedUp)
                                           : (easedT < 0.5 ? m_transitionStartUp : m_transitionEndUp);
-            const linal::double3 target =
-                m_transitionStartTarget * (1.0 - easedT) + m_transitionEndTarget * easedT;
-            const double distanceValue =
-                m_transitionStartDistance * (1.0 - easedT) + m_transitionEndDistance * easedT;
+            const linal::double3 target = m_transitionStartTarget * (1.0 - easedT) + m_transitionEndTarget * easedT;
+            const double distanceValue = m_transitionStartDistance * (1.0 - easedT) + m_transitionEndDistance * easedT;
             const linal::double3 position = target + direction * distanceValue;
 
             m_camera.look_at(to_glm(position), to_glm(target), to_glm(up));
@@ -551,21 +549,8 @@ class CameraInteractor : private CameraSettings {
 
             if (m_isRotateStart) {
                 m_isRotateStart = false;
-                if (m_pivotMode == PivotMode::ORIGIN) {
-                    m_pivot = linal::double3{0.0, 0.0, 0.0};
-                } else {
-                    // Pivot around where the ray through the mouse cursor hits the ground plane,
-                    // captured once at drag start. If the cursor ray misses the ground plane, block
-                    // rotation and re-arm so it can be retried on the next event.
-                    linal::double3 pos = to_linal(m_camera.get_position());
-                    const PickRay ray = get_pick_ray(m_inputState->cursorPosState.xpos,
-                                                     m_inputState->cursorPosState.ypos);
-                    if (!ray_plane_intersection(pos, ray.direction, m_groundPlane, m_pivot)) {
-                        m_isRotateStart = true;
-                        m_wasBlocking = false;
-                        return;
-                    }
-                }
+                // Orbit pivots around the world origin.
+                m_pivot = linal::double3{0.0, 0.0, 0.0};
                 m_rotateScreenXYStart = glm::vec2{xpos, ypos};
             }
 
@@ -689,8 +674,8 @@ class CameraInteractor : private CameraSettings {
     // equal the current ones (as go_to_preset_view always arranges), this reduces exactly to
     // rotating around a fixed pivot at a fixed radius.
     void begin_pose_transition(const linal::double3& endPosition,
-                              const linal::double3& endTarget,
-                              const linal::double3& endUp) {
+                               const linal::double3& endTarget,
+                               const linal::double3& endUp) {
         const linal::double3 startPos = to_linal(m_camera.get_position());
         const linal::double3 startTarget = to_linal(m_camera.get_target());
         const double startDistance = linal::length(startPos - startTarget);

@@ -1,7 +1,7 @@
 #ifndef RENDERER_INPUTSTATE_HPP
 #define RENDERER_INPUTSTATE_HPP
 
-#include <plinth/Assert.hpp>
+#include "plinth/Assert.hpp"
 #include <compare>
 #include <cstdint>
 #include <functional>

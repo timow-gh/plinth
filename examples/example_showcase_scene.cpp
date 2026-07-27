@@ -5,13 +5,13 @@
 // The texture is generated procedurally (a checkerboard), so the example needs no external
 // image asset. Left-drag orbits, scroll zooms; Auto Zoom keeps the scene framed.
 
+#include "plinth/LineType.hpp"
+#include "plinth/Renderer.hpp"
+#include "plinth/Texture.hpp"
+#include "plinth/WindowSettings.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <plinth/LineType.hpp>
-#include <plinth/Renderer.hpp>
-#include <plinth/Texture.hpp>
-#include <plinth/WindowSettings.hpp>
 #include <vector>
 
 namespace {

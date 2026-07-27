@@ -10,7 +10,7 @@
 #include "OpenGL/VertexArray.hpp"
 #include "OpenGL/VertexBuffer.hpp"
 #include "OpenGL/opengl_export.h"
-#include <plinth/Warnings.hpp>
+#include "plinth/Warnings.hpp"
 #include <cstdint>
 #include <linal/hmat.hpp>
 #include <span>
@@ -132,7 +132,8 @@ class OPENGL_EXPORT LineDrawable {
     }
 
   private:
-    void draw_index_buffer(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const IndexBuffer& indexBuffer) const;
+    void
+    draw_index_buffer(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const IndexBuffer& indexBuffer) const;
 
     void rebuild_index_buffers(BufferAccessPattern accessPattern);
 };

@@ -1,7 +1,7 @@
 #ifndef OPENGL_ERRORREPORTING_HPP
 #define OPENGL_ERRORREPORTING_HPP
 
-#include <OpenGL/opengl_export.h>
+#include "OpenGL/opengl_export.h"
 #include <functional>
 #include <string_view>
 

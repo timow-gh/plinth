@@ -2,7 +2,7 @@
 #define OPENGL_BUFFERID_HPP
 
 #include "OpenGL/opengl_export.h"
-#include <OpenGL/UnsignedIntId.hpp>
+#include "OpenGL/UnsignedIntId.hpp"
 
 namespace opengl {
 

@@ -1,21 +1,20 @@
 #ifndef OPENGL_DRAWABLE_DRAWABLESMANAGER_HPP
 #define OPENGL_DRAWABLE_DRAWABLESMANAGER_HPP
 
-#include <OpenGL/Drawable/LineDrawable.hpp>
-#include <OpenGL/Drawable/MeshDrawable.hpp>
-#include <OpenGL/Drawable/PointDrawable.hpp>
-#include <OpenGL/OpenGL.hpp>
-#include <OpenGL/Programs/ProgramManager.hpp>
-#include <OpenGL/Texture2D.hpp>
+#include "OpenGL/Drawable/LineDrawable.hpp"
+#include "OpenGL/Drawable/MeshDrawable.hpp"
+#include "OpenGL/Drawable/PointDrawable.hpp"
+#include "OpenGL/OpenGL.hpp"
+#include "OpenGL/Programs/ProgramManager.hpp"
+#include "OpenGL/Texture2D.hpp"
+#include "plinth/LightingConfig.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <linal/hmat.hpp>
 #include <linal/vec.hpp>
 #include <memory>
-#include <numeric>
 #include <optional>
-#include <plinth/LightingConfig.hpp>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -76,10 +75,6 @@ class DrawablesManager {
 
     std::unordered_map<DrawableId, MeshCullFaceMode> m_meshCullModes;
 
-    std::vector<DrawableEntry<opengl::LineDrawable>> m_meshSegmentDrawables;
-
-    std::vector<DrawableEntry<opengl::PointDrawable>> m_meshVertexDrawables;
-
   public:
     DrawablesManager(const DrawablesManager&) = delete;
     DrawablesManager& operator=(const DrawablesManager&) = delete;
@@ -101,8 +96,7 @@ class DrawablesManager {
 
     [[nodiscard]]
     bool has_drawables() const {
-        return !m_pointDrawables.empty() || !m_lineDrawables.empty() || !m_meshDrawables.empty() ||
-               !m_meshSegmentDrawables.empty() || !m_meshVertexDrawables.empty();
+        return !m_pointDrawables.empty() || !m_lineDrawables.empty() || !m_meshDrawables.empty();
     }
 
     [[nodiscard]]
@@ -117,14 +111,6 @@ class DrawablesManager {
     bool has_mesh_drawables() const {
         return !m_meshDrawables.empty();
     }
-    [[nodiscard]]
-    bool has_mesh_segment_drawables() const {
-        return !m_meshSegmentDrawables.empty();
-    }
-    [[nodiscard]]
-    bool has_mesh_vertex_drawables() const {
-        return !m_meshVertexDrawables.empty();
-    }
 
     // Collects a position buffer (world-space xyz triplets, transformed by each drawable's
     // current transform) for every currently-added drawable, for use with
@@ -134,8 +120,7 @@ class DrawablesManager {
     [[nodiscard]]
     std::vector<std::vector<float>> collect_vertex_position_buffers() const {
         std::vector<std::vector<float>> buffers;
-        buffers.reserve(m_pointDrawables.size() + m_lineDrawables.size() + m_meshDrawables.size() +
-                        m_meshSegmentDrawables.size() + m_meshVertexDrawables.size());
+        buffers.reserve(m_pointDrawables.size() + m_lineDrawables.size() + m_meshDrawables.size());
         const auto collect = [&buffers](const auto& drawables) {
             for (const auto& entry: drawables) {
                 const auto span = entry.drawable.get_vertex_positions();
@@ -157,8 +142,6 @@ class DrawablesManager {
         collect(m_pointDrawables);
         collect(m_lineDrawables);
         collect(m_meshDrawables);
-        collect(m_meshSegmentDrawables);
-        collect(m_meshVertexDrawables);
         return buffers;
     }
 
@@ -306,80 +289,6 @@ class DrawablesManager {
 
     void remove_mesh_drawable_cull_mode(DrawableId id) { m_meshCullModes.erase(id); }
 
-    std::optional<DrawableId> add_mesh_segment_drawable(std::span<const float> positions,
-                                                        std::span<const std::uint32_t> indices,
-                                                        std::span<const float> color,
-                                                        float lineWidth) {
-        // Expand single RGBA color to per-vertex colors.
-        const std::size_t vertexCount = positions.size() / 3;
-        std::vector<float> expandedColors;
-        if (color.size() == 4 && vertexCount > 0) {
-            expandedColors.resize(vertexCount * 4);
-            for (std::size_t v = 0; v < vertexCount; ++v)
-                for (std::size_t c = 0; c < 4; ++c)
-                    expandedColors[v * 4 + c] = color[c];
-        } else {
-            expandedColors.assign(color.begin(), color.end());
-        }
-
-        auto drawable = opengl::make_line_drawable(get_line_program(),
-                                                   positions,
-                                                   3,
-                                                   indices,
-                                                   std::span<const float>(expandedColors),
-                                                   4,
-                                                   opengl::LineType::lines(),
-                                                   lineWidth,
-                                                   1.0f,
-                                                   opengl::BufferAccessPattern::Static);
-        if (!drawable.has_value()) {
-            return std::nullopt;
-        }
-
-        const DrawableId id = next_drawable_id();
-        m_meshSegmentDrawables.emplace_back(DrawableEntry<opengl::LineDrawable>{id, std::move(drawable.value())});
-        return id;
-    }
-
-    bool remove_mesh_segment_drawable(DrawableId id) { return remove_drawable_by_id(m_meshSegmentDrawables, id); }
-
-    std::optional<DrawableId>
-    add_mesh_vertex_drawable(std::span<const float> positions, std::span<const float> color, float pointSize) {
-        const std::size_t vertexCount = positions.size() / 3;
-
-        // Expand single RGBA color to per-vertex colors.
-        std::vector<float> expandedColors;
-        if (color.size() == 4 && vertexCount > 0) {
-            expandedColors.resize(vertexCount * 4);
-            for (std::size_t v = 0; v < vertexCount; ++v)
-                for (std::size_t c = 0; c < 4; ++c)
-                    expandedColors[v * 4 + c] = color[c];
-        } else {
-            expandedColors.assign(color.begin(), color.end());
-        }
-
-        std::vector<std::uint32_t> indices(vertexCount);
-        std::iota(indices.begin(), indices.end(), 0u);
-
-        auto drawable = opengl::make_point_drawable(get_point_program(),
-                                                    positions,
-                                                    3,
-                                                    std::span<const float>(expandedColors),
-                                                    4,
-                                                    std::span<const std::uint32_t>(indices),
-                                                    pointSize,
-                                                    opengl::BufferAccessPattern::Static);
-        if (!drawable.has_value()) {
-            return std::nullopt;
-        }
-
-        const DrawableId id = next_drawable_id();
-        m_meshVertexDrawables.emplace_back(DrawableEntry<opengl::PointDrawable>{id, std::move(drawable.value())});
-        return id;
-    }
-
-    bool remove_mesh_vertex_drawable(DrawableId id) { return remove_drawable_by_id(m_meshVertexDrawables, id); }
-
     bool set_point_drawable_transform(DrawableId id, const linal::hmatf& transform) {
         return set_drawable_transform_by_id(m_pointDrawables, id, transform);
     }
@@ -402,35 +311,6 @@ class DrawablesManager {
     [[nodiscard]]
     std::optional<linal::hmatf> get_mesh_drawable_transform(DrawableId id) const {
         return get_drawable_transform_by_id(m_meshDrawables, id);
-    }
-
-    bool set_mesh_segment_drawable_transform(DrawableId id, const linal::hmatf& transform) {
-        return set_drawable_transform_by_id(m_meshSegmentDrawables, id, transform);
-    }
-    [[nodiscard]]
-    std::optional<linal::hmatf> get_mesh_segment_drawable_transform(DrawableId id) const {
-        return get_drawable_transform_by_id(m_meshSegmentDrawables, id);
-    }
-
-    bool set_mesh_vertex_drawable_transform(DrawableId id, const linal::hmatf& transform) {
-        return set_drawable_transform_by_id(m_meshVertexDrawables, id, transform);
-    }
-    [[nodiscard]]
-    std::optional<linal::hmatf> get_mesh_vertex_drawable_transform(DrawableId id) const {
-        return get_drawable_transform_by_id(m_meshVertexDrawables, id);
-    }
-
-    // Draw overlay calls ΓÇö draw opaque only, no transparency sorting needed for overlays.
-    void draw_mesh_segment_overlays(const linal::hmatf& mvp) const {
-        for (const auto& entry: m_meshSegmentDrawables) {
-            entry.drawable.draw_opaque(mvp, entry.transform);
-        }
-    }
-
-    void draw_mesh_vertex_overlays(const linal::hmatf& mvp) const {
-        for (const auto& entry: m_meshVertexDrawables) {
-            entry.drawable.draw_opaque(mvp, entry.transform);
-        }
     }
 
     void update_last_point_drawable(std::span<const float> vertices,
@@ -466,15 +346,10 @@ class DrawablesManager {
         m_meshCullModes.clear();
     }
 
-    void clear_mesh_segment_drawables() { m_meshSegmentDrawables.clear(); }
-    void clear_mesh_vertex_drawables() { m_meshVertexDrawables.clear(); }
-
     void clear_drawables() {
         clear_point_drawables();
         clear_line_drawables();
         clear_mesh_drawables();
-        clear_mesh_segment_drawables();
-        clear_mesh_vertex_drawables();
     }
 
     void draw_points(const linal::hmatf& mvp) const {
@@ -588,14 +463,6 @@ class DrawablesManager {
             double distanceSquared{};
         };
 
-        // Enable polygon offset fill when segment overlays are present
-        // so the surface sits slightly behind the wireframe lines.
-        const bool hasSegmentOverlays = !m_meshSegmentDrawables.empty();
-        if (hasSegmentOverlays) {
-            glEnable(GL_POLYGON_OFFSET_FILL);
-            glPolygonOffset(1.0f, 1.0f);
-        }
-
         const linal::double3 viewPositionDouble{static_cast<double>(viewPos[0]),
                                                 static_cast<double>(viewPos[1]),
                                                 static_cast<double>(viewPos[2])};
@@ -649,10 +516,6 @@ class DrawablesManager {
                 glEnable(GL_CULL_FACE);
                 glCullFace(GL_BACK);
             }
-        }
-
-        if (hasSegmentOverlays) {
-            glDisable(GL_POLYGON_OFFSET_FILL);
         }
 
         std::sort(transparentMeshes.begin(),

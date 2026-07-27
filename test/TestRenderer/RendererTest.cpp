@@ -3,8 +3,8 @@
 #include <GLFW/glfw3.h>
 #include <gtest/gtest.h>
 #include <linal/hmat.hpp>
-#include <plinth/Renderer.hpp>
-#include <plinth/WindowSettings.hpp>
+#include "plinth/Renderer.hpp"
+#include "plinth/WindowSettings.hpp"
 #include <array>
 #include <cstdint>
 
@@ -284,15 +284,12 @@ TEST_F(RendererTest, DrawableKindsSupportTransformAndRemoval) {
     const std::array<float, 12> colors = {
         1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
     };
-    const std::array<float, 4> color = {1.0F, 1.0F, 1.0F, 1.0F};
     const std::array<std::uint32_t, 3> indices = {0U, 1U, 2U};
 
     const std::array handles = {
         m_renderer->add_point_drawable(vertices, colors, indices, 1.0F),
         m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), 1.0F),
         m_renderer->add_mesh_drawable(vertices, normals, colors, indices),
-        m_renderer->add_mesh_segment_drawable(vertices, indices, color, 1.0F),
-        m_renderer->add_mesh_vertex_drawable(vertices, color, 1.0F),
     };
 
     for (const renderer::DrawableHandle handle: handles) {

@@ -1,6 +1,6 @@
 #include "OpenGL/VertexArray.hpp"
 #include "OpenGL/ErrorReporting.hpp"
-#include <plinth/Assert.hpp>
+#include "plinth/Assert.hpp"
 #include <utility>
 
 namespace opengl {

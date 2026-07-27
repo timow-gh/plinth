@@ -1,6 +1,6 @@
+#include "plinth/InputState.hpp"
 #include "InputStateInternal.hpp"
 #include <GLFW/glfw3.h>
-#include <plinth/InputState.hpp>
 #include <unordered_map>
 
 namespace renderer {

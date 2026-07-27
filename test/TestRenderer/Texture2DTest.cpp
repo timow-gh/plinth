@@ -1,6 +1,6 @@
 #include <GLFW/glfw3.h>
-#include <OpenGL/OpenGL.hpp>
-#include <OpenGL/Texture2D.hpp>
+#include "OpenGL/OpenGL.hpp"
+#include "OpenGL/Texture2D.hpp"
 #include <array>
 #include <gtest/gtest.h>
 

@@ -1,5 +1,5 @@
 #include <GLFW/glfw3.h>
-#include <plinth/InputState.hpp>
+#include "plinth/InputState.hpp"
 #include "../../src/plinth/source/InputStateInternal.hpp"
 #include <gtest/gtest.h>
 

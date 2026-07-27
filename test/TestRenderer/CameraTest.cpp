@@ -1,5 +1,5 @@
 #include "PlinthTestMatchers.hpp"
-#include <plinth/Camera.hpp>
+#include "plinth/Camera.hpp"
 #include <cmath>
 #include <gtest/gtest.h>
 

@@ -1,8 +1,8 @@
 #include <array>
 #include <cmath>
 #include <gtest/gtest.h>
-#include <plinth/Color.hpp>
-#include <plinth/ColorConversion.hpp>
+#include "plinth/Color.hpp"
+#include "plinth/ColorConversion.hpp"
 #include <vector>
 
 namespace {

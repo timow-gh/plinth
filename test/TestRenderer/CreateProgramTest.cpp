@@ -1,5 +1,5 @@
 #include "Programs/ProgramOpenGL.hpp"
-#include <OpenGL/Programs/CreateProgram.hpp>
+#include "OpenGL/Programs/CreateProgram.hpp"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <string>

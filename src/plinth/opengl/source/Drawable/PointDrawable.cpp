@@ -1,5 +1,5 @@
 #include "OpenGL/Drawable/PointDrawable.hpp"
-#include <plinth/Assert.hpp>
+#include "plinth/Assert.hpp"
 #include <utility>
 
 namespace opengl {

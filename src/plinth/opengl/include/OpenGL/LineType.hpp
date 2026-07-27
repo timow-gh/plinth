@@ -2,7 +2,7 @@
 #define LINETYPE_HPP
 
 #include "OpenGL/OpenGL.hpp"
-#include <plinth/LineType.hpp>
+#include "plinth/LineType.hpp"
 
 namespace opengl {
 

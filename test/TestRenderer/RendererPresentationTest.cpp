@@ -1,5 +1,5 @@
 #include <GLFW/glfw3.h>
-#include <OpenGL/OpenGL.hpp>
+#include "OpenGL/OpenGL.hpp"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -9,8 +9,8 @@
 #include <memory>
 #include <limits>
 #include <optional>
-#include <plinth/Renderer.hpp>
-#include <plinth/WindowSettings.hpp>
+#include "plinth/Renderer.hpp"
+#include "plinth/WindowSettings.hpp"
 #include <sstream>
 #include <string>
 #include <utility>

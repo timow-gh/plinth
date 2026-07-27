@@ -1,4 +1,4 @@
-#include <plinth/Renderer.hpp>
+#include "plinth/Renderer.hpp"
 #include <gtest/gtest.h>
 
 TEST(RendererViewportTest, ReservesLeftSidebarInLogicalAndFramebufferSpace) {

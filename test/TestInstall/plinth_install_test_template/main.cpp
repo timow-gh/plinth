@@ -1,4 +1,4 @@
-#include <plinth/Renderer.hpp>
+#include "plinth/Renderer.hpp"
 
 int main() {
     renderer::ClearColor clearColor{0.05F, 0.05F, 0.08F, 1.0F};

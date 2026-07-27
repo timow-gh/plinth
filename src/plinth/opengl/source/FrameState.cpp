@@ -1,5 +1,5 @@
-#include <OpenGL/FrameState.hpp>
-#include <OpenGL/OpenGL.hpp>
+#include "OpenGL/FrameState.hpp"
+#include "OpenGL/OpenGL.hpp"
 
 namespace opengl {
 

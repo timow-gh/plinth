@@ -1,6 +1,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <plinth/LightingConfig.hpp>
 #include <plinth/Renderer.hpp>
 #include <plinth/Texture.hpp>
 #include <plinth/WindowSettings.hpp>
@@ -40,10 +41,15 @@ int main() {
     std::iota(pointIndices.begin(), pointIndices.end(), 0u);
     renderer::DrawableHandle vertexMeshDrawableHandle = renderer->add_point_drawable(vertices, pointColor, pointIndices, pointSize);
 
+    renderer::LightingConfig lighting;
+
     while (!renderer->should_close()) {
         renderer::Renderer::poll_events();
+        // Controls are consumed and cleared every frame, so re-register the
+        // lighting panel each iteration. It edits `lighting` in place.
+        renderer->imgui().add_lighting_controls(lighting);
         renderer->begin_frame();
-        renderer->draw();
+        renderer->draw(lighting);
         renderer->end_frame();
     }
 }

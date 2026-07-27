@@ -518,7 +518,7 @@ TEST_F(RendererTest, StaleHandlesCannotAffectReplacementRenderer) {
     EXPECT_FALSE(m_renderer->set_drawable_transform(staleDrawable, make_translation(1.0F, 2.0F, 3.0F)));
     EXPECT_FALSE(m_renderer->get_drawable_transform(staleDrawable).has_value());
     EXPECT_FALSE(m_renderer->reset_drawable_transform(staleDrawable));
-    m_renderer->set_mesh_drawable_cull_mode(staleDrawable, renderer::MeshCullFaceMode::none);
+    m_renderer->set_mesh_drawable_cull_mode(staleDrawable, renderer::MeshCullFaceMode::NONE);
 
     EXPECT_TRUE(m_renderer->get_drawable_transform(replacement)->is_identity());
     EXPECT_TRUE(m_renderer->remove_drawable(replacement));

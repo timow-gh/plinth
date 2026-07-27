@@ -57,7 +57,7 @@ int main() {
 
     const std::array<float, 4> lightBlue{0.0F, 0.5F, 1.0F, 1.0F};
     const std::array<std::uint32_t, 6> triangleIndices{0, 1, 2, 0, 2, 3};
-    auto rectangleMesh = renderer->add_mesh_drawable(rectangleVertices, triangleIndices, lightBlue);
+    auto rectangleMesh = renderer->add_mesh_drawable(rectangleVertices, triangleIndices, lightBlue, renderer::MeshCullFaceMode::NONE);
 
     linal::hmatf transform = linal::hmatf::identity();
     transform.set_translation(linal::float3{0.0F, 2.0F, 0.0F});
@@ -93,7 +93,7 @@ int main() {
         }
     });
 
-    // Number keys 1-7 jump to named preset views (front/back/left/right/top/bottom/iso), fitted
+    // Number keys 1-7 jump to named preset views (FRONT/BACK/left/right/top/bottom/iso), fitted
     // to whatever geometry currently exists in the scene. Routed through Renderer::go_to_preset_view
     // (not CameraInteractor::go_to_preset_view directly) so the jump actually frames current
     // geometry instead of just rotating around whatever pivot/distance the camera happened to have.

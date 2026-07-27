@@ -10,6 +10,7 @@
 #include "plinth/InputState.hpp"
 #include "plinth/LightingConfig.hpp"
 #include "plinth/LineType.hpp"
+#include "plinth/MeshCullFaceMode.hpp"
 #include "plinth/PostProcessingEnums.hpp"
 #include "plinth/Texture.hpp"
 #include "plinth/UiMode.hpp"
@@ -142,20 +143,20 @@ class Renderer {
     add_point_drawable(std::span<const float> vertices,
                        std::array<float, 4> color,
                        float pointSize = 2.0F,
-                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                       BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     DrawableHandle
     add_point_drawable(std::span<const float> vertices,
                        std::span<const float> colors,
                        float pointSize = 2.0F,
-                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                       BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     DrawableHandle
     add_point_drawable(std::span<const float> vertices,
                        std::span<const std::uint32_t> indices,
                        std::span<const float> colors,
                        float pointSize = 2.0F,
-                       renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                       BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     DrawableHandle
     add_line_drawable(std::span<const float> vertices,
@@ -163,7 +164,7 @@ class Renderer {
                       renderer::LineType lineType,
                       float lineWidth = 2.0F,
                       float pointSize = 0.0F,
-                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     DrawableHandle
     add_line_drawable(std::span<const float> vertices,
@@ -171,7 +172,7 @@ class Renderer {
                       renderer::LineType lineType,
                       float lineWidth = 2.0F,
                       float pointSize = 0.0F,
-                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     DrawableHandle
     add_line_drawable(std::span<const float> vertices,
@@ -180,33 +181,37 @@ class Renderer {
                       renderer::LineType lineType,
                       float lineWidth = 2.0F,
                       float pointSize = 0.0F,
-                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     DrawableHandle
     add_mesh_drawable(std::span<const float> vertices,
                       std::span<const std::uint32_t> triangleIndices,
                       std::array<float, 4> color,
-                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                      MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
+                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     DrawableHandle
     add_mesh_drawable(std::span<const float> vertices,
                       std::span<const std::uint32_t> triangleIndices,
                       std::span<const float> colors,
-                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                      MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
+                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     DrawableHandle
     add_mesh_drawable(std::span<const float> vertices,
                       std::span<const std::uint32_t> triangleIndices,
                       std::array<float, 4> color,
                       std::span<const float> normals,
-                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                      MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
+                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     DrawableHandle
     add_mesh_drawable(std::span<const float> vertices,
                       std::span<const std::uint32_t> triangleIndices,
                       std::span<const float> normals,
                       std::span<const float> colors,
-                      renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                      MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
+                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     /// TextureData::rgba8 is copied.
     TextureHandle create_texture_2d(TextureData data);
@@ -220,10 +225,10 @@ class Renderer {
                                std::span<const float> colors,
                                std::span<const std::uint32_t> triangleIndices,
                                TextureHandle texture,
-                               renderer::BufferAccessPattern accessPattern = renderer::BufferAccessPattern::Static);
+                               BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     /// Invalid, foreign, removed, and stale handles leave state unchanged.
-    void set_mesh_drawable_cull_mode(DrawableHandle handle, renderer::MeshCullFaceMode mode);
+    void set_mesh_drawable_cull_mode(DrawableHandle handle, MeshCullFaceMode mode);
 
     /// Returns false for invalid, foreign, removed, or stale handles.
     bool remove_drawable(DrawableHandle handle);
@@ -240,12 +245,12 @@ class Renderer {
     void update_last_point_drawable(std::span<const float> vertices,
                                     std::span<const float> colors,
                                     std::span<const std::uint32_t> indices,
-                                    renderer::BufferAccessPattern accessPattern);
+                                    BufferAccessPattern accessPattern);
 
     void update_last_line_drawable(std::span<const float> vertices,
                                    std::span<const float> colors,
                                    std::span<const std::uint32_t> indices,
-                                   renderer::BufferAccessPattern accessPattern);
+                                   BufferAccessPattern accessPattern);
 
     /// Removes all drawables of the given kind. Handles previously returned for
     /// those drawables become invalid and are rejected by subsequent operations.

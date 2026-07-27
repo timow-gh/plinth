@@ -490,39 +490,44 @@ DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
 DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
                                            std::span<const std::uint32_t> triangleIndices,
                                            std::array<float, 4> color,
+                                           renderer::MeshCullFaceMode cullMode,
                                            renderer::BufferAccessPattern accessPattern) {
     const std::vector<float> colors = expand_color(vertices, color);
     const std::vector<float> normals = compute_vertex_normals(vertices, triangleIndices);
-    return add_mesh_drawable(vertices, triangleIndices, normals, colors, accessPattern);
+    return add_mesh_drawable(vertices, triangleIndices, normals, colors, cullMode, accessPattern);
 }
 
 DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
                                            std::span<const std::uint32_t> triangleIndices,
                                            std::span<const float> colors,
+                                           renderer::MeshCullFaceMode cullMode,
                                            renderer::BufferAccessPattern accessPattern) {
     const std::vector<float> normals = compute_vertex_normals(vertices, triangleIndices);
-    return add_mesh_drawable(vertices, triangleIndices, normals, colors, accessPattern);
+    return add_mesh_drawable(vertices, triangleIndices, normals, colors, cullMode, accessPattern);
 }
 
 DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
                                            std::span<const std::uint32_t> triangleIndices,
                                            std::array<float, 4> color,
                                            std::span<const float> normals,
+                                           renderer::MeshCullFaceMode cullMode,
                                            renderer::BufferAccessPattern accessPattern) {
     const std::vector<float> colors = expand_color(vertices, color);
-    return add_mesh_drawable(vertices, triangleIndices, normals, colors, accessPattern);
+    return add_mesh_drawable(vertices, triangleIndices, normals, colors, cullMode, accessPattern);
 }
 
 DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
                                            std::span<const std::uint32_t> triangleIndices,
                                            std::span<const float> normals,
                                            std::span<const float> colors,
+                                           renderer::MeshCullFaceMode cullMode,
                                            renderer::BufferAccessPattern accessPattern) {
     const auto id =
         m_drawablesManager->add_mesh_drawable(vertices, 3, normals, colors, 4, triangleIndices, accessPattern);
     if (!id.has_value()) {
         return DrawableHandle{};
     }
+    m_drawablesManager->set_mesh_drawable_cull_mode(*id, cullMode);
     return DrawableHandle{DrawableKind::mesh, *id, m_rendererInstance};
 }
 

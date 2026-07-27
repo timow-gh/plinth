@@ -133,7 +133,7 @@ std::vector<float> expand_color(std::span<const float> vertices, std::array<floa
     std::vector<float> colors(vertexCount * 4U);
     for (std::size_t v = 0; v < vertexCount; ++v) {
         for (std::size_t c = 0; c < 4U; ++c) {
-            colors[v * 4U + c] = color[c];
+            colors[(v * 4U) + c] = color[c];
         }
     }
     return colors;
@@ -153,9 +153,9 @@ std::vector<float> compute_vertex_normals(std::span<const float> vertices,
         if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount) {
             continue;
         }
-        const linal::float3 v0{vertices[i0 * 3U], vertices[i0 * 3U + 1U], vertices[i0 * 3U + 2U]};
-        const linal::float3 v1{vertices[i1 * 3U], vertices[i1 * 3U + 1U], vertices[i1 * 3U + 2U]};
-        const linal::float3 v2{vertices[i2 * 3U], vertices[i2 * 3U + 1U], vertices[i2 * 3U + 2U]};
+        const linal::float3 v0{vertices[(i0 * 3U)], vertices[(i0 * 3U) + 1U], vertices[(i0 * 3U) + 2U]};
+        const linal::float3 v1{vertices[(i1 * 3U)], vertices[(i1 * 3U) + 1U], vertices[(i1 * 3U) + 2U]};
+        const linal::float3 v2{vertices[(i2 * 3U)], vertices[(i2 * 3U) + 1U], vertices[(i2 * 3U) + 2U]};
         const linal::float3 faceNormal = linal::cross(v1 - v0, v2 - v0); // un-normalized => area weighting
         accum[i0] = accum[i0] + faceNormal;
         accum[i1] = accum[i1] + faceNormal;
@@ -167,8 +167,8 @@ std::vector<float> compute_vertex_normals(std::span<const float> vertices,
                                        ? linal::normalize(accum[v])
                                        : linal::float3{0.0F, 0.0F, 1.0F};
         normals[v * 3U] = unit[0];
-        normals[v * 3U + 1U] = unit[1];
-        normals[v * 3U + 2U] = unit[2];
+        normals[(v * 3U) + 1U] = unit[1];
+        normals[(v * 3U) + 2U] = unit[2];
     }
     return normals;
 }

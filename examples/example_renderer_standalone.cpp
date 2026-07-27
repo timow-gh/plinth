@@ -8,6 +8,23 @@ constexpr std::uint32_t defaultWindowWidth = 1024;
 constexpr std::uint32_t defaultWindowHeight = 768;
 constexpr float standalonePointSize = 12.0F;
 constexpr float standaloneLineWidth = 3.0F;
+constexpr float rectangleVerticalOffset = 2.0F;
+
+void handle_preset_view(renderer::Renderer& renderer, renderer::Key key, renderer::Action action) {
+    if (action != renderer::Action::PRESS) {
+        return;
+    }
+    switch (key) {
+    case renderer::Key::KEY_1: renderer.go_to_preset_view(renderer::PresetView::FRONT); break;
+    case renderer::Key::KEY_2: renderer.go_to_preset_view(renderer::PresetView::BACK); break;
+    case renderer::Key::KEY_3: renderer.go_to_preset_view(renderer::PresetView::LEFT); break;
+    case renderer::Key::KEY_4: renderer.go_to_preset_view(renderer::PresetView::RIGHT); break;
+    case renderer::Key::KEY_5: renderer.go_to_preset_view(renderer::PresetView::TOP); break;
+    case renderer::Key::KEY_6: renderer.go_to_preset_view(renderer::PresetView::BOTTOM); break;
+    case renderer::Key::KEY_7: renderer.go_to_preset_view(renderer::PresetView::ISO); break;
+    default:                   break;
+    }
+}
 } // namespace
 
 int main() {
@@ -60,7 +77,7 @@ int main() {
     auto rectangleMesh = renderer->add_mesh_drawable(rectangleVertices, triangleIndices, lightBlue, renderer::MeshCullFaceMode::NONE);
 
     linal::hmatf transform = linal::hmatf::identity();
-    transform.set_translation(linal::float3{0.0F, 2.0F, 0.0F});
+    transform.set_translation(linal::float3{0.0F, rectangleVerticalOffset, 0.0F});
     renderer->set_drawable_transform(rectangleLines, transform);
     renderer->set_drawable_transform(rectangleMesh, transform);
 
@@ -94,26 +111,12 @@ int main() {
     });
 
     // Number keys 1-7 jump to named preset views (FRONT/BACK/left/right/top/bottom/iso), fitted
-    // to whatever geometry currently exists in the scene. Routed through Renderer::go_to_preset_view
-    // (not CameraInteractor::go_to_preset_view directly) so the jump actually frames current
-    // geometry instead of just rotating around whatever pivot/distance the camera happened to have.
+    // to whatever geometry currently exists in the scene.
     const auto presetViewSubscription = renderer->add_key_callback([&renderer](renderer::Key key,
                                                                                renderer::Scancode /*scancode*/,
                                                                                renderer::Action action,
                                                                                renderer::Mods /*mods*/) {
-        if (action != renderer::Action::PRESS) {
-            return;
-        }
-        switch (key) {
-        case renderer::Key::KEY_1: renderer->go_to_preset_view(renderer::PresetView::FRONT); break;
-        case renderer::Key::KEY_2: renderer->go_to_preset_view(renderer::PresetView::BACK); break;
-        case renderer::Key::KEY_3: renderer->go_to_preset_view(renderer::PresetView::LEFT); break;
-        case renderer::Key::KEY_4: renderer->go_to_preset_view(renderer::PresetView::RIGHT); break;
-        case renderer::Key::KEY_5: renderer->go_to_preset_view(renderer::PresetView::TOP); break;
-        case renderer::Key::KEY_6: renderer->go_to_preset_view(renderer::PresetView::BOTTOM); break;
-        case renderer::Key::KEY_7: renderer->go_to_preset_view(renderer::PresetView::ISO); break;
-        default:                   break;
-        }
+        handle_preset_view(*renderer, key, action);
     });
 
     while (!renderer->should_close()) {

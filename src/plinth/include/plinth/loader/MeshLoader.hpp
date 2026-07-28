@@ -47,6 +47,10 @@ enum class SourceUpAxis {
 /// Options controlling how a mesh is post-processed after parsing. Defaults keep
 /// the raw imported data unchanged.
 struct MeshLoadOptions {
+    /// Shading is only applied to meshes without texture coordinates or
+    /// submeshes. Flat/Smooth rebuild the vertex arrays and would invalidate a
+    /// textured, multi-material mesh's UVs and submesh index ranges, so for such
+    /// meshes the requested mode is ignored and the parsed data is preserved.
     ShadingMode shading{ShadingMode::Preserve};
     /// Source up-axis. When unset, each format's conventional default is used
     /// (OBJ is treated as Y-up, STL as Z-up). Set explicitly to override.

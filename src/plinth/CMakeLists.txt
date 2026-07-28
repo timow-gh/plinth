@@ -29,6 +29,7 @@ set(plinth_HEADER_FILES
         include/plinth/loader/MeshFormatLoader.hpp
         include/plinth/loader/MeshLoader.hpp
         include/plinth/loader/MeshShading.hpp
+        include/plinth/loader/MtlLoader.hpp
         include/plinth/loader/ObjLoader.hpp
         include/plinth/loader/StlLoader.hpp
 )
@@ -42,6 +43,7 @@ set(plinth_SOURCE_FILES
         source/Renderer.cpp
         source/loader/MeshLoader.cpp
         source/loader/MeshShading.cpp
+        source/loader/MtlLoader.cpp
         source/loader/ObjLoader.cpp
         source/loader/StlLoader.cpp
 )

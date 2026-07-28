@@ -9,33 +9,54 @@ namespace renderer {
 
 namespace {
 
-// A face corner references a position and, optionally, a normal by OBJ index.
-// Texture coordinate indices are parsed but not retained.
+// A face corner references a position and, optionally, a texture coordinate and
+// a normal by OBJ index.
 struct Corner {
     int position{0}; // resolved to 0-based; -1 when absent (never valid for a corner)
+    int texcoord{-1}; // resolved to 0-based; -1 when absent
     int normal{-1};  // resolved to 0-based; -1 when absent
 };
 
-// Key identifying a unique emitted vertex: a (position, normal) pair. Distinct
-// normals on the same position must become distinct vertices so per-vertex
-// normal buffers line up with positions.
+// Key identifying a unique emitted vertex: a (position, texcoord, normal) tuple.
+// Distinct normals or texture coordinates on the same position must become
+// distinct vertices so per-vertex normal and uv buffers line up with positions.
 struct CornerKey {
     int position{0};
+    int texcoord{-1};
     int normal{-1};
     bool operator==(const CornerKey&) const = default;
 };
 
 struct CornerKeyHash {
     std::size_t operator()(const CornerKey& key) const {
-        const std::uint64_t packed = (static_cast<std::uint64_t>(static_cast<std::uint32_t>(key.position)) << 32U) ^
-                                     static_cast<std::uint32_t>(key.normal);
-        return std::hash<std::uint64_t>{}(packed);
+        std::uint64_t hash = static_cast<std::uint32_t>(key.position);
+        // Mix in texcoord and normal. Constants are the standard hash_combine
+        // magic; the goal is only to disperse distinct tuples across buckets.
+        hash = hash * 0x9E3779B97F4A7C15ULL + static_cast<std::uint32_t>(key.texcoord);
+        hash = hash * 0x9E3779B97F4A7C15ULL + static_cast<std::uint32_t>(key.normal);
+        return std::hash<std::uint64_t>{}(hash);
     }
 };
 
 [[nodiscard]]
 bool is_space(char c) {
     return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' || c == '\v';
+}
+
+// Strips leading and trailing whitespace. Used for directive operands (e.g.
+// mtllib / usemtl names) that may contain interior spaces and so cannot be read
+// as a single whitespace-delimited token.
+[[nodiscard]]
+std::string_view trim(std::string_view text) {
+    std::size_t begin = 0;
+    while (begin < text.size() && is_space(text[begin])) {
+        ++begin;
+    }
+    std::size_t end = text.size();
+    while (end > begin && is_space(text[end - 1])) {
+        --end;
+    }
+    return text.substr(begin, end - begin);
 }
 
 // Advances past leading whitespace and returns the next whitespace-delimited
@@ -84,9 +105,14 @@ bool resolve_index(std::string_view token, std::size_t count, int& out) {
 }
 
 // Parses a single face vertex token of the form "v", "v/vt", "v//vn", or
-// "v/vt/vn" into a Corner. Missing position is a parse error.
+// "v/vt/vn" into a Corner. Missing position is a parse error. A present but
+// malformed texture-coordinate or normal index is a parse error.
 [[nodiscard]]
-bool parse_corner(std::string_view token, std::size_t positionCount, std::size_t normalCount, Corner& out) {
+bool parse_corner(std::string_view token,
+                  std::size_t positionCount,
+                  std::size_t texcoordCount,
+                  std::size_t normalCount,
+                  Corner& out) {
     const std::size_t firstSlash = token.find('/');
     const std::string_view positionTok = token.substr(0, firstSlash);
     if (!resolve_index(positionTok, positionCount, out.position)) {
@@ -97,8 +123,12 @@ bool parse_corner(std::string_view token, std::size_t positionCount, std::size_t
     }
     const std::string_view rest = token.substr(firstSlash + 1);
     const std::size_t secondSlash = rest.find('/');
+    const std::string_view texcoordTok = rest.substr(0, secondSlash);
+    if (!texcoordTok.empty() && !resolve_index(texcoordTok, texcoordCount, out.texcoord)) {
+        return false; // "v//vn" leaves texcoordTok empty; a present index must resolve.
+    }
     if (secondSlash == std::string_view::npos) {
-        return true; // "v/vt": texture coordinate ignored, no normal.
+        return true; // "v/vt": no normal.
     }
     const std::string_view normalTok = rest.substr(secondSlash + 1);
     if (normalTok.empty()) {
@@ -113,16 +143,18 @@ bool parse_corner(std::string_view token, std::size_t positionCount, std::size_t
 std::expected<MeshData, LoadError> ObjLoader::parse(std::string_view rawContents) const {
     std::vector<std::array<float, 3>> positions;
     std::vector<std::array<float, 3>> normals;
+    std::vector<std::array<float, 2>> texcoords;
 
     MeshData mesh;
     mesh.sourceName = "obj";
 
     std::unordered_map<CornerKey, std::uint32_t, CornerKeyHash> emitted;
     const bool haveAnyNormals = rawContents.find("\nvn") != std::string_view::npos || rawContents.starts_with("vn");
+    const bool haveAnyTexcoords = rawContents.find("\nvt") != std::string_view::npos || rawContents.starts_with("vt");
 
     // Emits (deduplicated) the vertex for a corner and returns its index.
     const auto emit_corner = [&](const Corner& corner) -> std::uint32_t {
-        const CornerKey key{corner.position, corner.normal};
+        const CornerKey key{corner.position, corner.texcoord, corner.normal};
         if (const auto it = emitted.find(key); it != emitted.end()) {
             return it->second;
         }
@@ -141,8 +173,41 @@ std::expected<MeshData, LoadError> ObjLoader::parse(std::string_view rawContents
                 mesh.normals.insert(mesh.normals.end(), {0.0F, 0.0F, 1.0F});
             }
         }
+        if (haveAnyTexcoords) {
+            if (corner.texcoord >= 0) {
+                const std::array<float, 2>& uv = texcoords[static_cast<std::size_t>(corner.texcoord)];
+                mesh.textureCoordinates.insert(mesh.textureCoordinates.end(), uv.begin(), uv.end());
+            } else {
+                // Keep the uv buffer aligned with vertices when a corner has no
+                // texture coordinate in a file that otherwise has them.
+                mesh.textureCoordinates.insert(mesh.textureCoordinates.end(), {0.0F, 0.0F});
+            }
+        }
         emitted.emplace(key, index);
         return index;
+    };
+
+    // Submesh grouping: a usemtl directive closes the current group and opens a
+    // new one. Groups delimit runs of triangleIndices sharing one material.
+    std::string currentMaterial;
+    bool haveOpenSubMesh = false;
+    const auto close_sub_mesh = [&] {
+        if (!haveOpenSubMesh) {
+            return;
+        }
+        const auto end = static_cast<std::uint32_t>(mesh.triangleIndices.size());
+        MeshData::SubMesh& sub = mesh.subMeshes.back();
+        sub.indexCount = end - sub.indexOffset;
+        if (sub.indexCount == 0U) {
+            mesh.subMeshes.pop_back(); // drop empty groups (e.g. usemtl with no faces)
+        }
+        haveOpenSubMesh = false;
+    };
+    const auto open_sub_mesh = [&] {
+        close_sub_mesh();
+        mesh.subMeshes.push_back(
+            {.indexOffset = static_cast<std::uint32_t>(mesh.triangleIndices.size()), .indexCount = 0U, .materialName = currentMaterial});
+        haveOpenSubMesh = true;
     };
 
     std::size_t lineStart = 0;
@@ -180,11 +245,34 @@ std::expected<MeshData, LoadError> ObjLoader::parse(std::string_view rawContents
                 return std::unexpected(LoadError::parseError);
             }
             normals.push_back(n);
+        } else if (keyword == "vt") {
+            // Only u, v are retained; an optional w component is ignored.
+            std::array<float, 2> uv{0.0F, 0.0F};
+            bool ok = true;
+            for (float& component: uv) {
+                ok = ok && parse_float(next_token(cursor), component);
+            }
+            if (!ok) {
+                return std::unexpected(LoadError::parseError);
+            }
+            texcoords.push_back(uv);
+        } else if (keyword == "mtllib") {
+            // The remainder of the line is the library name (may contain spaces).
+            // Only the first declaration is retained.
+            if (mesh.materialLibrary.empty()) {
+                mesh.materialLibrary = std::string(trim(cursor));
+            }
+        } else if (keyword == "usemtl") {
+            currentMaterial = std::string(trim(cursor));
+            open_sub_mesh();
         } else if (keyword == "f") {
+            if (!haveOpenSubMesh) {
+                open_sub_mesh(); // faces before any usemtl form a default group
+            }
             std::vector<Corner> face;
             for (std::string_view token = next_token(cursor); !token.empty(); token = next_token(cursor)) {
                 Corner corner;
-                if (!parse_corner(token, positions.size(), normals.size(), corner)) {
+                if (!parse_corner(token, positions.size(), texcoords.size(), normals.size(), corner)) {
                     return std::unexpected(LoadError::parseError);
                 }
                 face.push_back(corner);
@@ -203,8 +291,9 @@ std::expected<MeshData, LoadError> ObjLoader::parse(std::string_view rawContents
                 previous = current;
             }
         }
-        // Other directives (vt, mtllib, usemtl, g, o, s, ...) are ignored.
+        // Other directives (g, o, s, ...) are ignored.
     }
+    close_sub_mesh();
 
     if (mesh.empty()) {
         return std::unexpected(LoadError::empty);

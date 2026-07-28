@@ -10,7 +10,7 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd textures\indoor plant_2_NOR.jpg
+map_Kd textures\indoor plant_2_COL.jpg
 map_Bump  textures\\indoor plant_2_NOR.jpg
 map_Ks  textures\\indoor plant_2_COL.jpg
 
@@ -23,7 +23,7 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 1
-map_Kd textures\indoor plant_2_NOR.jpg
+map_Kd textures\indoor plant_2_COL.jpg
 map_Bump  textures\\indoor plant_2_NOR.jpg
 
 newmtl IDP_leaves
@@ -48,7 +48,7 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd textures\indoor plant_2_NOR.jpg
+map_Kd textures\indoor plant_2_COL.jpg
 map_Bump  textures\\indoor plant_2_NOR.jpg
 map_Ks  textures\\indoor plant_2_COL.jpg
 
@@ -74,7 +74,7 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd textures\indoor plant_2_NOR.jpg
+map_Kd textures\indoor plant_2_COL.jpg
 map_Bump  textures\\indoor plant_2_NOR.jpg
 map_Ks  textures\\indoor plant_2_COL.jpg
 

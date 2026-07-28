@@ -147,4 +147,73 @@ TEST(ObjLoaderTest, LoadMeshLeavesGeometryUnchangedWhenUpAxisIsZ) {
     EXPECT_FLOAT_EQ(mesh->vertices[2], 3.0F);
 }
 
+TEST(ObjLoaderTest, RetainsTextureCoordinatesParallelToVertices) {
+    constexpr std::string_view obj = "v 0 0 0\n"
+                                     "v 1 0 0\n"
+                                     "v 0 1 0\n"
+                                     "vt 0 0\n"
+                                     "vt 1 0\n"
+                                     "vt 0 1\n"
+                                     "f 1/1 2/2 3/3\n";
+    const auto mesh = ObjLoader{}.parse(obj);
+    ASSERT_TRUE(mesh.has_value());
+    // Two uv floats per vertex, parallel to positions.
+    ASSERT_EQ(mesh->textureCoordinates.size(), (mesh->vertices.size() / 3U) * 2U);
+    EXPECT_FLOAT_EQ(mesh->textureCoordinates[0], 0.0F);
+    EXPECT_FLOAT_EQ(mesh->textureCoordinates[1], 0.0F);
+    EXPECT_FLOAT_EQ(mesh->textureCoordinates[2], 1.0F);
+    EXPECT_FLOAT_EQ(mesh->textureCoordinates[3], 0.0F);
+    EXPECT_FLOAT_EQ(mesh->textureCoordinates[4], 0.0F);
+    EXPECT_FLOAT_EQ(mesh->textureCoordinates[5], 1.0F);
+}
+
+TEST(ObjLoaderTest, SplitsCornersSharingPositionButDifferingUv) {
+    // Same position/normal, different vt => distinct emitted vertices.
+    constexpr std::string_view obj = "v 0 0 0\n"
+                                     "v 1 0 0\n"
+                                     "v 0 1 0\n"
+                                     "vt 0 0\n"
+                                     "vt 1 1\n"
+                                     "f 1/1 2/1 3/1\n"
+                                     "f 1/2 2/1 3/1\n";
+    const auto mesh = ObjLoader{}.parse(obj);
+    ASSERT_TRUE(mesh.has_value());
+    // Corner 1 appears with two different uvs => 4 unique vertices, not 3.
+    EXPECT_EQ(mesh->vertices.size(), 4U * 3U);
+}
+
+TEST(ObjLoaderTest, RecordsMaterialLibraryAndSplitsSubmeshesByUsemtl) {
+    constexpr std::string_view obj = "mtllib plant.mtl\n"
+                                     "v 0 0 0\n"
+                                     "v 1 0 0\n"
+                                     "v 0 1 0\n"
+                                     "v 1 1 0\n"
+                                     "usemtl pot\n"
+                                     "f 1 2 3\n"
+                                     "usemtl leaves\n"
+                                     "f 2 4 3\n";
+    const auto mesh = ObjLoader{}.parse(obj);
+    ASSERT_TRUE(mesh.has_value());
+    EXPECT_EQ(mesh->materialLibrary, "plant.mtl");
+    ASSERT_EQ(mesh->subMeshes.size(), 2U);
+    EXPECT_EQ(mesh->subMeshes[0].materialName, "pot");
+    EXPECT_EQ(mesh->subMeshes[0].indexOffset, 0U);
+    EXPECT_EQ(mesh->subMeshes[0].indexCount, 3U);
+    EXPECT_EQ(mesh->subMeshes[1].materialName, "leaves");
+    EXPECT_EQ(mesh->subMeshes[1].indexOffset, 3U);
+    EXPECT_EQ(mesh->subMeshes[1].indexCount, 3U);
+}
+
+TEST(ObjLoaderTest, FacesBeforeAnyUsemtlFormADefaultSubmesh) {
+    constexpr std::string_view obj = "v 0 0 0\n"
+                                     "v 1 0 0\n"
+                                     "v 0 1 0\n"
+                                     "f 1 2 3\n";
+    const auto mesh = ObjLoader{}.parse(obj);
+    ASSERT_TRUE(mesh.has_value());
+    ASSERT_EQ(mesh->subMeshes.size(), 1U);
+    EXPECT_TRUE(mesh->subMeshes[0].materialName.empty());
+    EXPECT_EQ(mesh->subMeshes[0].indexCount, 3U);
+}
+
 } // namespace

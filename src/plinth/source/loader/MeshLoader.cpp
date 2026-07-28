@@ -1,9 +1,11 @@
 #include "plinth/loader/MeshLoader.hpp"
 #include "plinth/loader/MeshFormatLoader.hpp"
 #include "plinth/loader/MeshShading.hpp"
+#include "plinth/loader/MtlLoader.hpp"
 #include "plinth/loader/ObjLoader.hpp"
 #include "plinth/loader/StlLoader.hpp"
 #include <cctype>
+#include <filesystem>
 #include <fstream>
 #include <ios>
 #include <string>
@@ -70,13 +72,49 @@ std::expected<std::string, LoadError> read_file(const std::filesystem::path& pat
     return contents;
 }
 
+// Flat/Smooth shading rebuilds the vertex arrays and would invalidate texture
+// coordinates and submesh index ranges. A mesh carrying UVs is meant to be
+// rendered textured (via ShadingMode::Preserve), so re-shading is skipped for it
+// and the parsed normals/UVs/submeshes are kept intact. A mesh with submeshes
+// but no UVs can still be re-shaded, but its per-material index ranges no longer
+// map onto the rebuilt geometry, so the (now meaningless) grouping is dropped.
+[[nodiscard]]
+std::expected<MeshData, LoadError> apply_shading_if_supported(const MeshData& mesh, ShadingMode mode) {
+    if (mode == ShadingMode::Preserve || !mesh.textureCoordinates.empty()) {
+        return mesh;
+    }
+    MeshData shaded = apply_shading(mesh, mode);
+    shaded.subMeshes.clear();
+    return shaded;
+}
+
+// Resolves an OBJ's recorded material library against the source directory and
+// fills each submesh's material into mesh.materials with a diffuse texture path.
+// A missing or unparseable .mtl is non-fatal: the mesh still loads, untextured.
+void resolve_materials(MeshData& mesh, const std::filesystem::path& sourcePath) {
+    if (mesh.materialLibrary.empty()) {
+        return;
+    }
+    const std::filesystem::path baseDir = sourcePath.parent_path();
+    const std::filesystem::path mtlPath = baseDir / mesh.materialLibrary;
+    auto contents = read_file(mtlPath);
+    if (!contents) {
+        return;
+    }
+    auto materials = parse_mtl(*contents, baseDir);
+    if (!materials) {
+        return;
+    }
+    mesh.materials = std::move(*materials);
+}
+
 } // namespace
 
 std::expected<MeshData, LoadError>
 load_mesh(std::string_view extension, std::string contents, MeshLoadOptions options) {
     auto mesh = load_mesh_with(BuiltinMeshLoaders{}, extension, contents);
     if (mesh) {
-        mesh = apply_shading(*mesh, options.shading);
+        mesh = apply_shading_if_supported(*mesh, options.shading);
     }
     if (mesh) {
         apply_up_axis(*mesh, options.upAxis.value_or(conventional_up_axis(extension)));
@@ -92,10 +130,13 @@ std::expected<MeshData, LoadError> load_mesh(const std::filesystem::path& path, 
     const std::string extension = path.extension().string();
     auto mesh = load_mesh_with(BuiltinMeshLoaders{}, extension, *contents);
     if (mesh) {
-        mesh = apply_shading(*mesh, options.shading);
+        mesh = apply_shading_if_supported(*mesh, options.shading);
     }
     if (mesh) {
         apply_up_axis(*mesh, options.upAxis.value_or(conventional_up_axis(extension)));
+        // Resolve materials before overwriting sourceName, using the full path's
+        // directory to locate the .mtl referenced by the OBJ.
+        resolve_materials(*mesh, path);
         mesh->sourceName = path.filename().string();
     }
     return mesh;

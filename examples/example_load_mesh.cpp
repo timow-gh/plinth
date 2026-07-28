@@ -41,9 +41,14 @@ int main() {
         return 1;
     }
 
-    const renderer::MeshLoadOptions options{.shading = renderer::ShadingMode::Preserve};
+    // OBJ files are Y-up by convention; load_mesh rotates them into the
+    // renderer's Z-up space automatically (override with MeshLoadOptions::upAxis).
+    const renderer::MeshLoadOptions options{.shading = renderer::ShadingMode::Flat};
+    // auto mesh = renderer::load_mesh(
+    //     std::filesystem::path("C:\\Users\\testUser\\dev\\repos\\plinth\\examples\\indoor plant_02.obj"),
+    //     options);
     auto mesh = renderer::load_mesh(
-        std::filesystem::path("C:\\Users\\testUser\\dev\\repos\\plinth\\examples\\indoor plant_02.obj"),
+        std::filesystem::path("C:\\Users\\testUser\\dev\\repos\\plinth\\examples\\Intergalactic_Spaceship.stl"),
         options);
     // auto mesh = renderer::load_mesh(".obj", std::string{fallbackCubeObj}, options);
 
@@ -51,8 +56,8 @@ int main() {
         return 2;
     }
 
-    const std::array<float, 4> orange{0.9F, 0.5F, 0.2F, 1.0F};
-    renderer->add_mesh_drawable(*mesh, orange);
+    const std::array<float, 4> lightBlue{0.2F, 0.4F, 0.8F, 1.0F};
+    renderer->add_mesh_drawable(*mesh, lightBlue);
 
     while (!renderer->should_close()) {
         renderer::Renderer::poll_events();

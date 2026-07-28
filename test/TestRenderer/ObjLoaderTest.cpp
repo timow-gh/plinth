@@ -113,4 +113,38 @@ TEST(ObjLoaderTest, EmptyInputIsEmptyError) {
     EXPECT_EQ(mesh.error(), LoadError::empty);
 }
 
+// A triangle whose first vertex is (1, 2, 3) with an explicit normal, used to
+// verify the Y-up -> Z-up rotation applied by load_mesh.
+constexpr std::string_view yUpTriangle = "v 1 2 3\n"
+                                         "v 4 0 0\n"
+                                         "v 0 4 0\n"
+                                         "vn 0 1 0\n"
+                                         "f 1//1 2//1 3//1\n";
+
+TEST(ObjLoaderTest, LoadMeshRotatesObjFromYUpToZUpByDefault) {
+    // .obj defaults to Y-up: (x, y, z) -> (x, -z, y). So (1, 2, 3) -> (1, -3, 2)
+    // and the up normal (0, 1, 0) -> (0, 0, 1) (renderer Z-up).
+    const auto mesh = renderer::load_mesh(".obj", std::string{yUpTriangle});
+    ASSERT_TRUE(mesh.has_value());
+    ASSERT_GE(mesh->vertices.size(), 3U);
+    EXPECT_FLOAT_EQ(mesh->vertices[0], 1.0F);
+    EXPECT_FLOAT_EQ(mesh->vertices[1], -3.0F);
+    EXPECT_FLOAT_EQ(mesh->vertices[2], 2.0F);
+    ASSERT_GE(mesh->normals.size(), 3U);
+    EXPECT_FLOAT_EQ(mesh->normals[0], 0.0F);
+    EXPECT_FLOAT_EQ(mesh->normals[1], 0.0F);
+    EXPECT_FLOAT_EQ(mesh->normals[2], 1.0F);
+}
+
+TEST(ObjLoaderTest, LoadMeshLeavesGeometryUnchangedWhenUpAxisIsZ) {
+    renderer::MeshLoadOptions options;
+    options.upAxis = renderer::SourceUpAxis::Z;
+    const auto mesh = renderer::load_mesh(".obj", std::string{yUpTriangle}, options);
+    ASSERT_TRUE(mesh.has_value());
+    ASSERT_GE(mesh->vertices.size(), 3U);
+    EXPECT_FLOAT_EQ(mesh->vertices[0], 1.0F);
+    EXPECT_FLOAT_EQ(mesh->vertices[1], 2.0F);
+    EXPECT_FLOAT_EQ(mesh->vertices[2], 3.0F);
+}
+
 } // namespace

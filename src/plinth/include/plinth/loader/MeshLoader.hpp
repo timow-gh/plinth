@@ -5,6 +5,7 @@
 #include "plinth/plinth_export.h"
 #include <expected>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -33,10 +34,23 @@ enum class ShadingMode {
     Smooth,
 };
 
+/// Which axis points "up" in a source file's coordinate system. The renderer is
+/// Z-up; geometry authored with a different up-axis is rotated into Z-up at load.
+enum class SourceUpAxis {
+    /// Z is up (matches the renderer; no rotation applied).
+    Z,
+    /// Y is up (the Wavefront OBJ convention); rotated +90 degrees about X so
+    /// model +Y becomes world +Z.
+    Y,
+};
+
 /// Options controlling how a mesh is post-processed after parsing. Defaults keep
 /// the raw imported data unchanged.
 struct MeshLoadOptions {
     ShadingMode shading{ShadingMode::Preserve};
+    /// Source up-axis. When unset, each format's conventional default is used
+    /// (OBJ is treated as Y-up, STL as Z-up). Set explicitly to override.
+    std::optional<SourceUpAxis> upAxis{};
 };
 
 [[nodiscard]]

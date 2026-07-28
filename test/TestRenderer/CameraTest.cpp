@@ -121,6 +121,26 @@ TEST(CameraTest, UpdatesPerspectiveAndOrthographicParameters) {
     (void)camera.get_ortho_mvp();
 }
 
+TEST(CameraTest, SetClipPlanesUpdatesBothPlanesAtomically) {
+    renderer::Camera camera = make_camera();
+
+    camera.set_clip_planes(0.5, 500.0);
+    EXPECT_DOUBLE_EQ(camera.get_near_plane(), 0.5);
+    EXPECT_DOUBLE_EQ(camera.get_far_plane(), 500.0);
+
+    // New near (600) exceeds the old far (500): a two-step near-then-far update
+    // would transiently violate near < far, but the atomic pair setter does not.
+    camera.set_clip_planes(600.0, 5000.0);
+    EXPECT_DOUBLE_EQ(camera.get_near_plane(), 600.0);
+    EXPECT_DOUBLE_EQ(camera.get_far_plane(), 5000.0);
+
+    // Applies to whichever projection is active.
+    camera.set_projection_type(renderer::CameraProjectionType::ORTHOGRAPHIC);
+    camera.set_clip_planes(0.25, 250.0);
+    EXPECT_DOUBLE_EQ(camera.get_orthographic_params().near_plane, 0.25);
+    EXPECT_DOUBLE_EQ(camera.get_orthographic_params().far_plane, 250.0);
+}
+
 TEST(CameraTest, ZoomsPerspectiveAndOrthographicProjections) {
     renderer::Camera camera = make_camera();
 

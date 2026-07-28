@@ -39,6 +39,7 @@ struct CameraAutoFitResult {
     bool zoomedIn{false};
     bool panned{false};
     double viewportOccupancy{0.0};
+    double nearPlane{0.01};
     double farPlane{0.0};
     double orthographicWidth{10.0};
     double orthographicHeight{10.0};
@@ -50,6 +51,24 @@ struct CameraAutoFitResult {
 [[nodiscard]]
 CameraAutoFitResult calculate_camera_auto_fit(std::span<const std::span<const float>> vertexPositionBuffers,
                                               const CameraAutoFitInput& input);
+
+/// Fitted near/far clip planes for a fixed camera pose. Unlike
+/// calculate_camera_auto_fit this never proposes camera movement: it brackets
+/// whatever geometry the buffers contain at the pose described by \p input so
+/// the planes can be refreshed every frame while the user navigates. \p input's
+/// position/target/vertical describe the current pose; nearPlane is the
+/// absolute minimum near plane (the actual near floor is derived from scene
+/// scale so it carries no per-frame history) and farPlaneMultiplier controls
+/// the far padding.
+struct CameraClipPlanes {
+    bool hasGeometry{false};
+    double nearPlane{0.01};
+    double farPlane{0.0};
+};
+
+[[nodiscard]]
+CameraClipPlanes calculate_clip_planes(std::span<const std::span<const float>> vertexPositionBuffers,
+                                       const CameraAutoFitInput& input);
 
 } // namespace renderer
 

@@ -3,16 +3,51 @@
 #include "plinth/loader/MeshShading.hpp"
 #include "plinth/loader/ObjLoader.hpp"
 #include "plinth/loader/StlLoader.hpp"
+#include <cctype>
 #include <fstream>
 #include <ios>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace renderer {
 
 namespace {
 
 using BuiltinMeshLoaders = MeshLoaderList<ObjLoader, StlLoader>;
+
+// Conventional up-axis per format, used when the caller does not set one. OBJ is
+// authored Y-up in the Wavefront ecosystem; STL is Z-up in the CAD world.
+[[nodiscard]]
+SourceUpAxis conventional_up_axis(std::string_view extension) {
+    std::string lowered(extension);
+    for (char& c: lowered) {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return lowered == ".obj" ? SourceUpAxis::Y : SourceUpAxis::Z;
+}
+
+// Rotates every xyz triplet in \p buffer by +90 degrees about the X axis so that
+// a Y-up source becomes Z-up: (x, y, z) -> (x, -z, y). Applied to both positions
+// and normals; for a pure rotation the normal transform equals the position one.
+void rotate_y_up_to_z_up(std::vector<float>& buffer) {
+    for (std::size_t i = 0; i + 2 < buffer.size(); i += 3) {
+        const float y = buffer[i + 1];
+        const float z = buffer[i + 2];
+        buffer[i + 1] = -z;
+        buffer[i + 2] = y;
+    }
+}
+
+// Converts parsed geometry from its source up-axis into the renderer's Z-up
+// convention, in place. A no-op when the source is already Z-up.
+void apply_up_axis(MeshData& mesh, SourceUpAxis upAxis) {
+    if (upAxis == SourceUpAxis::Z) {
+        return;
+    }
+    rotate_y_up_to_z_up(mesh.vertices);
+    rotate_y_up_to_z_up(mesh.normals);
+}
 
 [[nodiscard]]
 std::expected<std::string, LoadError> read_file(const std::filesystem::path& path) {
@@ -43,6 +78,9 @@ load_mesh(std::string_view extension, std::string contents, MeshLoadOptions opti
     if (mesh) {
         mesh = apply_shading(*mesh, options.shading);
     }
+    if (mesh) {
+        apply_up_axis(*mesh, options.upAxis.value_or(conventional_up_axis(extension)));
+    }
     return mesh;
 }
 
@@ -55,6 +93,9 @@ std::expected<MeshData, LoadError> load_mesh(const std::filesystem::path& path, 
     auto mesh = load_mesh_with(BuiltinMeshLoaders{}, extension, *contents);
     if (mesh) {
         mesh = apply_shading(*mesh, options.shading);
+    }
+    if (mesh) {
+        apply_up_axis(*mesh, options.upAxis.value_or(conventional_up_axis(extension)));
         mesh->sourceName = path.filename().string();
     }
     return mesh;

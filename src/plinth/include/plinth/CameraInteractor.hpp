@@ -175,6 +175,14 @@ class CameraInteractor : private CameraSettings {
         update_mvp();
     }
 
+    // Sets near and far together, validated as a pair. Preferred over separate
+    // set_near_plane/set_far_plane when both change at once (e.g. clip-plane
+    // refitting), since it cannot transiently violate near < far.
+    void set_clip_planes(double nearPlane, double farPlane) {
+        m_camera.set_clip_planes(nearPlane, farPlane);
+        update_mvp();
+    }
+
     void set_orthographic_size(double width, double height) {
         m_camera.set_orthographic_size(width, height);
         update_mvp();

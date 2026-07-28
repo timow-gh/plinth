@@ -66,6 +66,12 @@ namespace {
 
 constexpr linal::double3 defaultCameraPosition{5.0, 5.0, 5.0};
 constexpr double minimumFitDistance = 1.0;
+// Absolute smallest near plane handed to the clip-plane fitter. It is a fixed
+// constant, not the camera's current near plane: feeding the live near plane
+// back in ratchets it upward across frames and clips close geometry after a
+// zoom-out/zoom-in cycle. The fitter derives an adaptive scene-scale floor at
+// or above this value.
+constexpr double minimumNearPlane = 0.01;
 constexpr double maxFrameDeltaSeconds = 0.1;
 constexpr CameraAutoFitSettings defaultAutoFitSettings{};
 
@@ -528,6 +534,9 @@ DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
         return DrawableHandle{};
     }
     m_drawablesManager->set_mesh_drawable_cull_mode(*id, cullMode);
+    // Adding geometry schedules a camera re-pose so the new mesh is framed on the
+    // next auto-fit pass. Clip planes are refit every frame regardless.
+    m_autoFitPending = true;
     return DrawableHandle{DrawableKind::mesh, *id, m_rendererInstance};
 }
 
@@ -708,6 +717,7 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
                      [this](Key key) { return !m_imgui->wants_keyboard() && m_window.is_key_pressed(key); });
 
     maybe_update_auto_fit(now);
+    update_clip_planes_from_bounds();
 
     update_scene_viewport();
 
@@ -1006,7 +1016,7 @@ CameraAutoFitResult Renderer::compute_fit_destination(const linal::double3& dire
     input.projectionType = m_camera->get_projection_type();
     input.verticalFovDegrees = m_camera->get_fov();
     input.aspectRatio = m_camera->get_viewport().get_aspect_ratio();
-    input.nearPlane = m_camera->get_near_plane();
+    input.nearPlane = minimumNearPlane;
     const auto orthoParams = m_camera->get_orthographic_params();
     input.orthographicWidth = orthoParams.width;
     input.orthographicHeight = orthoParams.height;
@@ -1049,7 +1059,46 @@ void Renderer::apply_fit_result(const CameraAutoFitResult& result) {
     if (m_camera->get_projection_type() == CameraProjectionType::ORTHOGRAPHIC) {
         m_camera->set_orthographic_size(result.orthographicWidth, result.orthographicHeight);
     }
-    m_camera->set_far_plane(result.farPlane);
+    apply_clip_planes(result.nearPlane, result.farPlane);
+}
+
+void Renderer::apply_clip_planes(double nearPlane, double farPlane) {
+    // set_clip_planes validates near < far atomically, so a fitted near that
+    // exceeds the previous far (or a fitted far below the previous near) is fine:
+    // there is no intermediate single-plane state to violate the invariant.
+    m_camera->set_clip_planes(nearPlane, farPlane);
+}
+
+void Renderer::update_clip_planes_from_bounds() {
+    // Clip-plane fitting runs every frame, independent of the auto-fit toggle:
+    // it only adjusts near/far to keep the current geometry inside the frustum
+    // and never moves the camera, so it is safe to apply continuously while the
+    // user navigates. The auto-fit toggle governs the camera *re-pose* only.
+    if (!m_drawablesManager->has_drawables()) {
+        return;
+    }
+
+    CameraAutoFitInput input;
+    input.position = m_camera->get_position();
+    input.target = m_camera->get_target();
+    input.vertical = m_camera->get_vertical();
+    input.projectionType = m_camera->get_projection_type();
+    input.verticalFovDegrees = m_camera->get_fov();
+    input.aspectRatio = m_camera->get_viewport().get_aspect_ratio();
+    input.nearPlane = minimumNearPlane;
+
+    const std::vector<std::vector<float>> positionBuffers = m_drawablesManager->collect_vertex_position_buffers();
+    std::vector<std::span<const float>> positionBufferSpans;
+    positionBufferSpans.reserve(positionBuffers.size());
+    for (const auto& buffer: positionBuffers) {
+        positionBufferSpans.emplace_back(buffer);
+    }
+
+    const CameraClipPlanes planes =
+        calculate_clip_planes(std::span<const std::span<const float>>{positionBufferSpans}, input);
+    if (planes.hasGeometry) {
+        apply_clip_planes(planes.nearPlane, planes.farPlane);
+    }
 }
 
 void Renderer::go_to_preset_view(PresetView view) {

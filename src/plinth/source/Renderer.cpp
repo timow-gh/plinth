@@ -531,6 +531,34 @@ DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
     return DrawableHandle{DrawableKind::mesh, *id, m_rendererInstance};
 }
 
+DrawableHandle Renderer::add_mesh_drawable(const renderer::MeshData& mesh,
+                                           std::array<float, 4> color,
+                                           renderer::MeshCullFaceMode cullMode,
+                                           renderer::BufferAccessPattern accessPattern) {
+    if (mesh.empty()) {
+        return DrawableHandle{};
+    }
+    // Fill omitted attributes exactly like the shorter span overloads do, then
+    // delegate to the fully-specified path so the auto-fill logic lives in one
+    // place.
+    const std::vector<std::uint32_t> generatedIndices =
+        mesh.triangleIndices.empty() ? make_sequential_indices(mesh.vertices) : std::vector<std::uint32_t>{};
+    const std::span<const std::uint32_t> indices =
+        mesh.triangleIndices.empty() ? std::span<const std::uint32_t>{generatedIndices} : mesh.triangleIndices;
+
+    const std::vector<float> generatedNormals =
+        mesh.normals.empty() ? compute_vertex_normals(mesh.vertices, indices) : std::vector<float>{};
+    const std::span<const float> normals =
+        mesh.normals.empty() ? std::span<const float>{generatedNormals} : mesh.normals;
+
+    const std::vector<float> generatedColors =
+        mesh.colors.empty() ? expand_color(mesh.vertices, color) : std::vector<float>{};
+    const std::span<const float> colors =
+        mesh.colors.empty() ? std::span<const float>{generatedColors} : mesh.colors;
+
+    return add_mesh_drawable(mesh.vertices, indices, normals, colors, cullMode, accessPattern);
+}
+
 TextureHandle Renderer::create_texture_2d(TextureData data) {
     const auto id = m_drawablesManager->create_texture_2d(data, m_maxTextureSize, m_maxAnisotropy);
     return id ? TextureHandle{*id, m_rendererInstance} : TextureHandle{};

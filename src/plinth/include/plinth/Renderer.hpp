@@ -15,6 +15,7 @@
 #include "plinth/Texture.hpp"
 #include "plinth/UiMode.hpp"
 #include "plinth/WindowSettings.hpp"
+#include "plinth/loader/MeshData.hpp"
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -212,6 +213,11 @@ class Renderer {
                       std::span<const float> colors,
                       MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
                       BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
+    DrawableHandle add_mesh_drawable(const renderer::MeshData& mesh,
+                                     std::array<float, 4> color = {0.8F, 0.8F, 0.8F, 1.0F},
+                                     MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
+                                     BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     /// TextureData::rgba8 is copied.
     TextureHandle create_texture_2d(TextureData data);

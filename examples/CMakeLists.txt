@@ -49,6 +49,7 @@ function(add_plinth_example target)
 endfunction()
 
 set(plinth_examples
+    example_load_mesh
     example_mesh
     example_renderer_standalone
     example_showcase_scene

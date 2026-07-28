@@ -10,20 +10,30 @@ constexpr float standalonePointSize = 12.0F;
 constexpr float standaloneLineWidth = 3.0F;
 constexpr float rectangleVerticalOffset = 2.0F;
 
-void handle_preset_view(renderer::Renderer& renderer, renderer::Key key, renderer::Action action) {
-    if (action != renderer::Action::PRESS) {
-        return;
-    }
-    switch (key) {
-    case renderer::Key::KEY_1: renderer.go_to_preset_view(renderer::PresetView::FRONT); break;
-    case renderer::Key::KEY_2: renderer.go_to_preset_view(renderer::PresetView::BACK); break;
-    case renderer::Key::KEY_3: renderer.go_to_preset_view(renderer::PresetView::LEFT); break;
-    case renderer::Key::KEY_4: renderer.go_to_preset_view(renderer::PresetView::RIGHT); break;
-    case renderer::Key::KEY_5: renderer.go_to_preset_view(renderer::PresetView::TOP); break;
-    case renderer::Key::KEY_6: renderer.go_to_preset_view(renderer::PresetView::BOTTOM); break;
-    case renderer::Key::KEY_7: renderer.go_to_preset_view(renderer::PresetView::ISO); break;
-    default:                   break;
-    }
+renderer::CallbackSubscription add_preset_view_callback(renderer::Renderer& renderer) {
+    return renderer.add_key_callback([&renderer](renderer::Key key,
+                                                 renderer::Scancode /*scancode*/,
+                                                 renderer::Action action,
+                                                 renderer::Mods /*mods*/) {
+        if (action != renderer::Action::PRESS) {
+            return;
+        }
+        renderer::CameraInteractor::CameraViewMode viewMode = renderer::CameraInteractor::CameraViewMode::FIX_ROTATE;
+        switch (key) {
+        case renderer::Key::KEY_1: renderer.go_to_preset_view(renderer::PresetView::FRONT); break;
+        case renderer::Key::KEY_2: renderer.go_to_preset_view(renderer::PresetView::BACK); break;
+        case renderer::Key::KEY_3: renderer.go_to_preset_view(renderer::PresetView::LEFT); break;
+        case renderer::Key::KEY_4: renderer.go_to_preset_view(renderer::PresetView::RIGHT); break;
+        case renderer::Key::KEY_5: renderer.go_to_preset_view(renderer::PresetView::TOP); break;
+        case renderer::Key::KEY_6: renderer.go_to_preset_view(renderer::PresetView::BOTTOM); break;
+        case renderer::Key::KEY_7:
+            renderer.go_to_preset_view(renderer::PresetView::ISO);
+            viewMode = renderer::CameraInteractor::CameraViewMode::NONE;
+            break;
+        default:                   return;
+        }
+        renderer.get_camera().lock()->set_view_mode(viewMode);
+    });
 }
 } // namespace
 
@@ -114,52 +124,7 @@ int main() {
 
     // Number keys 1-7 jump to named preset views (FRONT/BACK/left/right/top/bottom/iso), fitted
     // to whatever geometry currently exists in the scene.
-    const auto presetViewSubscription = renderer->add_key_callback([&renderer](renderer::Key key,
-                                                                               renderer::Scancode /*scancode*/,
-                                                                               renderer::Action action,
-                                                                               renderer::Mods /*mods*/) {
-        if (action != renderer::Action::PRESS) {
-            return;
-        }
-        switch (key) {
-        case renderer::Key::KEY_1: {
-            renderer->go_to_preset_view(renderer::PresetView::FRONT);
-            renderer->get_camera().lock()->set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ROTATE);
-            break;
-        }
-        case renderer::Key::KEY_2: {
-            renderer->go_to_preset_view(renderer::PresetView::BACK);
-            renderer->get_camera().lock()->set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ROTATE);
-            break;
-        }
-        case renderer::Key::KEY_3: {
-            renderer->go_to_preset_view(renderer::PresetView::LEFT);
-            renderer->get_camera().lock()->set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ROTATE);
-            break;
-        }
-        case renderer::Key::KEY_4: {
-            renderer->go_to_preset_view(renderer::PresetView::RIGHT);
-            renderer->get_camera().lock()->set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ROTATE);
-            break;
-        }
-        case renderer::Key::KEY_5: {
-            renderer->go_to_preset_view(renderer::PresetView::TOP);
-            renderer->get_camera().lock()->set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ROTATE);
-            break;
-        }
-        case renderer::Key::KEY_6: {
-            renderer->go_to_preset_view(renderer::PresetView::BOTTOM);
-            renderer->get_camera().lock()->set_view_mode(renderer::CameraInteractor::CameraViewMode::FIX_ROTATE);
-            break;
-        }
-        case renderer::Key::KEY_7: {
-            renderer->go_to_preset_view(renderer::PresetView::ISO);
-            renderer->get_camera().lock()->set_view_mode(renderer::CameraInteractor::CameraViewMode::NONE);
-            break;
-        }
-        default: break;
-        }
-    });
+    const auto presetViewSubscription = add_preset_view_callback(*renderer);
 
     while (!renderer->should_close()) {
         renderer::Renderer::poll_events();

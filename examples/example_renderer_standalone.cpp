@@ -32,7 +32,10 @@ renderer::CallbackSubscription add_preset_view_callback(renderer::Renderer& rend
             break;
         default:                   return;
         }
-        renderer.get_camera().lock()->set_view_mode(viewMode);
+        auto camera = renderer.get_camera().lock();
+        if (camera) {
+            camera->set_view_mode(viewMode);
+        }
     });
 }
 } // namespace

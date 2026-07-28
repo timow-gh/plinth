@@ -10,20 +10,33 @@ constexpr float standalonePointSize = 12.0F;
 constexpr float standaloneLineWidth = 3.0F;
 constexpr float rectangleVerticalOffset = 2.0F;
 
-void handle_preset_view(renderer::Renderer& renderer, renderer::Key key, renderer::Action action) {
-    if (action != renderer::Action::PRESS) {
-        return;
-    }
-    switch (key) {
-    case renderer::Key::KEY_1: renderer.go_to_preset_view(renderer::PresetView::FRONT); break;
-    case renderer::Key::KEY_2: renderer.go_to_preset_view(renderer::PresetView::BACK); break;
-    case renderer::Key::KEY_3: renderer.go_to_preset_view(renderer::PresetView::LEFT); break;
-    case renderer::Key::KEY_4: renderer.go_to_preset_view(renderer::PresetView::RIGHT); break;
-    case renderer::Key::KEY_5: renderer.go_to_preset_view(renderer::PresetView::TOP); break;
-    case renderer::Key::KEY_6: renderer.go_to_preset_view(renderer::PresetView::BOTTOM); break;
-    case renderer::Key::KEY_7: renderer.go_to_preset_view(renderer::PresetView::ISO); break;
-    default:                   break;
-    }
+renderer::CallbackSubscription add_preset_view_callback(renderer::Renderer& renderer) {
+    return renderer.add_key_callback([&renderer](renderer::Key key,
+                                                 renderer::Scancode /*scancode*/,
+                                                 renderer::Action action,
+                                                 renderer::Mods /*mods*/) {
+        if (action != renderer::Action::PRESS) {
+            return;
+        }
+        renderer::CameraInteractor::CameraViewMode viewMode = renderer::CameraInteractor::CameraViewMode::FIX_ROTATE;
+        switch (key) {
+        case renderer::Key::KEY_1: renderer.go_to_preset_view(renderer::PresetView::FRONT); break;
+        case renderer::Key::KEY_2: renderer.go_to_preset_view(renderer::PresetView::BACK); break;
+        case renderer::Key::KEY_3: renderer.go_to_preset_view(renderer::PresetView::LEFT); break;
+        case renderer::Key::KEY_4: renderer.go_to_preset_view(renderer::PresetView::RIGHT); break;
+        case renderer::Key::KEY_5: renderer.go_to_preset_view(renderer::PresetView::TOP); break;
+        case renderer::Key::KEY_6: renderer.go_to_preset_view(renderer::PresetView::BOTTOM); break;
+        case renderer::Key::KEY_7:
+            renderer.go_to_preset_view(renderer::PresetView::ISO);
+            viewMode = renderer::CameraInteractor::CameraViewMode::NONE;
+            break;
+        default:                   return;
+        }
+        auto camera = renderer.get_camera().lock();
+        if (camera) {
+            camera->set_view_mode(viewMode);
+        }
+    });
 }
 } // namespace
 
@@ -57,7 +70,8 @@ int main() {
 
     // A cross made of two line segments through the origin.
     const std::array<float, 12> lineVertices{-1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, -1.0F, 0.0F, 0.0F, 1.0F, 0.0F};
-    const std::array<float, 16> lineColors{1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F};
+    const std::array<float, 16>
+        lineColors{1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F};
     const std::array<std::uint32_t, 4> lineIndices{0, 1, 2, 3};
     renderer->add_line_drawable(lineVertices,
                                 lineIndices,
@@ -65,16 +79,17 @@ int main() {
                                 renderer::LineType::lines(),
                                 standaloneLineWidth);
 
-
-
-
+    // Add a rectangle
     const std::array<float, 4> darkBlue{0.0F, 0.0F, 0.5F, 1.0F};
-    const std::array<float, 12> rectangleVertices{0.0F, 0.0F, 0.0F, 3.0F, 0.0F, 0.0F, 3.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F};
-    auto rectangleLines = renderer->add_line_drawable(rectangleVertices, darkBlue, renderer::LineType::line_loop(), standaloneLineWidth);
+    const std::array<float, 12>
+        rectangleVertices{0.0F, 0.0F, 0.0F, 3.0F, 0.0F, 0.0F, 3.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F};
+    auto rectangleLines =
+        renderer->add_line_drawable(rectangleVertices, darkBlue, renderer::LineType::line_loop(), standaloneLineWidth);
 
     const std::array<float, 4> lightBlue{0.0F, 0.5F, 1.0F, 1.0F};
     const std::array<std::uint32_t, 6> triangleIndices{0, 1, 2, 0, 2, 3};
-    auto rectangleMesh = renderer->add_mesh_drawable(rectangleVertices, triangleIndices, lightBlue, renderer::MeshCullFaceMode::NONE);
+    auto rectangleMesh =
+        renderer->add_mesh_drawable(rectangleVertices, triangleIndices, lightBlue, renderer::MeshCullFaceMode::NONE);
 
     linal::hmatf transform = linal::hmatf::identity();
     transform.set_translation(linal::float3{0.0F, rectangleVerticalOffset, 0.0F});
@@ -112,12 +127,7 @@ int main() {
 
     // Number keys 1-7 jump to named preset views (FRONT/BACK/left/right/top/bottom/iso), fitted
     // to whatever geometry currently exists in the scene.
-    const auto presetViewSubscription = renderer->add_key_callback([&renderer](renderer::Key key,
-                                                                               renderer::Scancode /*scancode*/,
-                                                                               renderer::Action action,
-                                                                               renderer::Mods /*mods*/) {
-        handle_preset_view(*renderer, key, action);
-    });
+    const auto presetViewSubscription = add_preset_view_callback(*renderer);
 
     while (!renderer->should_close()) {
         renderer::Renderer::poll_events();

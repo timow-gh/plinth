@@ -1,8 +1,8 @@
 #include "OpenGL/VertexBuffer.hpp"
 #include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/UpdateBuffer.hpp"
-#include <limits>
 #include "plinth/Assert.hpp"
+#include <limits>
 #include <utility>
 
 namespace opengl {

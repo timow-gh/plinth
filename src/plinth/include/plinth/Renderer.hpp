@@ -15,6 +15,7 @@
 #include "plinth/Texture.hpp"
 #include "plinth/UiMode.hpp"
 #include "plinth/WindowSettings.hpp"
+#include "plinth/loader/MeshData.hpp"
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -212,6 +213,11 @@ class Renderer {
                       std::span<const float> colors,
                       MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
                       BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
+    DrawableHandle add_mesh_drawable(const renderer::MeshData& mesh,
+                                     std::array<float, 4> color = {0.8F, 0.8F, 0.8F, 1.0F},
+                                     MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
+                                     BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     /// TextureData::rgba8 is copied.
     TextureHandle create_texture_2d(TextureData data);
@@ -472,6 +478,12 @@ class Renderer {
                                                 double currentDistance) const;
     void maybe_update_auto_fit(std::chrono::steady_clock::time_point now);
     void apply_fit_result(const CameraAutoFitResult& result);
+    // Refits near/far clip planes to the current geometry at the camera's
+    // current pose. Runs every frame and never moves the camera.
+    void update_clip_planes_from_bounds();
+    // Applies near/far to the camera in an order that keeps near < far valid
+    // through the intermediate setter call.
+    void apply_clip_planes(double nearPlane, double farPlane);
 
     template <typename Callback>
     struct CallbackEntry {

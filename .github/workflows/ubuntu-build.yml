@@ -23,9 +23,11 @@ jobs:
       - uses: actions/checkout@v4
       # ubuntu-build-steps installs build deps and runs configure, build, and ctest.
       # Defaults to unit|install tests without xvfb.
+      # Static analysis is left to the dedicated static-analysis job.
       - uses: ./.github/actions/ubuntu-build-steps
         with:
           cmake_workflow: workflow-test-${{ matrix.compiler }}-${{ matrix.build_type }}
+          configure_args: -Dplinth_STATIC_ANALYSIS=OFF
 
   ubuntu-graphics:
     runs-on: ubuntu-24.04
@@ -46,6 +48,7 @@ jobs:
       - uses: ./.github/actions/ubuntu-build-steps
         with:
           cmake_workflow: workflow-test-clang-debug
+          configure_args: -Dplinth_STATIC_ANALYSIS=OFF
           test_label_regex: graphics
           use_xvfb: 'true'
 

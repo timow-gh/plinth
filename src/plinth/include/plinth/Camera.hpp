@@ -377,6 +377,28 @@ class Camera {
         return *this;
     }
 
+    // Sets near and far together, validating the pair atomically. Unlike two
+    // separate set_near_plane/set_far_plane calls, no intermediate state exists
+    // that could transiently violate near < far, so callers whose new near
+    // exceeds the old far (or vice versa) need not order the updates by hand.
+    Camera& set_clip_planes(double near_plane, double far_plane) {
+        RENDERER_ASSERT(near_plane > 0.0 && far_plane > near_plane);
+        if (m_activeProjection == CameraProjectionType::PERSPECTIVE) {
+            if (m_perspective.near_plane != near_plane || m_perspective.far_plane != far_plane) {
+                m_perspective.near_plane = near_plane;
+                m_perspective.far_plane = far_plane;
+                m_projectionDirty = true;
+            }
+        } else {
+            if (m_orthographic.near_plane != near_plane || m_orthographic.far_plane != far_plane) {
+                m_orthographic.near_plane = near_plane;
+                m_orthographic.far_plane = far_plane;
+                m_projectionDirty = true;
+            }
+        }
+        return *this;
+    }
+
     Camera& set_viewport(std::uint32_t xpos, std::uint32_t ypos, std::uint32_t width, std::uint32_t height) {
         m_viewport = Viewport(xpos, ypos, width, height);
         m_projectionDirty = true;

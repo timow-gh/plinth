@@ -49,6 +49,9 @@ function(add_plinth_example target)
 endfunction()
 
 set(plinth_examples
+    example_load_mesh_in_memory
+    example_load_mesh_low_poly_tree
+    example_load_mesh_plant
     example_mesh
     example_renderer_standalone
     example_showcase_scene
@@ -58,3 +61,20 @@ set(plinth_examples
 foreach(example IN LISTS plinth_examples)
     add_plinth_example(${example} LIBRARIES plinth::plinth)
 endforeach()
+
+# The file-loading examples decode OBJ material textures with stb_image.
+find_package(Stb REQUIRED)
+set(mesh_file_examples
+    example_load_mesh_low_poly_tree
+    example_load_mesh_plant
+)
+
+foreach(example IN LISTS mesh_file_examples)
+    target_include_directories(${example} PRIVATE ${Stb_INCLUDE_DIR})
+    target_compile_definitions(${example} PRIVATE PLINTH_EXAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+endforeach()
+
+# Keep diagnostics visible when the loader or one of its dependent assets fails.
+if (WIN32)
+    set_target_properties(${mesh_file_examples} PROPERTIES WIN32_EXECUTABLE FALSE)
+endif()

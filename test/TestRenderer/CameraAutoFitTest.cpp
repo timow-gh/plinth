@@ -268,3 +268,93 @@ TEST(CameraAutoFitTest, CoincidentPointsProduceFiniteResult) {
     EXPECT_TRUE(std::isfinite(result.orthographicWidth));
     EXPECT_TRUE(std::isfinite(result.orthographicHeight));
 }
+
+TEST(CameraAutoFitTest, ClipPlanesBracketGeometryWithoutMovingCamera) {
+    // A box spanning world z in [-10, 10]; a camera at z=100 looking toward -z
+    // sees it at camera-space depth [90, 110].
+    const std::vector<float> boxVertices{
+        -5.0f, -5.0f, -10.0f, 5.0f, 5.0f, 10.0f, -5.0f, 5.0f, 10.0f, 5.0f, -5.0f, -10.0f};
+    const std::array<std::span<const float>, 1> vertexPositionBuffers{std::span<const float>{boxVertices}};
+
+    renderer::CameraAutoFitInput input = make_input();
+    input.position = linal::double3{0.0, 0.0, 100.0};
+    input.target = linal::double3{0.0, 0.0, 0.0};
+
+    const renderer::CameraClipPlanes planes =
+        renderer::calculate_clip_planes(std::span<const std::span<const float>>{vertexPositionBuffers}, input);
+
+    EXPECT_TRUE(planes.hasGeometry);
+    // Near in front of nearest geometry (depth 90), far behind farthest (110).
+    EXPECT_LT(planes.nearPlane, 90.0);
+    EXPECT_GT(planes.farPlane, 110.0);
+    EXPECT_GE(planes.nearPlane, input.nearPlane);
+}
+
+TEST(CameraAutoFitTest, ClipPlanesCapFarNearRatioForDistantGeometry) {
+    // A tiny object very far away would otherwise need a huge far with the near
+    // floor at 0.01, giving a ratio of ~1e6. The clamp must keep it bounded.
+    const std::vector<float> pointVertices{0.0f, 0.0f, 0.0f, 0.1f, 0.1f, 0.1f};
+    const std::array<std::span<const float>, 1> vertexPositionBuffers{std::span<const float>{pointVertices}};
+
+    renderer::CameraAutoFitInput input = make_input();
+    input.position = linal::double3{0.0, 0.0, 10000.0};
+    input.target = linal::double3{0.0, 0.0, 0.0};
+
+    const renderer::CameraClipPlanes planes =
+        renderer::calculate_clip_planes(std::span<const std::span<const float>>{vertexPositionBuffers}, input);
+
+    EXPECT_TRUE(planes.hasGeometry);
+    EXPECT_GT(planes.nearPlane, 0.0);
+    // Ratio clamp is 1e4 in the implementation; allow a small margin.
+    EXPECT_LE(planes.farPlane / planes.nearPlane, 1.0e4 + 1.0);
+    // Geometry must still be inside: nearest depth ~9999.83 must exceed near.
+    EXPECT_LT(planes.nearPlane, 9999.0);
+    EXPECT_GT(planes.farPlane, 10000.0);
+}
+
+TEST(CameraAutoFitTest, ClipPlanesReportNoGeometryForEmptyScene) {
+    const std::array<std::span<const float>, 0> vertexPositionBuffers{};
+    const renderer::CameraAutoFitInput input = make_input();
+
+    const renderer::CameraClipPlanes planes =
+        renderer::calculate_clip_planes(std::span<const std::span<const float>>{vertexPositionBuffers}, input);
+
+    EXPECT_FALSE(planes.hasGeometry);
+    EXPECT_DOUBLE_EQ(planes.nearPlane, input.nearPlane);
+}
+
+TEST(CameraAutoFitTest, ClipPlanesDoNotRatchetAcrossZoomOutThenZoomIn) {
+    // Regression for the disappearing-mesh bug: fit clip planes while zoomed far
+    // out from the geometry, then fit again while zoomed in close. The zoomed-in
+    // near plane must sit in front of the nearest geometry so the mesh is not
+    // clipped. Previously the fitter used the camera's current near plane as its
+    // floor, so the large zoomed-out near plane ratcheted forward and clipped the
+    // geometry after zooming back in.
+    const std::vector<float> boxVertices{
+        -5.0f, -5.0f, -5.0f, 5.0f, 5.0f, 5.0f, -5.0f, 5.0f, 5.0f, 5.0f, -5.0f, -5.0f};
+    const std::array<std::span<const float>, 1> vertexPositionBuffers{std::span<const float>{boxVertices}};
+
+    // Zoomed far out: camera at z = 1000, geometry front at camera-space depth ~995.
+    renderer::CameraAutoFitInput zoomedOut = make_input();
+    zoomedOut.position = linal::double3{0.0, 0.0, 1000.0};
+    zoomedOut.target = linal::double3{0.0, 0.0, 0.0};
+    const renderer::CameraClipPlanes farPlanes =
+        renderer::calculate_clip_planes(std::span<const std::span<const float>>{vertexPositionBuffers}, zoomedOut);
+    ASSERT_TRUE(farPlanes.hasGeometry);
+
+    // Zoomed in close: camera at z = 20, geometry front at camera-space depth ~15.
+    // calculate_clip_planes is stateless w.r.t. the previous near plane, so the
+    // large farPlanes.nearPlane must not leak into this fit.
+    renderer::CameraAutoFitInput zoomedIn = make_input();
+    zoomedIn.position = linal::double3{0.0, 0.0, 20.0};
+    zoomedIn.target = linal::double3{0.0, 0.0, 0.0};
+    const renderer::CameraClipPlanes nearPlanes =
+        renderer::calculate_clip_planes(std::span<const std::span<const float>>{vertexPositionBuffers}, zoomedIn);
+    ASSERT_TRUE(nearPlanes.hasGeometry);
+
+    // Nearest geometry sits at camera-space depth 15 (z=20 looking to origin,
+    // box front face at world z=5). The near plane must be in front of it.
+    EXPECT_LT(nearPlanes.nearPlane, 15.0);
+    // And the zoomed-in near plane must not have inherited the zoomed-out value.
+    EXPECT_LT(nearPlanes.nearPlane, farPlanes.nearPlane);
+}

@@ -703,6 +703,17 @@ bool Renderer::has_mesh_drawables() const {
     return m_drawablesManager->has_mesh_drawables();
 }
 
+Renderer::PickRay Renderer::compute_pick_ray(double xpos, double ypos) const {
+    const renderer::PickRay ray = m_camera->get_pick_ray(xpos, ypos);
+    return PickRay{
+        linal::float3{static_cast<float>(ray.origin[0]),
+                      static_cast<float>(ray.origin[1]),
+                      static_cast<float>(ray.origin[2])},
+        linal::float3{static_cast<float>(ray.direction[0]),
+                      static_cast<float>(ray.direction[1]),
+                      static_cast<float>(ray.direction[2])}};
+}
+
 std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double ypos, double radius) const {
     std::vector<PickResult> results;
     if (!m_drawablesManager->has_drawables()) {
@@ -717,6 +728,8 @@ std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double y
     if (width <= 0 || height <= 0) {
         return results;
     }
+
+    const PickRay pickRay = compute_pick_ray(xpos, ypos);
 
     make_context_current();
 
@@ -742,8 +755,9 @@ std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double y
     glDisable(GL_BLEND);
     glDisable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
+    glClearDepth(m_reversedDepth ? 0.0 : 1.0);
     glDepthMask(GL_TRUE);
-    glDepthFunc(GL_LESS);
+    glDepthFunc(m_reversedDepth ? GL_GREATER : GL_LESS);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glViewport(0, 0, width, height);
@@ -804,7 +818,7 @@ std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double y
                 case opengl::PickDrawableKind::line:  kind = DrawableKind::line; break;
                 case opengl::PickDrawableKind::mesh:  kind = DrawableKind::mesh; break;
                 }
-                results.push_back(PickResult{DrawableHandle{kind, entry.id, m_rendererInstance}});
+                results.push_back(PickResult{DrawableHandle{kind, entry.id, m_rendererInstance}, pickRay});
             }
         }
     }

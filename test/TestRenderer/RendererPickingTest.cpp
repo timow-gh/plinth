@@ -1,4 +1,5 @@
 #include "OpenGL/OpenGL.hpp"
+#include "plinth/CameraProjectionType.hpp"
 #include "plinth/Renderer.hpp"
 #include "plinth/WindowSettings.hpp"
 #include <array>
@@ -10,6 +11,13 @@
 namespace {
 
 using SizePair = std::pair<int, int>;
+
+void expect_pick_ray_matches(const renderer::Renderer::PickRay& actual, const renderer::PickRay& expected) {
+    for (std::uint32_t axis = 0; axis < 3U; ++axis) {
+        EXPECT_FLOAT_EQ(actual.origin[axis], static_cast<float>(expected.origin[axis]));
+        EXPECT_FLOAT_EQ(actual.direction[axis], static_cast<float>(expected.direction[axis]));
+    }
+}
 
 class RendererPickingTest : public ::testing::Test {
   protected:
@@ -65,13 +73,40 @@ TEST_F(RendererPickingTest, PicksMeshDrawableUnderCursorCenter) {
     render_one_frame(*instance);
 
     const auto [cx, cy] = scene_center(*instance);
+    const renderer::Renderer::PickRay expectedRay = instance->compute_pick_ray(cx, cy);
     const auto results = instance->pick_drawables(cx, cy, 2.0);
     ASSERT_EQ(1U, results.size());
     EXPECT_EQ(handle.kind, results.front().handle.kind);
     EXPECT_EQ(handle.id, results.front().handle.id);
     EXPECT_EQ(handle.rendererInstance, results.front().handle.rendererInstance);
     EXPECT_TRUE(results.front().handle.is_valid());
+    EXPECT_EQ(expectedRay.origin, results.front().ray.origin);
+    EXPECT_EQ(expectedRay.direction, results.front().ray.direction);
     EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(RendererPickingTest, ComputesRayForActiveProjection) {
+    auto instance = create_renderer();
+    ASSERT_NE(nullptr, instance);
+    const auto camera = instance->get_camera().lock();
+    ASSERT_NE(nullptr, camera);
+
+    const auto [cx, cy] = scene_center(*instance);
+    const double xpos = static_cast<double>(cx) + 40.0;
+    const double ypos = static_cast<double>(cy) - 20.0;
+
+    camera->set_projection_type(renderer::CameraProjectionType::PERSPECTIVE);
+    const renderer::Renderer::PickRay perspectiveRay = instance->compute_pick_ray(xpos, ypos);
+    expect_pick_ray_matches(perspectiveRay, camera->get_pick_ray(xpos, ypos));
+    EXPECT_NEAR(linal::length(perspectiveRay.direction), 1.0F, 1e-6F);
+
+    camera->set_projection_type(renderer::CameraProjectionType::ORTHOGRAPHIC);
+    const renderer::Renderer::PickRay orthographicRay = instance->compute_pick_ray(xpos, ypos);
+    expect_pick_ray_matches(orthographicRay, camera->get_pick_ray(xpos, ypos));
+    EXPECT_NEAR(linal::length(orthographicRay.direction), 1.0F, 1e-6F);
+
+    EXPECT_NE(perspectiveRay.origin, orthographicRay.origin);
+    EXPECT_NE(perspectiveRay.direction, orthographicRay.direction);
 }
 
 TEST_F(RendererPickingTest, ReturnsEmptyOverBackground) {

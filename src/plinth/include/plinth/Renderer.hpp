@@ -16,6 +16,7 @@
 #include "plinth/UiMode.hpp"
 #include "plinth/WindowSettings.hpp"
 #include "plinth/loader/MeshData.hpp"
+#include "linal/vec.hpp"
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -274,10 +275,20 @@ class Renderer {
     [[nodiscard]]
     bool has_mesh_drawables() const;
 
+    struct PickRay {
+        linal::float3 origin;
+        linal::float3 direction;
+    };
     struct PickResult {
         DrawableHandle handle;
+        PickRay ray;
     };
+
+    [[nodiscard]]
     std::vector<PickResult> pick_drawables(double xpos, double ypos, double radius) const;
+
+    [[nodiscard]]
+    PickRay compute_pick_ray(double xpos, double ypos) const;
 
     /// Post-processing controls require finite numeric values. HDR display max
     /// must be positive, fog density must be non-negative, and linear fog needs

@@ -7,12 +7,16 @@
 namespace opengl {
 namespace {
 
+constexpr int clipControlCoreMajor = 4;
+constexpr int clipControlCoreMinor = 5;
+
 bool has_extension(const char* requestedExtension) {
     GLint extensionCount = 0;
     glGetIntegerv(GL_NUM_EXTENSIONS, &extensionCount);
     for (GLint index = 0; index < extensionCount; ++index) {
         const auto* extension = glGetStringi(GL_EXTENSIONS, static_cast<GLuint>(index));
         if (extension != nullptr &&
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             std::strcmp(reinterpret_cast<const char*>(extension), requestedExtension) == 0) {
             return true;
         }
@@ -56,7 +60,8 @@ GpuCapabilities query_gpu_capabilities() {
 
     caps.supportsDebugOutput = caps.supports_version(4, 3);
     caps.supportsClipControl = glad_glClipControl != nullptr &&
-                               (caps.supports_version(4, 5) || has_extension("GL_ARB_clip_control"));
+                               (caps.supports_version(clipControlCoreMajor, clipControlCoreMinor) ||
+                                has_extension("GL_ARB_clip_control"));
 
     return caps;
 }

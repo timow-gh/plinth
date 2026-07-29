@@ -93,6 +93,7 @@ std::optional<GlfwWindow> GlfwWindow::create(const WindowSettings& settings) {
     }
     // Function addresses may be context-specific, so refresh the extension/core
     // entry point whenever a new context becomes current.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     glad_glClipControl = reinterpret_cast<PFNGLCLIPCONTROLPROC>(glfwGetProcAddress("glClipControl"));
 
     if (settings.debug_context) {

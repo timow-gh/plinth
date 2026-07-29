@@ -79,6 +79,26 @@ void dispatch_key(renderer::Renderer& renderer, renderer::Key key) {
 
 } // namespace
 
+TEST_F(RendererTest, BeginFrameUsesSelectedDepthConvention) {
+    m_renderer->begin_frame();
+
+    GLint depthFunc = 0;
+    GLdouble clearDepth = -1.0;
+    glGetIntegerv(GL_DEPTH_FUNC, &depthFunc);
+    glGetDoublev(GL_DEPTH_CLEAR_VALUE, &clearDepth);
+    if (m_renderer->uses_reversed_depth()) {
+        GLint clipDepthMode = 0;
+        glGetIntegerv(GL_CLIP_DEPTH_MODE, &clipDepthMode);
+        EXPECT_EQ(GL_ZERO_TO_ONE, clipDepthMode);
+        EXPECT_EQ(GL_GREATER, depthFunc);
+        EXPECT_DOUBLE_EQ(0.0, clearDepth);
+    } else {
+        EXPECT_EQ(GL_LESS, depthFunc);
+        EXPECT_DOUBLE_EQ(1.0, clearDepth);
+    }
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
 // --- Drawable lifecycle ---
 
 TEST_F(RendererTest, AddPointDrawableReturnsValidHandle) {

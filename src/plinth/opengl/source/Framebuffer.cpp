@@ -237,6 +237,7 @@ std::optional<Framebuffer> Framebuffer::create_hdr(const HdrConfig& config) {
     GLuint depthTexture{0};
     GLuint depthStencilRenderbuffer{0};
     bool hasDepthTexture = config.useDepthTexture;
+    const GLenum depthInternalFormat = config.useFloatDepth ? GL_DEPTH_COMPONENT32F : GL_DEPTH_COMPONENT24;
 
     glGenFramebuffers(1, &framebuffer);
     if (framebuffer == 0) {
@@ -272,7 +273,7 @@ std::optional<Framebuffer> Framebuffer::create_hdr(const HdrConfig& config) {
                 return std::nullopt;
             }
             glBindTexture(GL_TEXTURE_2D, depthTexture);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, config.width, config.height, 0,
+            glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(depthInternalFormat), config.width, config.height, 0,
                          GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -317,7 +318,7 @@ std::optional<Framebuffer> Framebuffer::create_hdr(const HdrConfig& config) {
                 return std::nullopt;
             }
             glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, depthTexture);
-            glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, config.samples, GL_DEPTH_COMPONENT24,
+            glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, config.samples, depthInternalFormat,
                                     config.width, config.height, GL_TRUE);
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D_MULTISAMPLE, depthTexture, 0);
             glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
@@ -363,7 +364,7 @@ std::optional<Framebuffer> Framebuffer::create_hdr(const HdrConfig& config) {
     Framebuffer result{framebuffer, colorTexture, colorRenderbuffer, depthStencilRenderbuffer,
                        depthTexture, hasDepthTexture,
                         config.width, config.height, config.samples, false,
-                        {AttachmentLayout::Hdr, config.useDepthTexture}};
+                         {AttachmentLayout::Hdr, config.useDepthTexture, config.useFloatDepth}};
     return std::optional<Framebuffer>{std::move(result)};
 }
 
@@ -427,7 +428,11 @@ bool Framebuffer::resize(int width, int height) {
         temp = create(width, height, m_samples, m_srgb);
         break;
     case AttachmentLayout::Hdr:
-        temp = create_hdr({width, height, m_samples, m_creationDescriptor.useDepthTexture});
+        temp = create_hdr({width,
+                           height,
+                           m_samples,
+                           m_creationDescriptor.useDepthTexture,
+                           m_creationDescriptor.useFloatDepth});
         break;
     case AttachmentLayout::LdrIntermediate:
         temp = create_ldr_intermediate(width, height);

@@ -223,11 +223,16 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
     }
 
     const auto capabilities = opengl::query_gpu_capabilities();
+    const bool reversedDepth = capabilities.supportsClipControl;
+    if (reversedDepth) {
+        glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+    }
     const auto [fbWidth, fbHeight] = window->get_framebuffer_size();
     CameraSettings cameraSettings;
     cameraSettings.m_defaultPosition = defaultCameraPosition;
     cameraSettings.m_defaultTarget = linal::double3{0.0, 0.0, 0.0};
     cameraSettings.m_defaultUp = linal::double3{0.0, 0.0, 1.0};
+    cameraSettings.m_camera.set_reversed_z(reversedDepth);
     cameraSettings.m_camera.set_viewport(0,
                                          0,
                                          valid_framebuffer_dimension(fbWidth),
@@ -253,7 +258,8 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
     const int framebufferWidth = static_cast<int>(valid_framebuffer_dimension(fbWidth));
     const int framebufferHeight = static_cast<int>(valid_framebuffer_dimension(fbHeight));
 
-    opengl::Framebuffer::HdrConfig hdrConfig{framebufferWidth, framebufferHeight, sceneSamples, true};
+    opengl::Framebuffer::HdrConfig hdrConfig{
+        framebufferWidth, framebufferHeight, sceneSamples, true, reversedDepth};
     auto hdrSceneFb = opengl::Framebuffer::create_hdr(hdrConfig);
     if (!hdrSceneFb.has_value()) {
         opengl::report_error("Error: Renderer::create failed - HDR scene framebuffer creation failed");
@@ -262,7 +268,8 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 
     std::unique_ptr<opengl::Framebuffer> hdrResolveFb;
     if (sceneSamples > 1) {
-        opengl::Framebuffer::HdrConfig resolveConfig{framebufferWidth, framebufferHeight, 1, true};
+        opengl::Framebuffer::HdrConfig resolveConfig{
+            framebufferWidth, framebufferHeight, 1, true, reversedDepth};
         auto resolve = opengl::Framebuffer::create_hdr(resolveConfig);
         if (!resolve.has_value()) {
             opengl::report_error("Error: Renderer::create failed - HDR resolve framebuffer creation failed");
@@ -308,6 +315,7 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
                      sceneSamples,
                      capabilities.maxTextureSize,
                      capabilities.maxAnisotropy,
+                     reversedDepth,
                      *rendererInstance));
 
     renderer->update_scene_viewport();
@@ -329,6 +337,7 @@ Renderer::Renderer(GlfwWindow window,
                    int sceneSamples,
                    int maxTextureSize,
                    int maxAnisotropy,
+                   bool reversedDepth,
                    std::uint64_t rendererInstance)
     : m_window(std::move(window))
     , m_drawablesManager(std::move(drawables))
@@ -344,6 +353,7 @@ Renderer::Renderer(GlfwWindow window,
     , m_lastCameraInteractionTime(m_lastFrameTime)
     , m_maxTextureSize(maxTextureSize)
     , m_maxAnisotropy(maxAnisotropy)
+    , m_reversedDepth(reversedDepth)
     , m_rendererInstance(rendererInstance) {
 }
 
@@ -725,13 +735,15 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
     const int framebufferWidth = static_cast<int>(valid_framebuffer_dimension(windowFramebufferWidth));
     const int framebufferHeight = static_cast<int>(valid_framebuffer_dimension(windowFramebufferHeight));
     if (m_sceneFramebuffer->get_width() != framebufferWidth || m_sceneFramebuffer->get_height() != framebufferHeight) {
-        opengl::Framebuffer::HdrConfig hdrConfig{framebufferWidth, framebufferHeight, m_sceneSamples, true};
+        opengl::Framebuffer::HdrConfig hdrConfig{
+            framebufferWidth, framebufferHeight, m_sceneSamples, true, m_reversedDepth};
         auto scene = opengl::Framebuffer::create_hdr(hdrConfig);
         std::optional<opengl::Framebuffer> resolve;
         std::optional<opengl::Framebuffer> ldr;
         if (scene.has_value()) {
             if (m_sceneSamples > 1) {
-                opengl::Framebuffer::HdrConfig resolveConfig{framebufferWidth, framebufferHeight, 1, true};
+                opengl::Framebuffer::HdrConfig resolveConfig{
+                    framebufferWidth, framebufferHeight, 1, true, m_reversedDepth};
                 resolve = opengl::Framebuffer::create_hdr(resolveConfig);
             }
             ldr = opengl::Framebuffer::create_ldr_intermediate(framebufferWidth, framebufferHeight);
@@ -751,7 +763,7 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
         return;
     }
     m_sceneFramebuffer->bind();
-    opengl::begin_frame(clearColor, m_sceneViewport.framebuffer, false);
+    opengl::begin_frame(clearColor, m_sceneViewport.framebuffer, false, m_reversedDepth);
 }
 
 void Renderer::draw() {
@@ -851,6 +863,7 @@ void Renderer::present_scene() {
     const linal::hmatf projMat = m_camera->get_projection_matrix();
     const linal::hmatf invProjMat = linal::hmatf::inverse(projMat);
     m_postProcessingPass->set_inv_projection(invProjMat.data());
+    m_postProcessingPass->set_reversed_depth(m_reversedDepth);
 
     m_postProcessingPass->set_fog_enabled(m_fogEnabled);
     m_postProcessingPass->set_fog_mode(static_cast<int>(m_fogMode));
@@ -1017,6 +1030,7 @@ CameraAutoFitResult Renderer::compute_fit_destination(const linal::double3& dire
     input.verticalFovDegrees = m_camera->get_fov();
     input.aspectRatio = m_camera->get_viewport().get_aspect_ratio();
     input.nearPlane = minimumNearPlane;
+    input.useReversedDepth = m_reversedDepth;
     const auto orthoParams = m_camera->get_orthographic_params();
     input.orthographicWidth = orthoParams.width;
     input.orthographicHeight = orthoParams.height;
@@ -1086,6 +1100,7 @@ void Renderer::update_clip_planes_from_bounds() {
     input.verticalFovDegrees = m_camera->get_fov();
     input.aspectRatio = m_camera->get_viewport().get_aspect_ratio();
     input.nearPlane = minimumNearPlane;
+    input.useReversedDepth = m_reversedDepth;
 
     const std::vector<std::vector<float>> positionBuffers = m_drawablesManager->collect_vertex_position_buffers();
     std::vector<std::span<const float>> positionBufferSpans;

@@ -73,3 +73,33 @@ TEST_F(FrameStateBeginFrameTest, BeginFrameSetsNonZeroViewportOrigin) {
     EXPECT_EQ(64, params[3]);
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
+
+TEST_F(FrameStateBeginFrameTest, BeginFrameConfiguresConventionalDepth) {
+    opengl::begin_frame({0.0F, 0.0F, 0.0F, 1.0F}, {0, 0, 64, 64}, false, false);
+
+    GLdouble clearDepth = 0.0;
+    GLint depthFunc = 0;
+    GLboolean depthMask = GL_FALSE;
+    glGetDoublev(GL_DEPTH_CLEAR_VALUE, &clearDepth);
+    glGetIntegerv(GL_DEPTH_FUNC, &depthFunc);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
+    EXPECT_DOUBLE_EQ(1.0, clearDepth);
+    EXPECT_EQ(GL_LESS, depthFunc);
+    EXPECT_EQ(GL_TRUE, depthMask);
+}
+
+TEST_F(FrameStateBeginFrameTest, BeginFrameConfiguresReversedDepth) {
+    glDepthMask(GL_FALSE);
+    opengl::begin_frame({0.0F, 0.0F, 0.0F, 1.0F}, {0, 0, 64, 64}, false, true);
+
+    GLdouble clearDepth = 1.0;
+    GLint depthFunc = 0;
+    GLboolean depthMask = GL_FALSE;
+    glGetDoublev(GL_DEPTH_CLEAR_VALUE, &clearDepth);
+    glGetIntegerv(GL_DEPTH_FUNC, &depthFunc);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
+    EXPECT_DOUBLE_EQ(0.0, clearDepth);
+    EXPECT_EQ(GL_GREATER, depthFunc);
+    EXPECT_EQ(GL_TRUE, depthMask);
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}

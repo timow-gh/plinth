@@ -5,6 +5,7 @@
 #include "plinth/CameraProjectionType.hpp"
 #include "plinth/PickRay.hpp"
 #include "plinth/Viewport.hpp"
+#include <cmath>
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -80,6 +81,7 @@ class Camera {
     PerspectiveParams m_perspective;
     OrthographicParams m_orthographic;
     CameraProjectionType m_activeProjection{CameraProjectionType::PERSPECTIVE};
+    bool m_reversedZ{false};
 
     // Cached matrices (computed on demand)
     mutable bool m_viewDirty{true};
@@ -112,6 +114,20 @@ class Camera {
         , m_vertical(vertical) {
         m_perspective.validate();
         set_viewport(0, 0, width, height);
+    }
+
+    /// Selects a right-handed reversed-Z projection with [0,1] clip depth.
+    /// Rendering with this projection requires GL_ZERO_TO_ONE clip control.
+    void set_reversed_z(bool enabled) {
+        if (m_reversedZ != enabled) {
+            m_reversedZ = enabled;
+            m_projectionDirty = true;
+        }
+    }
+
+    [[nodiscard]]
+    bool uses_reversed_z() const noexcept {
+        return m_reversedZ;
     }
 
     // Viewport accessors
@@ -597,6 +613,22 @@ class Camera {
 
     [[nodiscard]]
     glm::mat4 compute_perspective_matrix() const {
+        if (m_reversedZ) {
+            const float nearPlane = static_cast<float>(m_perspective.near_plane);
+            const float farPlane = static_cast<float>(m_perspective.far_plane);
+            const float aspectRatio = static_cast<float>(m_viewport.get_aspect_ratio());
+            const float tanHalfFov =
+                std::tan(glm::radians(static_cast<float>(m_perspective.fov)) / 2.0F);
+            const float depthRange = farPlane - nearPlane;
+
+            glm::mat4 result{0.0F};
+            result[0][0] = 1.0F / (aspectRatio * tanHalfFov);
+            result[1][1] = 1.0F / tanHalfFov;
+            result[2][2] = nearPlane / depthRange;
+            result[2][3] = -1.0F;
+            result[3][2] = farPlane * nearPlane / depthRange;
+            return result;
+        }
         return glm::perspective(glm::radians(m_perspective.fov),
                                 m_viewport.get_aspect_ratio(),
                                 m_perspective.near_plane,
@@ -607,6 +639,23 @@ class Camera {
     glm::mat4 compute_orthographic_matrix() const {
         const double halfwidth = m_orthographic.width / 2.0 * m_viewport.get_aspect_ratio();
         const double halfheight = m_orthographic.height / 2.0;
+        if (m_reversedZ) {
+            const float left = static_cast<float>(-halfwidth);
+            const float right = static_cast<float>(halfwidth);
+            const float bottom = static_cast<float>(-halfheight);
+            const float top = static_cast<float>(halfheight);
+            const float nearPlane = static_cast<float>(m_orthographic.near_plane);
+            const float farPlane = static_cast<float>(m_orthographic.far_plane);
+
+            glm::mat4 result{1.0F};
+            result[0][0] = 2.0F / (right - left);
+            result[1][1] = 2.0F / (top - bottom);
+            result[2][2] = 1.0F / (farPlane - nearPlane);
+            result[3][0] = -(right + left) / (right - left);
+            result[3][1] = -(top + bottom) / (top - bottom);
+            result[3][2] = farPlane / (farPlane - nearPlane);
+            return result;
+        }
         return glm::ortho(-halfwidth,
                           halfwidth,
                           -halfheight,

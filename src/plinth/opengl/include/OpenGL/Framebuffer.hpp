@@ -14,6 +14,7 @@ class OPENGL_EXPORT Framebuffer {
         int height{0};
         int samples{1};
         bool useDepthTexture{false};
+        bool useFloatDepth{false};
     };
 
     Framebuffer(const Framebuffer&) = delete;
@@ -68,6 +69,7 @@ class OPENGL_EXPORT Framebuffer {
     struct CreationDescriptor {
         AttachmentLayout layout{AttachmentLayout::Generic};
         bool useDepthTexture{false};
+        bool useFloatDepth{false};
     };
 
     Framebuffer(GLuint framebuffer, GLuint colorTexture, GLuint colorRenderbuffer,

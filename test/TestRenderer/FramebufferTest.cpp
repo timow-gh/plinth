@@ -364,6 +364,24 @@ TEST_F(FramebufferTest, HdrSingleSampleHasColorAndDepthTexture) {
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
+TEST_F(FramebufferTest, HdrFloatDepthUsesAndPreservesDepth32F) {
+    auto fb = opengl::Framebuffer::create_hdr({64, 64, 1, true, true});
+    ASSERT_TRUE(fb.has_value());
+
+    const auto expectDepth32F = [&]() {
+        glBindTexture(GL_TEXTURE_2D, fb->get_depth_texture());
+        GLint internalFormat = 0;
+        glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &internalFormat);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        EXPECT_EQ(GL_DEPTH_COMPONENT32F, internalFormat);
+    };
+
+    expectDepth32F();
+    ASSERT_TRUE(fb->resize(32, 16));
+    expectDepth32F();
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
 TEST_F(FramebufferTest, HdrMultisampleUsesMultisampleTextures) {
     GLint maxSamples = 0;
     glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
@@ -379,6 +397,32 @@ TEST_F(FramebufferTest, HdrMultisampleUsesMultisampleTextures) {
     ASSERT_TRUE(fb.has_value());
     EXPECT_TRUE(fb->is_valid());
     EXPECT_EQ(samples, fb->get_samples());
+}
+
+TEST_F(FramebufferTest, HdrFloatDepthMultisampleResolves) {
+    GLint maxSamples = 0;
+    glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+    if (maxSamples < 2) {
+        GTEST_SKIP() << "GL_MAX_SAMPLES < 2, skipping MSAA test";
+    }
+
+    const int samples = std::min(4, maxSamples);
+    auto source = opengl::Framebuffer::create_hdr({32, 32, samples, true, true});
+    auto destination = opengl::Framebuffer::create_hdr({32, 32, 1, true, true});
+    ASSERT_TRUE(source.has_value());
+    ASSERT_TRUE(destination.has_value());
+
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, source->get_depth_texture());
+    GLint internalFormat = 0;
+    glGetTexLevelParameteriv(GL_TEXTURE_2D_MULTISAMPLE, 0, GL_TEXTURE_INTERNAL_FORMAT, &internalFormat);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+    EXPECT_EQ(GL_DEPTH_COMPONENT32F, internalFormat);
+
+    source->bind();
+    glClearDepth(0.5);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    EXPECT_TRUE(source->resolve_to(*destination, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
 TEST_F(FramebufferTest, HdrResolveBlitsColorAndDepth) {

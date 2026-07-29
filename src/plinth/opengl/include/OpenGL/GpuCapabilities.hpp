@@ -23,6 +23,7 @@ struct OPENGL_EXPORT GpuCapabilities {
     int maxColorAttachments{0}; // GL_MAX_COLOR_ATTACHMENTS - relevant once framebuffer work lands
     int maxAnisotropy{1};       // GL_MAX_TEXTURE_MAX_ANISOTROPY, default to 1 if unsupported
     bool supportsDebugOutput{false}; // core-4.3 glDebugMessageCallback path (see ErrorReporting.hpp)
+    bool supportsClipControl{false}; // core 4.5 or GL_ARB_clip_control
 
     // Convenience: true if the context is at least the given version.
     [[nodiscard]] bool supports_version(int major, int minor) const noexcept {

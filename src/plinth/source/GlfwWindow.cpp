@@ -91,6 +91,9 @@ std::optional<GlfwWindow> GlfwWindow::create(const WindowSettings& settings) {
         std::print("Failed to initialize OpenGL context\n");
         return std::nullopt;
     }
+    // Function addresses may be context-specific, so refresh the extension/core
+    // entry point whenever a new context becomes current.
+    glad_glClipControl = reinterpret_cast<PFNGLCLIPCONTROLPROC>(glfwGetProcAddress("glClipControl"));
 
     if (settings.debug_context) {
         if (!opengl::install_debug_callback()) {

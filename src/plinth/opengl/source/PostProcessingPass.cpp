@@ -61,7 +61,7 @@ class ScopedFullscreenState {
 
 PostProcessingPass::PostProcessingPass(ProgramHandle program, GLuint vertexArray,
                                        Uniform sceneColor, Uniform sceneDepth,
-                                       Uniform invProjection,
+                                       Uniform invProjection, Uniform reversedDepth,
                                        Uniform fogEnabled, Uniform fogMode,
                                        Uniform fogStart, Uniform fogEnd, Uniform fogDensity, Uniform fogColor,
                                        Uniform exposureStops, Uniform toneMapMode,
@@ -72,6 +72,7 @@ PostProcessingPass::PostProcessingPass(ProgramHandle program, GLuint vertexArray
     , m_sceneColor(sceneColor)
     , m_sceneDepth(sceneDepth)
     , m_invProjection(invProjection)
+    , m_reversedDepth(reversedDepth)
     , m_fogEnabled(fogEnabled)
     , m_fogMode(fogMode)
     , m_fogStart(fogStart)
@@ -91,6 +92,7 @@ PostProcessingPass::PostProcessingPass(PostProcessingPass&& other) noexcept
     , m_sceneColor(other.m_sceneColor)
     , m_sceneDepth(other.m_sceneDepth)
     , m_invProjection(other.m_invProjection)
+    , m_reversedDepth(other.m_reversedDepth)
     , m_fogEnabled(other.m_fogEnabled)
     , m_fogMode(other.m_fogMode)
     , m_fogStart(other.m_fogStart)
@@ -112,6 +114,7 @@ PostProcessingPass& PostProcessingPass::operator=(PostProcessingPass&& other) no
         m_sceneColor = other.m_sceneColor;
         m_sceneDepth = other.m_sceneDepth;
         m_invProjection = other.m_invProjection;
+        m_reversedDepth = other.m_reversedDepth;
         m_fogEnabled = other.m_fogEnabled;
         m_fogMode = other.m_fogMode;
         m_fogStart = other.m_fogStart;
@@ -152,6 +155,7 @@ std::optional<PostProcessingPass> PostProcessingPass::create() {
     Uniform sceneColor = make_uniform("u_sceneColor", pid);
     Uniform sceneDepth = make_uniform("u_sceneDepth", pid);
     Uniform invProjection = make_uniform("u_invProjection", pid);
+    Uniform reversedDepth = make_uniform("u_reversedDepth", pid);
     Uniform fogEnabled = make_uniform("u_fogEnabled", pid);
     Uniform fogMode = make_uniform("u_fogMode", pid);
     Uniform fogStart = make_uniform("u_fogStart", pid);
@@ -167,6 +171,7 @@ std::optional<PostProcessingPass> PostProcessingPass::create() {
     if (sceneColor.get_location().get_value() == -1 ||
         sceneDepth.get_location().get_value() == -1 ||
         invProjection.get_location().get_value() == -1 ||
+        reversedDepth.get_location().get_value() == -1 ||
         fogEnabled.get_location().get_value() == -1 ||
         fogMode.get_location().get_value() == -1 ||
         fogStart.get_location().get_value() == -1 ||
@@ -185,7 +190,7 @@ std::optional<PostProcessingPass> PostProcessingPass::create() {
 
     return PostProcessingPass{std::move(*program), vertexArray,
                               sceneColor, sceneDepth,
-                              invProjection,
+                              invProjection, reversedDepth,
                               fogEnabled, fogMode, fogStart, fogEnd, fogDensity, fogColor,
                               exposureStops, toneMapMode,
                               visualizationMode, hdrDisplayMax,
@@ -220,6 +225,11 @@ void PostProcessingPass::process(GLuint hdrColorTexture, GLuint depthTexture, in
 void PostProcessingPass::set_inv_projection(const float* data) const {
     glUseProgram(m_program.get_value());
     glUniformMatrix4fv(m_invProjection.get_location().get_value(), 1, GL_TRUE, data);
+}
+
+void PostProcessingPass::set_reversed_depth(bool enabled) const {
+    glUseProgram(m_program.get_value());
+    glUniform1i(m_reversedDepth.get_location().get_value(), enabled ? 1 : 0);
 }
 
 void PostProcessingPass::set_fog_enabled(bool enabled) const {

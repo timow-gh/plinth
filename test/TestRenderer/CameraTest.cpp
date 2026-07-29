@@ -25,6 +25,11 @@ bool matrices_near(const glm::mat4& lhs, const glm::mat4& rhs, float matrixToler
     return true;
 }
 
+float projected_depth(const glm::mat4& projection, float viewDistance) {
+    const glm::vec4 clip = projection * glm::vec4{0.0F, 0.0F, -viewDistance, 1.0F};
+    return clip.z / clip.w;
+}
+
 } // namespace
 
 TEST(CameraTest, SetTargetInvalidatesCachedViewMatrix) {
@@ -139,6 +144,42 @@ TEST(CameraTest, SetClipPlanesUpdatesBothPlanesAtomically) {
     camera.set_clip_planes(0.25, 250.0);
     EXPECT_DOUBLE_EQ(camera.get_orthographic_params().near_plane, 0.25);
     EXPECT_DOUBLE_EQ(camera.get_orthographic_params().far_plane, 250.0);
+}
+
+TEST(CameraTest, ReversedPerspectiveMapsNearToOneAndFarToZero) {
+    renderer::Camera camera = make_camera();
+    camera.set_perspective_params(renderer::Camera::PerspectiveParams{45.0, 0.1, 100000.0});
+    camera.set_reversed_z(true);
+
+    const glm::mat4 projection = camera.get_projection_matrix();
+    EXPECT_NEAR(1.0F, projected_depth(projection, 0.1F), 1.0e-6F);
+    EXPECT_NEAR(0.0F, projected_depth(projection, 100000.0F), 1.0e-7F);
+    EXPECT_TRUE(camera.uses_reversed_z());
+}
+
+TEST(CameraTest, ReversedOrthographicMapsNearToOneAndFarToZero) {
+    renderer::Camera camera = make_camera();
+    camera.set_projection_type(renderer::CameraProjectionType::ORTHOGRAPHIC);
+    camera.set_orthographic_params(renderer::Camera::OrthographicParams{20.0, 12.0, 0.25, 250.0});
+    camera.set_reversed_z(true);
+
+    const glm::mat4 projection = camera.get_projection_matrix();
+    EXPECT_NEAR(1.0F, projected_depth(projection, 0.25F), 1.0e-6F);
+    EXPECT_NEAR(0.0F, projected_depth(projection, 250.0F), 1.0e-6F);
+}
+
+TEST(CameraTest, ReversedPerspectiveDistinguishesDistantCloseDepths) {
+    renderer::Camera camera = make_camera();
+    camera.set_perspective_params(renderer::Camera::PerspectiveParams{45.0, 0.01, 100000000.0});
+
+    const float conventionalA = projected_depth(camera.get_projection_matrix(), 1000000.0F);
+    const float conventionalB = projected_depth(camera.get_projection_matrix(), 1000001.0F);
+    camera.set_reversed_z(true);
+    const float reversedA = projected_depth(camera.get_projection_matrix(), 1000000.0F);
+    const float reversedB = projected_depth(camera.get_projection_matrix(), 1000001.0F);
+
+    EXPECT_EQ(conventionalA, conventionalB);
+    EXPECT_NE(reversedA, reversedB);
 }
 
 TEST(CameraTest, ZoomsPerspectiveAndOrthographicProjections) {

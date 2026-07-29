@@ -13,6 +13,11 @@ namespace {
 constexpr std::size_t kBinaryHeaderSize = 80;
 constexpr std::size_t kBinaryCountSize = 4;
 constexpr std::size_t kBinaryTriangleSize = 50; // 12 floats (normal + 3 verts) + 2-byte attribute
+constexpr std::ptrdiff_t kBinaryFloatSize = 4;
+constexpr std::ptrdiff_t kBinaryVertex0Offset = 12; // offset of first vertex from triangle start
+constexpr std::ptrdiff_t kBinaryVertexStride = 12;  // bytes between consecutive vertices
+constexpr std::ptrdiff_t kBinaryVertexZOffset = 8;   // offset of z component from vertex start
+constexpr std::size_t kVertexFloatCount = 9;         // 3 vertices * 3 floats per vertex
 
 [[nodiscard]]
 bool is_space(char c) {
@@ -68,7 +73,7 @@ bool looks_binary(std::string_view data) {
     }
     const std::uint32_t count = read_le_uint32(data.data() + kBinaryHeaderSize);
     const std::size_t expected =
-        kBinaryHeaderSize + kBinaryCountSize + static_cast<std::size_t>(count) * kBinaryTriangleSize;
+        kBinaryHeaderSize + kBinaryCountSize + (static_cast<std::size_t>(count) * kBinaryTriangleSize);
     return data.size() == expected;
 }
 
@@ -91,8 +96,8 @@ std::expected<MeshData, LoadError> parse_binary(std::string_view data) {
                                           read_le_float(triangle + 4),
                                           read_le_float(triangle + 8)};
         for (int v = 0; v < 3; ++v) {
-            const char* vertex = triangle + 12 + (static_cast<std::ptrdiff_t>(v) * 12);
-            push_vec3(mesh, {read_le_float(vertex), read_le_float(vertex + 4), read_le_float(vertex + 8)});
+            const char* vertex = triangle + kBinaryVertex0Offset + (static_cast<std::ptrdiff_t>(v) * kBinaryVertexStride);
+            push_vec3(mesh, {read_le_float(vertex), read_le_float(vertex + kBinaryFloatSize), read_le_float(vertex + kBinaryVertexZOffset)});
             push_normal(mesh, normal);
         }
         triangle += kBinaryTriangleSize;
@@ -149,7 +154,7 @@ std::expected<MeshData, LoadError> parse_ascii(std::string_view data) {
     if (mesh.empty()) {
         return std::unexpected(LoadError::empty);
     }
-    if (mesh.vertices.size() % 9U != 0U) {
+    if (mesh.vertices.size() % kVertexFloatCount != 0U) {
         // Vertices must group into whole triangles (3 vertices * 3 floats).
         return std::unexpected(LoadError::parseError);
     }
@@ -160,7 +165,7 @@ std::expected<MeshData, LoadError> parse_ascii(std::string_view data) {
 
 } // namespace
 
-std::expected<MeshData, LoadError> StlLoader::parse(std::string_view rawContents) const {
+std::expected<MeshData, LoadError> StlLoader::parse(std::string_view rawContents) {
     if (rawContents.empty()) {
         return std::unexpected(LoadError::empty);
     }

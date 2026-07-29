@@ -28,12 +28,12 @@ struct CornerKey {
 };
 
 struct CornerKeyHash {
+    static constexpr std::uint64_t kHashCombineMagic = 0x9E3779B97F4A7C15ULL;
+
     std::size_t operator()(const CornerKey& key) const {
         std::uint64_t hash = static_cast<std::uint32_t>(key.position);
-        // Mix in texcoord and normal. Constants are the standard hash_combine
-        // magic; the goal is only to disperse distinct tuples across buckets.
-        hash = hash * 0x9E3779B97F4A7C15ULL + static_cast<std::uint32_t>(key.texcoord);
-        hash = hash * 0x9E3779B97F4A7C15ULL + static_cast<std::uint32_t>(key.normal);
+        hash = hash * kHashCombineMagic + static_cast<std::uint32_t>(key.texcoord);
+        hash = hash * kHashCombineMagic + static_cast<std::uint32_t>(key.normal);
         return std::hash<std::uint64_t>{}(hash);
     }
 };
@@ -138,9 +138,28 @@ bool parse_corner(std::string_view token,
     return resolve_index(normalTok, normalCount, out.normal);
 }
 
+[[nodiscard]]
+std::expected<std::vector<Corner>, LoadError> parse_face_corners(std::string_view cursor,
+                                                                  std::size_t positionCount,
+                                                                  std::size_t texcoordCount,
+                                                                  std::size_t normalCount) {
+    std::vector<Corner> face;
+    for (std::string_view token = next_token(cursor); !token.empty(); token = next_token(cursor)) {
+        Corner corner;
+        if (!parse_corner(token, positionCount, texcoordCount, normalCount, corner)) {
+            return std::unexpected(LoadError::parseError);
+        }
+        face.push_back(corner);
+    }
+    if (face.size() < 3U) {
+        return std::unexpected(LoadError::parseError);
+    }
+    return face;
+}
+
 } // namespace
 
-std::expected<MeshData, LoadError> ObjLoader::parse(std::string_view rawContents) const {
+std::expected<MeshData, LoadError> ObjLoader::parse(std::string_view rawContents) {
     std::vector<std::array<float, 3>> positions;
     std::vector<std::array<float, 3>> normals;
     std::vector<std::array<float, 2>> texcoords;
@@ -153,7 +172,7 @@ std::expected<MeshData, LoadError> ObjLoader::parse(std::string_view rawContents
     const bool haveAnyTexcoords = rawContents.find("\nvt") != std::string_view::npos || rawContents.starts_with("vt");
 
     // Emits (deduplicated) the vertex for a corner and returns its index.
-    const auto emit_corner = [&](const Corner& corner) -> std::uint32_t {
+    const auto emitCorner = [&](const Corner& corner) -> std::uint32_t {
         const CornerKey key{corner.position, corner.texcoord, corner.normal};
         if (const auto it = emitted.find(key); it != emitted.end()) {
             return it->second;
@@ -191,7 +210,7 @@ std::expected<MeshData, LoadError> ObjLoader::parse(std::string_view rawContents
     // new one. Groups delimit runs of triangleIndices sharing one material.
     std::string currentMaterial;
     bool haveOpenSubMesh = false;
-    const auto close_sub_mesh = [&] {
+    const auto closeSubMesh = [&] {
         if (!haveOpenSubMesh) {
             return;
         }
@@ -203,8 +222,8 @@ std::expected<MeshData, LoadError> ObjLoader::parse(std::string_view rawContents
         }
         haveOpenSubMesh = false;
     };
-    const auto open_sub_mesh = [&] {
-        close_sub_mesh();
+    const auto openSubMesh = [&] {
+        closeSubMesh();
         mesh.subMeshes.push_back(
             {.indexOffset = static_cast<std::uint32_t>(mesh.triangleIndices.size()), .indexCount = 0U, .materialName = currentMaterial});
         haveOpenSubMesh = true;
@@ -264,27 +283,21 @@ std::expected<MeshData, LoadError> ObjLoader::parse(std::string_view rawContents
             }
         } else if (keyword == "usemtl") {
             currentMaterial = std::string(trim(cursor));
-            open_sub_mesh();
+            openSubMesh();
         } else if (keyword == "f") {
             if (!haveOpenSubMesh) {
-                open_sub_mesh(); // faces before any usemtl form a default group
+                openSubMesh(); // faces before any usemtl form a default group
             }
-            std::vector<Corner> face;
-            for (std::string_view token = next_token(cursor); !token.empty(); token = next_token(cursor)) {
-                Corner corner;
-                if (!parse_corner(token, positions.size(), texcoords.size(), normals.size(), corner)) {
-                    return std::unexpected(LoadError::parseError);
-                }
-                face.push_back(corner);
+            auto faceResult = parse_face_corners(cursor, positions.size(), texcoords.size(), normals.size());
+            if (!faceResult) {
+                return std::unexpected(faceResult.error());
             }
-            if (face.size() < 3U) {
-                return std::unexpected(LoadError::parseError);
-            }
+            const auto& face = *faceResult;
             // Triangle fan around the first corner triangulates a convex polygon.
-            const std::uint32_t anchor = emit_corner(face[0]);
-            std::uint32_t previous = emit_corner(face[1]);
+            const std::uint32_t anchor = emitCorner(face[0]);
+            std::uint32_t previous = emitCorner(face[1]);
             for (std::size_t i = 2; i < face.size(); ++i) {
-                const std::uint32_t current = emit_corner(face[i]);
+                const std::uint32_t current = emitCorner(face[i]);
                 mesh.triangleIndices.push_back(anchor);
                 mesh.triangleIndices.push_back(previous);
                 mesh.triangleIndices.push_back(current);
@@ -293,7 +306,7 @@ std::expected<MeshData, LoadError> ObjLoader::parse(std::string_view rawContents
         }
         // Other directives (g, o, s, ...) are ignored.
     }
-    close_sub_mesh();
+    closeSubMesh();
 
     if (mesh.empty()) {
         return std::unexpected(LoadError::empty);

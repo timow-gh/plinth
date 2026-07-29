@@ -46,6 +46,7 @@ function(enable_clang_tidy targetName WARNINGS_AS_ERRORS)
                 list(APPEND CLANG_TIDY_COMMAND -extra-arg=/std:c++${CMAKE_CXX_STANDARD})
             else ()
                 list(APPEND CLANG_TIDY_COMMAND -extra-arg=-std=c++${CMAKE_CXX_STANDARD})
+                list(APPEND CLANG_TIDY_COMMAND -extra-arg-before=-stdlib=libstdc++)
             endif ()
         endif ()
 

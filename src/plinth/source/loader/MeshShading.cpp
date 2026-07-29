@@ -48,8 +48,10 @@ void push_color(MeshData& out, const MeshData& mesh, std::uint32_t index) {
     return linal::cross(v1 - v0, v2 - v0);
 }
 
+constexpr float kEpsilon = 1.0e-6F;
+
 [[nodiscard]] linal::float3 safe_normalize(const linal::float3& v) {
-    return linal::length(v) > 1.0e-6F ? linal::normalize(v) : linal::float3{0.0F, 0.0F, 1.0F};
+    return linal::length(v) > kEpsilon ? linal::normalize(v) : linal::float3{0.0F, 0.0F, 1.0F};
 }
 
 [[nodiscard]] MeshData make_flat(const MeshData& mesh) {
@@ -124,7 +126,7 @@ void push_color(MeshData& out, const MeshData& mesh, std::uint32_t index) {
         const auto index = static_cast<std::uint32_t>(accum.size());
         push_position(out, p);
         push_color(out, mesh, source);
-        accum.push_back(linal::float3{0.0F, 0.0F, 0.0F});
+        accum.emplace_back();
         welded.emplace(key, index);
         return index;
     };

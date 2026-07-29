@@ -65,7 +65,7 @@ load_mesh(const std::filesystem::path& path, MeshLoadOptions options = {});
 /// ".obj"). \p contents holds the raw bytes of the file (text or binary).
 [[nodiscard]]
 PLINTH_EXPORT std::expected<MeshData, LoadError>
-load_mesh(std::string_view extension, std::string contents, MeshLoadOptions options = {});
+load_mesh(std::string_view extension, const std::string& contents, MeshLoadOptions options = {});
 
 } // namespace renderer
 

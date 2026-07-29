@@ -22,7 +22,7 @@ struct ObjLoader {
     }
 
     [[nodiscard]]
-    std::expected<MeshData, LoadError> parse(std::string_view rawContents) const;
+    static std::expected<MeshData, LoadError> parse(std::string_view rawContents);
 };
 
 } // namespace renderer

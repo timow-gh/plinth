@@ -61,7 +61,7 @@ std::expected<std::string, LoadError> read_file(const std::filesystem::path& pat
     if (!stream) {
         return std::unexpected(LoadError::unreadable);
     }
-    std::string contents(static_cast<std::size_t>(std::filesystem::file_size(path, errorCode)), '\0');
+    std::string contents(std::filesystem::file_size(path, errorCode), '\0');
     if (errorCode) {
         return std::unexpected(LoadError::unreadable);
     }
@@ -111,7 +111,7 @@ void resolve_materials(MeshData& mesh, const std::filesystem::path& sourcePath) 
 } // namespace
 
 std::expected<MeshData, LoadError>
-load_mesh(std::string_view extension, std::string contents, MeshLoadOptions options) {
+load_mesh(std::string_view extension, const std::string& contents, MeshLoadOptions options) {
     auto mesh = load_mesh_with(BuiltinMeshLoaders{}, extension, contents);
     if (mesh) {
         mesh = apply_shading_if_supported(*mesh, options.shading);

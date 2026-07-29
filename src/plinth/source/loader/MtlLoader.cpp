@@ -111,7 +111,7 @@ std::expected<std::vector<MeshData::Material>, LoadError> parse_mtl(std::string_
         }
 
         if (keyword == "newmtl") {
-            materials.push_back({.name = std::string(trim(operand))});
+            materials.push_back({.name = std::string(trim(operand)), .diffuseColor = {1.0F, 1.0F, 1.0F, 1.0F}, .diffuseTexturePath = {}});
         } else if (keyword == "Kd" && !materials.empty()) {
             // Keep the default white color when a malformed Kd line is encountered.
             (void)parse_diffuse_color(operand, materials.back().diffuseColor);

@@ -158,8 +158,7 @@ std::expected<std::vector<Corner>, LoadError> parse_face_corners(std::string_vie
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-[[nodiscard]]
-std::expected<void, LoadError> process_obj_keyword(std::string_view keyword,
+[[nodiscard]] std::expected<void, LoadError> process_obj_keyword(std::string_view keyword,
                                                     std::string_view cursor,
                                                     std::vector<std::array<float, 3>>& positions,
                                                     std::vector<std::array<float, 3>>& normals,

@@ -144,7 +144,6 @@ int main() {
         0.0F,  -1.5F, 0.0F, 0.0F, 1.5F,  0.0F, // Y axis
         0.0F,  0.0F,  -1.5F, 0.0F, 0.0F, 1.5F, // Z axis
     };
-    const std::array<std::uint32_t, 6> lineIndices{0U, 1U, 2U, 3U, 4U, 5U};
     // Per-vertex colors are needed for the highlight to be uniform; each axis keeps a single
     // hue that the highlight overrides wholesale.
     const std::array<std::pair<Color, std::string>, 3> axisSpecs{{
@@ -157,7 +156,14 @@ int main() {
         const std::array<std::uint32_t, 2> segmentIndices{
             static_cast<std::uint32_t>(2U * i), static_cast<std::uint32_t>((2U * i) + 1U)};
         auto rebuild = [&renderer, lineVertices, segmentIndices](const Color& c) {
-            const std::array<float, 8> colors{c[0], c[1], c[2], c[3], c[0], c[1], c[2], c[3]};
+            const std::array<float, 24> colors{
+                c[0], c[1], c[2], c[3],
+                c[0], c[1], c[2], c[3],
+                c[0], c[1], c[2], c[3],
+                c[0], c[1], c[2], c[3],
+                c[0], c[1], c[2], c[3],
+                c[0], c[1], c[2], c[3],
+            };
             return renderer->add_line_drawable(
                 lineVertices, segmentIndices, colors, renderer::LineType::lines(), axisLineWidth);
         };

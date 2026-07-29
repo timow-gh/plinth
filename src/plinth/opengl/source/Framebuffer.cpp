@@ -18,6 +18,11 @@ class ScopedFramebufferState {
         glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &m_texture2dMultisample);
     }
 
+    ScopedFramebufferState(const ScopedFramebufferState&) = delete;
+    ScopedFramebufferState& operator=(const ScopedFramebufferState&) = delete;
+    ScopedFramebufferState(ScopedFramebufferState&&) = delete;
+    ScopedFramebufferState& operator=(ScopedFramebufferState&&) = delete;
+
     ~ScopedFramebufferState() {
         // Restore the captured active unit before the per-unit texture
         // bindings: glBindTexture writes to the *currently active* unit, so

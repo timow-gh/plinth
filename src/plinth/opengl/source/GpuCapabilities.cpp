@@ -1,6 +1,7 @@
 #include "OpenGL/GpuCapabilities.hpp"
 #include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/OpenGL.hpp"
+#include <algorithm>
 
 namespace opengl {
 
@@ -34,9 +35,7 @@ GpuCapabilities query_gpu_capabilities() {
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &caps.maxTextureSize);
     glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &caps.maxColorAttachments);
     glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &caps.maxAnisotropy);
-    if (caps.maxAnisotropy < 1) {
-        caps.maxAnisotropy = 1;
-    }
+    caps.maxAnisotropy = std::max(caps.maxAnisotropy, 1);
 
     caps.supportsDebugOutput = caps.supports_version(4, 3);
 

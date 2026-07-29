@@ -157,6 +157,125 @@ std::expected<std::vector<Corner>, LoadError> parse_face_corners(std::string_vie
     return face;
 }
 
+[[nodiscard]]
+std::expected<void, LoadError> process_obj_keyword(std::string_view keyword,
+                                                    std::string_view cursor,
+                                                    std::vector<std::array<float, 3>>& positions,
+                                                    std::vector<std::array<float, 3>>& normals,
+                                                    std::vector<std::array<float, 2>>& texcoords,
+                                                    std::string& materialLibrary,
+                                                    std::string& currentMaterial,
+                                                    MeshData& mesh,
+                                                    std::unordered_map<CornerKey, std::uint32_t, CornerKeyHash>& emitted,
+                                                    bool haveAnyNormals,
+                                                    bool haveAnyTexcoords,
+                                                    bool& haveOpenSubMesh) {
+    const auto emitCorner = [&](const Corner& corner) -> std::uint32_t {
+        const CornerKey key{corner.position, corner.texcoord, corner.normal};
+        if (const auto it = emitted.find(key); it != emitted.end()) {
+            return it->second;
+        }
+        const auto index = static_cast<std::uint32_t>(mesh.vertices.size() / 3U);
+        const std::array<float, 3>& pos = positions[static_cast<std::size_t>(corner.position)];
+        mesh.vertices.insert(mesh.vertices.end(), pos.begin(), pos.end());
+        if (haveAnyNormals) {
+            if (corner.normal >= 0) {
+                const std::array<float, 3>& nrm = normals[static_cast<std::size_t>(corner.normal)];
+                mesh.normals.insert(mesh.normals.end(), nrm.begin(), nrm.end());
+            } else {
+                mesh.normals.insert(mesh.normals.end(), {0.0F, 0.0F, 1.0F});
+            }
+        }
+        if (haveAnyTexcoords) {
+            if (corner.texcoord >= 0) {
+                const std::array<float, 2>& uv = texcoords[static_cast<std::size_t>(corner.texcoord)];
+                mesh.textureCoordinates.insert(mesh.textureCoordinates.end(), uv.begin(), uv.end());
+            } else {
+                mesh.textureCoordinates.insert(mesh.textureCoordinates.end(), {0.0F, 0.0F});
+            }
+        }
+        emitted.emplace(key, index);
+        return index;
+    };
+
+    const auto closeSubMesh = [&] {
+        if (!haveOpenSubMesh) {
+            return;
+        }
+        const auto end = static_cast<std::uint32_t>(mesh.triangleIndices.size());
+        MeshData::SubMesh& sub = mesh.subMeshes.back();
+        sub.indexCount = end - sub.indexOffset;
+        if (sub.indexCount == 0U) {
+            mesh.subMeshes.pop_back();
+        }
+        haveOpenSubMesh = false;
+    };
+    const auto openSubMesh = [&] {
+        closeSubMesh();
+        mesh.subMeshes.push_back(
+            {.indexOffset = static_cast<std::uint32_t>(mesh.triangleIndices.size()), .indexCount = 0U, .materialName = currentMaterial});
+        haveOpenSubMesh = true;
+    };
+
+    if (keyword == "v") {
+        std::array<float, 3> p{0.0F, 0.0F, 0.0F};
+        bool ok = true;
+        for (float& component: p) {
+            ok = ok && parse_float(next_token(cursor), component);
+        }
+        if (!ok) {
+            return std::unexpected(LoadError::parseError);
+        }
+        positions.push_back(p);
+    } else if (keyword == "vn") {
+        std::array<float, 3> n{0.0F, 0.0F, 0.0F};
+        bool ok = true;
+        for (float& component: n) {
+            ok = ok && parse_float(next_token(cursor), component);
+        }
+        if (!ok) {
+            return std::unexpected(LoadError::parseError);
+        }
+        normals.push_back(n);
+    } else if (keyword == "vt") {
+        std::array<float, 2> uv{0.0F, 0.0F};
+        bool ok = true;
+        for (float& component: uv) {
+            ok = ok && parse_float(next_token(cursor), component);
+        }
+        if (!ok) {
+            return std::unexpected(LoadError::parseError);
+        }
+        texcoords.push_back(uv);
+    } else if (keyword == "mtllib") {
+        if (materialLibrary.empty()) {
+            materialLibrary = std::string(trim(cursor));
+        }
+    } else if (keyword == "usemtl") {
+        currentMaterial = std::string(trim(cursor));
+        openSubMesh();
+    } else if (keyword == "f") {
+        if (!haveOpenSubMesh) {
+            openSubMesh();
+        }
+        auto faceResult = parse_face_corners(cursor, positions.size(), texcoords.size(), normals.size());
+        if (!faceResult) {
+            return std::unexpected(faceResult.error());
+        }
+        const auto& face = *faceResult;
+        const std::uint32_t anchor = emitCorner(face[0]);
+        std::uint32_t previous = emitCorner(face[1]);
+        for (std::size_t i = 2; i < face.size(); ++i) {
+            const std::uint32_t current = emitCorner(face[i]);
+            mesh.triangleIndices.push_back(anchor);
+            mesh.triangleIndices.push_back(previous);
+            mesh.triangleIndices.push_back(current);
+            previous = current;
+        }
+    }
+    return {};
+}
+
 } // namespace
 
 std::expected<MeshData, LoadError> ObjLoader::parse(std::string_view rawContents) {
@@ -171,63 +290,8 @@ std::expected<MeshData, LoadError> ObjLoader::parse(std::string_view rawContents
     const bool haveAnyNormals = rawContents.find("\nvn") != std::string_view::npos || rawContents.starts_with("vn");
     const bool haveAnyTexcoords = rawContents.find("\nvt") != std::string_view::npos || rawContents.starts_with("vt");
 
-    // Emits (deduplicated) the vertex for a corner and returns its index.
-    const auto emitCorner = [&](const Corner& corner) -> std::uint32_t {
-        const CornerKey key{corner.position, corner.texcoord, corner.normal};
-        if (const auto it = emitted.find(key); it != emitted.end()) {
-            return it->second;
-        }
-        const auto index = static_cast<std::uint32_t>(mesh.vertices.size() / 3U);
-        const std::array<float, 3>& pos = positions[static_cast<std::size_t>(corner.position)];
-        mesh.vertices.insert(mesh.vertices.end(), pos.begin(), pos.end());
-        if (haveAnyNormals) {
-            if (corner.normal >= 0) {
-                const std::array<float, 3>& nrm = normals[static_cast<std::size_t>(corner.normal)];
-                mesh.normals.insert(mesh.normals.end(), nrm.begin(), nrm.end());
-            } else {
-                // A face without a normal in a file that otherwise has them:
-                // leave a placeholder so buffers stay aligned. The renderer's
-                // normal computation only runs when normals are entirely empty,
-                // so fill with a neutral up vector here.
-                mesh.normals.insert(mesh.normals.end(), {0.0F, 0.0F, 1.0F});
-            }
-        }
-        if (haveAnyTexcoords) {
-            if (corner.texcoord >= 0) {
-                const std::array<float, 2>& uv = texcoords[static_cast<std::size_t>(corner.texcoord)];
-                mesh.textureCoordinates.insert(mesh.textureCoordinates.end(), uv.begin(), uv.end());
-            } else {
-                // Keep the uv buffer aligned with vertices when a corner has no
-                // texture coordinate in a file that otherwise has them.
-                mesh.textureCoordinates.insert(mesh.textureCoordinates.end(), {0.0F, 0.0F});
-            }
-        }
-        emitted.emplace(key, index);
-        return index;
-    };
-
-    // Submesh grouping: a usemtl directive closes the current group and opens a
-    // new one. Groups delimit runs of triangleIndices sharing one material.
     std::string currentMaterial;
     bool haveOpenSubMesh = false;
-    const auto closeSubMesh = [&] {
-        if (!haveOpenSubMesh) {
-            return;
-        }
-        const auto end = static_cast<std::uint32_t>(mesh.triangleIndices.size());
-        MeshData::SubMesh& sub = mesh.subMeshes.back();
-        sub.indexCount = end - sub.indexOffset;
-        if (sub.indexCount == 0U) {
-            mesh.subMeshes.pop_back(); // drop empty groups (e.g. usemtl with no faces)
-        }
-        haveOpenSubMesh = false;
-    };
-    const auto openSubMesh = [&] {
-        closeSubMesh();
-        mesh.subMeshes.push_back(
-            {.indexOffset = static_cast<std::uint32_t>(mesh.triangleIndices.size()), .indexCount = 0U, .materialName = currentMaterial});
-        haveOpenSubMesh = true;
-    };
 
     std::size_t lineStart = 0;
     while (lineStart <= rawContents.size()) {
@@ -244,69 +308,22 @@ std::expected<MeshData, LoadError> ObjLoader::parse(std::string_view rawContents
             continue;
         }
 
-        if (keyword == "v") {
-            std::array<float, 3> p{0.0F, 0.0F, 0.0F};
-            bool ok = true;
-            for (float& component: p) {
-                ok = ok && parse_float(next_token(cursor), component);
-            }
-            if (!ok) {
-                return std::unexpected(LoadError::parseError);
-            }
-            positions.push_back(p);
-        } else if (keyword == "vn") {
-            std::array<float, 3> n{0.0F, 0.0F, 0.0F};
-            bool ok = true;
-            for (float& component: n) {
-                ok = ok && parse_float(next_token(cursor), component);
-            }
-            if (!ok) {
-                return std::unexpected(LoadError::parseError);
-            }
-            normals.push_back(n);
-        } else if (keyword == "vt") {
-            // Only u, v are retained; an optional w component is ignored.
-            std::array<float, 2> uv{0.0F, 0.0F};
-            bool ok = true;
-            for (float& component: uv) {
-                ok = ok && parse_float(next_token(cursor), component);
-            }
-            if (!ok) {
-                return std::unexpected(LoadError::parseError);
-            }
-            texcoords.push_back(uv);
-        } else if (keyword == "mtllib") {
-            // The remainder of the line is the library name (may contain spaces).
-            // Only the first declaration is retained.
-            if (mesh.materialLibrary.empty()) {
-                mesh.materialLibrary = std::string(trim(cursor));
-            }
-        } else if (keyword == "usemtl") {
-            currentMaterial = std::string(trim(cursor));
-            openSubMesh();
-        } else if (keyword == "f") {
-            if (!haveOpenSubMesh) {
-                openSubMesh(); // faces before any usemtl form a default group
-            }
-            auto faceResult = parse_face_corners(cursor, positions.size(), texcoords.size(), normals.size());
-            if (!faceResult) {
-                return std::unexpected(faceResult.error());
-            }
-            const auto& face = *faceResult;
-            // Triangle fan around the first corner triangulates a convex polygon.
-            const std::uint32_t anchor = emitCorner(face[0]);
-            std::uint32_t previous = emitCorner(face[1]);
-            for (std::size_t i = 2; i < face.size(); ++i) {
-                const std::uint32_t current = emitCorner(face[i]);
-                mesh.triangleIndices.push_back(anchor);
-                mesh.triangleIndices.push_back(previous);
-                mesh.triangleIndices.push_back(current);
-                previous = current;
-            }
+        auto result = process_obj_keyword(keyword, cursor, positions, normals, texcoords,
+                                          mesh.materialLibrary, currentMaterial, mesh, emitted,
+                                          haveAnyNormals, haveAnyTexcoords, haveOpenSubMesh);
+        if (!result) {
+            return std::unexpected(result.error());
         }
-        // Other directives (g, o, s, ...) are ignored.
     }
-    closeSubMesh();
+
+    if (haveOpenSubMesh) {
+        const auto end = static_cast<std::uint32_t>(mesh.triangleIndices.size());
+        MeshData::SubMesh& sub = mesh.subMeshes.back();
+        sub.indexCount = end - sub.indexOffset;
+        if (sub.indexCount == 0U) {
+            mesh.subMeshes.pop_back();
+        }
+    }
 
     if (mesh.empty()) {
         return std::unexpected(LoadError::empty);

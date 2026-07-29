@@ -26,6 +26,11 @@ class ScopedFullscreenState {
         glGetIntegerv(GL_TEXTURE_BINDING_2D, &m_activeTextureBinding);
     }
 
+    ScopedFullscreenState(const ScopedFullscreenState&) = delete;
+    ScopedFullscreenState& operator=(const ScopedFullscreenState&) = delete;
+    ScopedFullscreenState(ScopedFullscreenState&&) = delete;
+    ScopedFullscreenState& operator=(ScopedFullscreenState&&) = delete;
+
     ~ScopedFullscreenState() {
         glViewport(m_viewport[0], m_viewport[1], m_viewport[2], m_viewport[3]);
         glUseProgram(static_cast<GLuint>(m_program));

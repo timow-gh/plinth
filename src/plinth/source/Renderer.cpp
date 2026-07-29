@@ -714,6 +714,7 @@ Renderer::PickRay Renderer::compute_pick_ray(double xpos, double ypos) const {
                       static_cast<float>(ray.direction[2])}};
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double ypos, double radius) const {
     std::vector<PickResult> results;
     if (!m_drawablesManager->has_drawables()) {
@@ -785,7 +786,7 @@ std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double y
         const int boxHeight = maxYTop - minYTop + 1;
         const int glReadY = height - 1 - maxYTop; // bottom-left origin of the box
 
-        std::vector<std::uint8_t> pixels(static_cast<std::size_t>(boxWidth) * boxHeight * 4U);
+        std::vector<std::uint8_t> pixels(static_cast<std::size_t>(boxWidth) * static_cast<std::size_t>(boxHeight) * 4U);
         glPixelStorei(GL_PACK_ALIGNMENT, 1);
         glReadPixels(minX, glReadY, boxWidth, boxHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
 
@@ -802,7 +803,7 @@ std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double y
                 if (dx * dx + dy * dy > radiusSquared) {
                     continue;
                 }
-                const std::size_t base = (static_cast<std::size_t>(row) * boxWidth + col) * 4U;
+                const std::size_t base = (static_cast<std::size_t>(row) * static_cast<std::size_t>(boxWidth) + static_cast<std::size_t>(col)) * 4U;
                 const std::uint32_t index = opengl::decode_pick_index(pixels[base], pixels[base + 1], pixels[base + 2]);
                 if (index == 0U || index > entries.size()) {
                     continue;

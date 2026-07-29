@@ -13,7 +13,7 @@ namespace {
 using SizePair = std::pair<int, int>;
 
 void expect_pick_ray_matches(const renderer::Renderer::PickRay& actual, const renderer::PickRay& expected) {
-    for (std::uint32_t axis = 0; axis < 3U; ++axis) {
+    for (int axis = 0; axis < 3; ++axis) {
         EXPECT_FLOAT_EQ(actual.origin[axis], static_cast<float>(expected.origin[axis]));
         EXPECT_FLOAT_EQ(actual.direction[axis], static_cast<float>(expected.direction[axis]));
     }

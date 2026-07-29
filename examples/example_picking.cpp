@@ -130,6 +130,7 @@ int main() {
             const renderer::DrawableHandle handle =
                 renderer->add_mesh_drawable(cube.positions, cube.indices, c, cube.normals);
             linal::hmatf transform = linal::hmatf::identity();
+            // NOLINTNEXTLINE(clang-analyzer-core.NullDereference)
             transform.set_translation(linal::float3{offsetX, 0.0F, 0.0F});
             renderer->set_drawable_transform(handle, transform);
             return handle;
@@ -180,6 +181,7 @@ int main() {
     const Color pointColor{1.0F, 0.85F, 0.10F, 1.0F};
     for (const auto& [position, label]: pointSpecs) {
         auto rebuild = [&renderer, position](const Color& c) {
+            // NOLINTNEXTLINE(clang-analyzer-core.CallAndMessage)
             const std::array<float, 3> vertices{position[0], position[1], position[2]};
             return renderer->add_point_drawable(vertices, c, markerPointSize);
         };

@@ -621,6 +621,9 @@ class Camera {
                 std::tan(glm::radians(static_cast<float>(m_perspective.fov)) / 2.0F);
             const float depthRange = farPlane - nearPlane;
 
+            // Right-handed, zero-to-one projection: after division by W, near maps to 1 and far
+            // to 0. Distant depths therefore approach zero, where floating point is densest,
+            // counteracting perspective's 1/Z precision loss. Requires GL_ZERO_TO_ONE clip depth.
             glm::mat4 result{0.0F};
             result[0][0] = 1.0F / (aspectRatio * tanHalfFov);
             result[1][1] = 1.0F / tanHalfFov;

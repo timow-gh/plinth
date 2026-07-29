@@ -11,10 +11,9 @@ constexpr double halfScale = 0.5;
 constexpr double nearPlaneMultiplier = 2.0;
 constexpr double significantRecenterImprovement = 1.5;
 constexpr double degreesToRadians = 3.14159265358979323846 / 180.0;
-// Caps the far/near ratio so depth-buffer precision does not collapse when the
-// scene is far from the camera. A standard [0,1] depth buffer keeps usable
-// precision up to roughly this ratio; beyond it z-fighting appears. Reversed-Z
-// would lift this limit, but the clamp is projection-format agnostic.
+// Caps the far/near ratio for conventional depth so precision does not collapse
+// when the scene is far from the camera. Reversed floating-point depth does not
+// need this limit.
 constexpr double maxDepthRatio = 1.0e4;
 
 struct CameraFrame {
@@ -219,11 +218,16 @@ double fit_near_plane(const CameraSpaceBounds& bounds,
                       double movementDelta,
                       double sceneRadius,
                       double absoluteMinimum,
-                      double farPlane) {
+                      double farPlane,
+                      bool useReversedDepth) {
     const double frontDepth = bounds.minZ + movementDelta;
-    const double nearFloor = scene_scale_near_floor(bounds, sceneRadius, absoluteMinimum);
+    const double nearFloor = useReversedDepth
+                                 ? absoluteMinimum
+                                 : scene_scale_near_floor(bounds, sceneRadius, absoluteMinimum);
     double nearPlane = std::max(nearFloor, frontDepth * (1.0 - halfScale * halfScale));
-    nearPlane = std::max(nearPlane, farPlane / maxDepthRatio);
+    if (!useReversedDepth) {
+        nearPlane = std::max(nearPlane, farPlane / maxDepthRatio);
+    }
     return nearPlane;
 }
 
@@ -277,7 +281,8 @@ void apply_perspective_auto_fit(CameraAutoFitResult& result,
 
     result.position -= frame.forward * movementDelta;
     result.farPlane = std::max(input.nearPlane * nearPlaneMultiplier, bounds.maxZ + movementDelta + farPadding);
-    result.nearPlane = fit_near_plane(bounds, movementDelta, sceneRadius, input.nearPlane, result.farPlane);
+    result.nearPlane = fit_near_plane(
+        bounds, movementDelta, sceneRadius, input.nearPlane, result.farPlane, input.useReversedDepth);
     result.viewportOccupancy = get_perspective_occupancy(bounds, tanHalfVerticalFov, input.aspectRatio);
 }
 
@@ -325,7 +330,8 @@ void apply_orthographic_auto_fit(CameraAutoFitResult& result,
     movementDelta = std::max(0.0, input.nearPlane - bounds.minZ + input.nearPlane);
     result.position -= frame.forward * movementDelta;
     result.farPlane = std::max(input.nearPlane * nearPlaneMultiplier, bounds.maxZ + movementDelta + farPadding);
-    result.nearPlane = fit_near_plane(bounds, movementDelta, sceneRadius, input.nearPlane, result.farPlane);
+    result.nearPlane = fit_near_plane(
+        bounds, movementDelta, sceneRadius, input.nearPlane, result.farPlane, input.useReversedDepth);
     result.viewportOccupancy =
         get_orthographic_occupancy(bounds, result.orthographicWidth, result.orthographicHeight, input.aspectRatio);
 }
@@ -381,11 +387,13 @@ CameraClipPlanes calculate_clip_planes(std::span<const std::span<const float>> v
 
     // Fixed pose: the camera does not move, so movementDelta is zero. Bracket the
     // geometry's camera-space depth range with the same near/far math the
-    // auto-fit uses, keeping the near floor and far/near ratio clamp.
+    // auto-fit uses. Conventional depth retains the precision-oriented near
+    // floor and far/near ratio clamp; reversed floating-point depth does not.
     const double sceneRadius = get_world_radius(bounds);
     const double farPadding = std::max(sceneRadius, 1.0) * input.farPlaneMultiplier;
     planes.farPlane = std::max(input.nearPlane * nearPlaneMultiplier, bounds.maxZ + farPadding);
-    planes.nearPlane = fit_near_plane(bounds, 0.0, sceneRadius, input.nearPlane, planes.farPlane);
+    planes.nearPlane = fit_near_plane(
+        bounds, 0.0, sceneRadius, input.nearPlane, planes.farPlane, input.useReversedDepth);
     return planes;
 }
 

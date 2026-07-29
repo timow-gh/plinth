@@ -431,6 +431,12 @@ class Renderer {
     bool is_auto_fit_enabled() const noexcept {
         return m_autoFitEnabled;
     }
+    /// True when GL_ARB_clip_control or OpenGL 4.5 support allowed the renderer
+    /// to select a floating-point reversed-Z pipeline.
+    [[nodiscard]]
+    bool uses_reversed_depth() const noexcept {
+        return m_reversedDepth;
+    }
     [[nodiscard]]
     /// The returned overlay is owned by this Renderer and must not be used
     /// after the Renderer is destroyed. Use get_imgui() for a lifetime-safe view.
@@ -460,6 +466,7 @@ class Renderer {
              int sceneSamples,
              int maxTextureSize,
              int maxAnisotropy,
+             bool reversedDepth,
              std::uint64_t rendererInstance);
 
     void wire_callbacks();
@@ -517,6 +524,7 @@ class Renderer {
     bool m_autoFitEnabled{false};
     int m_maxTextureSize{0};
     int m_maxAnisotropy{1};
+    bool m_reversedDepth{false};
     std::uint64_t m_rendererInstance{0U};
 
     std::vector<CallbackEntry<CursorPosCB>> m_cursorPosCallbacks;

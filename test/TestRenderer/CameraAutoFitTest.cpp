@@ -312,6 +312,23 @@ TEST(CameraAutoFitTest, ClipPlanesCapFarNearRatioForDistantGeometry) {
     EXPECT_GT(planes.farPlane, 10000.0);
 }
 
+TEST(CameraAutoFitTest, ReversedDepthDoesNotCapFarNearRatio) {
+    const std::vector<float> pointVertices{0.0F, 0.0F, 0.99F, 0.0F, 0.0F, -10000.0F};
+    const std::array<std::span<const float>, 1> vertexPositionBuffers{std::span<const float>{pointVertices}};
+
+    renderer::CameraAutoFitInput input = make_input();
+    input.position = linal::double3{0.0, 0.0, 1.0};
+    input.target = linal::double3{0.0, 0.0, 0.0};
+    input.useReversedDepth = true;
+
+    const renderer::CameraClipPlanes planes =
+        renderer::calculate_clip_planes(std::span<const std::span<const float>>{vertexPositionBuffers}, input);
+
+    ASSERT_TRUE(planes.hasGeometry);
+    EXPECT_DOUBLE_EQ(input.nearPlane, planes.nearPlane);
+    EXPECT_GT(planes.farPlane / planes.nearPlane, 1.0e6);
+}
+
 TEST(CameraAutoFitTest, ClipPlanesReportNoGeometryForEmptyScene) {
     const std::array<std::span<const float>, 0> vertexPositionBuffers{};
     const renderer::CameraAutoFitInput input = make_input();

@@ -188,6 +188,7 @@ uniform sampler2D u_sceneColor;
 uniform sampler2D u_sceneDepth;
 
 uniform mat4 u_invProjection;
+uniform bool u_reversedDepth;
 
 uniform bool   u_fogEnabled;
 uniform int    u_fogMode;
@@ -217,14 +218,12 @@ void main() {
     vec3 hdr = texture(u_sceneColor, v_uv).rgb;
     float depth = texture(u_sceneDepth, v_uv).r;
 
-    vec3 viewPos = vec3(0.0);
-    if (u_fogEnabled) {
-        vec4 clip = vec4(v_uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+    bool hasGeometry = u_reversedDepth ? depth > 0.0 : depth < 1.0;
+    if (u_fogEnabled && hasGeometry) {
+        float clipDepth = u_reversedDepth ? depth : depth * 2.0 - 1.0;
+        vec4 clip = vec4(v_uv * 2.0 - 1.0, clipDepth, 1.0);
         vec4 view = u_invProjection * clip;
-        viewPos = view.xyz / view.w;
-    }
-
-    if (u_fogEnabled && depth < 0.9999) {
+        vec3 viewPos = view.xyz / view.w;
         float dist = length(viewPos);
         float fogAmount;
         if (u_fogMode == 0) {
@@ -256,7 +255,7 @@ void main() {
         float value = log2(max(lum, 1e-6));
         ldr = vec3(clamp((value + 10.0) / 20.0, 0.0, 1.0));
     } else if (u_visualizationMode == 5) {
-        ldr = vec3(depth);
+        ldr = vec3(u_reversedDepth ? 1.0 - depth : depth);
     } else if (u_visualizationMode == 6) {
         bool clipped = any(greaterThan(exposed, vec3(1.0)));
         ldr = clipped ? vec3(1.0, 0.0, 1.0) : vec3(0.0);

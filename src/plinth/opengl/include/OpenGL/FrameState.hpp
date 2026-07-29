@@ -9,7 +9,10 @@ namespace opengl {
 using renderer::ClearColor;
 using renderer::ViewportRect;
 
-OPENGL_EXPORT void begin_frame(const ClearColor& clearColor, const ViewportRect& viewport, bool srgbFramebuffer = true);
+OPENGL_EXPORT void begin_frame(const ClearColor& clearColor,
+                               const ViewportRect& viewport,
+                               bool srgbFramebuffer = true,
+                               bool reversedDepth = false);
 
 } // namespace opengl
 

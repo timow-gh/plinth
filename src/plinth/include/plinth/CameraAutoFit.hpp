@@ -30,6 +30,7 @@ struct CameraAutoFitInput {
     double farPlaneMultiplier{3.0};
     bool suppressZoomIn{false};
     CameraAutoFitSettings settings;
+    bool useReversedDepth{false};
 };
 
 struct CameraAutoFitResult {
@@ -57,9 +58,9 @@ CameraAutoFitResult calculate_camera_auto_fit(std::span<const std::span<const fl
 /// whatever geometry the buffers contain at the pose described by \p input so
 /// the planes can be refreshed every frame while the user navigates. \p input's
 /// position/target/vertical describe the current pose; nearPlane is the
-/// absolute minimum near plane (the actual near floor is derived from scene
-/// scale so it carries no per-frame history) and farPlaneMultiplier controls
-/// the far padding.
+/// absolute minimum near plane. Conventional depth also derives a near floor
+/// from scene scale; reversed depth can retain the absolute minimum without a
+/// precision-ratio clamp. farPlaneMultiplier controls the far padding.
 struct CameraClipPlanes {
     bool hasGeometry{false};
     double nearPlane{0.01};

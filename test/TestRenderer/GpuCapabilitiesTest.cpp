@@ -53,6 +53,7 @@ TEST_F(GpuCapabilitiesTest, ReturnsPlausibleValuesOnRealContext) {
     EXPECT_FALSE(caps.glRenderer.empty());
     EXPECT_FALSE(caps.glVendor.empty());
     EXPECT_FALSE(caps.glslVersion.empty());
+    EXPECT_FALSE(caps.supportsClipControl && glad_glClipControl == nullptr);
 }
 
 } // namespace

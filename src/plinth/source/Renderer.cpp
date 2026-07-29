@@ -7,6 +7,7 @@
 #include "OpenGL/GpuCapabilities.hpp"
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/PostProcessingPass.hpp"
+#include "plinth/ScopeExit.hpp"
 #include <algorithm>
 #include <atomic>
 #include <cmath>
@@ -700,6 +701,115 @@ bool Renderer::has_line_drawables() const {
 }
 bool Renderer::has_mesh_drawables() const {
     return m_drawablesManager->has_mesh_drawables();
+}
+
+std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double ypos, double radius) const {
+    std::vector<PickResult> results;
+    if (!m_drawablesManager->has_drawables()) {
+        return results;
+    }
+
+    // The pick pass renders into an offscreen target sized to the scene viewport. Incoming
+    // coordinates are scene-framebuffer coordinates (top-left origin, local to the scene viewport),
+    // the same space camera pick rays use, so they index directly into this target.
+    const int width = static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.width));
+    const int height = static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.height));
+    if (width <= 0 || height <= 0) {
+        return results;
+    }
+
+    make_context_current();
+
+    // Lazily create or resize the single-sample, non-sRGB pick target. Single sample avoids MSAA
+    // color averaging that would corrupt encoded IDs.
+    if (!m_pickFramebuffer || m_pickFramebuffer->get_width() != width || m_pickFramebuffer->get_height() != height) {
+        auto pick = opengl::Framebuffer::create(width, height, 1, false);
+        if (!pick.has_value()) {
+            opengl::report_error("Error: Renderer::pick_drawables failed to create pick framebuffer");
+            return results;
+        }
+        m_pickFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*pick));
+    }
+
+    m_pickFramebuffer->bind();
+
+    // Restore the scene framebuffer binding on every exit path (including exceptions) so a pick
+    // performed mid-frame leaves rendering intact.
+    const ScopeExit restoreSceneFramebuffer{[this] { m_sceneFramebuffer->bind(); }};
+
+    // Configure state for exact, un-blended, un-encoded ID output. Clear to black (index 0 = no hit).
+    glDisable(GL_FRAMEBUFFER_SRGB);
+    glDisable(GL_BLEND);
+    glDisable(GL_MULTISAMPLE);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LESS);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glViewport(0, 0, width, height);
+    glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    const std::vector<opengl::DrawablesManager::PickEntry> entries =
+        m_drawablesManager->draw_pick_pass(m_camera->get_current_MVP(),
+                                           m_camera->get_view_matrix(),
+                                           m_camera->get_projection_matrix());
+
+    // Read back the axis-aligned pixel box that bounds the circular pick region, clamped to the
+    // target. Coordinates flip on Y because glReadPixels uses a bottom-left origin.
+    const double centerX = xpos;
+    const double centerYTop = ypos;
+    const double pickRadius = std::max(0.0, radius);
+
+    const int minX = std::max(0, static_cast<int>(std::floor(centerX - pickRadius)));
+    const int maxX = std::min(width - 1, static_cast<int>(std::ceil(centerX + pickRadius)));
+    const int minYTop = std::max(0, static_cast<int>(std::floor(centerYTop - pickRadius)));
+    const int maxYTop = std::min(height - 1, static_cast<int>(std::ceil(centerYTop + pickRadius)));
+
+    if (minX <= maxX && minYTop <= maxYTop) {
+        const int boxWidth = maxX - minX + 1;
+        const int boxHeight = maxYTop - minYTop + 1;
+        const int glReadY = height - 1 - maxYTop; // bottom-left origin of the box
+
+        std::vector<std::uint8_t> pixels(static_cast<std::size_t>(boxWidth) * boxHeight * 4U);
+        glPixelStorei(GL_PACK_ALIGNMENT, 1);
+        glReadPixels(minX, glReadY, boxWidth, boxHeight, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+
+        const double radiusSquared = pickRadius * pickRadius;
+        std::vector<std::uint8_t> seen(entries.size(), 0U); // dedupe by pass index
+
+        for (int row = 0; row < boxHeight; ++row) {
+            // Row 0 of the readback is the bottom of the box; map back to a top-left pixel Y.
+            const int topY = maxYTop - row;
+            for (int col = 0; col < boxWidth; ++col) {
+                const int px = minX + col;
+                const double dx = static_cast<double>(px) - centerX;
+                const double dy = static_cast<double>(topY) - centerYTop;
+                if (dx * dx + dy * dy > radiusSquared) {
+                    continue;
+                }
+                const std::size_t base = (static_cast<std::size_t>(row) * boxWidth + col) * 4U;
+                const std::uint32_t index = opengl::decode_pick_index(pixels[base], pixels[base + 1], pixels[base + 2]);
+                if (index == 0U || index > entries.size()) {
+                    continue;
+                }
+                if (seen[index - 1U] != 0U) {
+                    continue;
+                }
+                seen[index - 1U] = 1U;
+                const opengl::DrawablesManager::PickEntry& entry = entries[index - 1U];
+                DrawableKind kind = DrawableKind::invalid;
+                switch (entry.kind) {
+                case opengl::PickDrawableKind::point: kind = DrawableKind::point; break;
+                case opengl::PickDrawableKind::line:  kind = DrawableKind::line; break;
+                case opengl::PickDrawableKind::mesh:  kind = DrawableKind::mesh; break;
+                }
+                results.push_back(PickResult{DrawableHandle{kind, entry.id, m_rendererInstance}});
+            }
+        }
+    }
+
+    return results;
 }
 
 // --- Frame lifecycle ---

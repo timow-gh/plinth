@@ -9,6 +9,7 @@
 #include "OpenGL/VertexBuffer.hpp"
 #include "OpenGL/opengl_export.h"
 #include "plinth/Warnings.hpp"
+#include <array>
 #include <cstdint>
 #include <linal/hmat.hpp>
 #include <linal/vec.hpp>
@@ -75,6 +76,13 @@ class OPENGL_EXPORT MeshDrawable {
               const linal::float3& materialAmbient,
               const linal::float3& materialDiffuse,
               const linal::float3& materialSpecular) const;
+
+    /** Draw the mesh into a color-ID pick pass using a flat pickColor. Uses the same program,
+     * VAO, and index buffer as the visible draw so the pick footprint matches the rendered mesh. */
+    void draw_pick(const linal::hmatf& modelMatrix,
+                   const linal::hmatf& viewMatrix,
+                   const linal::hmatf& projectionMatrix,
+                   const std::array<float, 3>& pickColor) const;
 
     [[nodiscard]]
     bool is_translucent() const noexcept {

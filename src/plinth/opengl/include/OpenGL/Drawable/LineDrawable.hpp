@@ -11,6 +11,7 @@
 #include "OpenGL/VertexBuffer.hpp"
 #include "OpenGL/opengl_export.h"
 #include "plinth/Warnings.hpp"
+#include <array>
 #include <cstdint>
 #include <linal/hmat.hpp>
 #include <span>
@@ -89,6 +90,11 @@ class OPENGL_EXPORT LineDrawable {
     void draw_opaque(const linal::hmatf& mvp, const linal::hmatf& modelMatrix) const;
 
     void draw_translucent(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const linal::double3& viewPosition);
+
+    /** Draw all line segments (opaque and translucent) into a color-ID pick pass using a flat
+     * pickColor. Point primitives (when pointSize > 0) are also drawn so their footprint is
+     * selectable, matching the visible draw. */
+    void draw_pick(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const std::array<float, 3>& pickColor) const;
 
     [[nodiscard]]
     bool has_opaque_primitives() const noexcept {

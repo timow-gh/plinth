@@ -274,6 +274,11 @@ class Renderer {
     [[nodiscard]]
     bool has_mesh_drawables() const;
 
+    struct PickResult {
+        DrawableHandle handle;
+    };
+    std::vector<PickResult> pick_drawables(double xpos, double ypos, double radius) const;
+
     /// Post-processing controls require finite numeric values. HDR display max
     /// must be positive, fog density must be non-negative, and linear fog needs
     /// end > start. FXAA edge threshold, minimum edge contrast, and subpixel
@@ -511,6 +516,9 @@ class Renderer {
     std::unique_ptr<opengl::Framebuffer> m_sceneFramebuffer;
     std::unique_ptr<opengl::Framebuffer> m_hdrResolveFramebuffer;
     std::unique_ptr<opengl::Framebuffer> m_ldrIntermediate;
+    /// Lazily-created single-sample color target for GPU color-ID picking. Created/resized on the
+    /// first pick_drawables call and reused thereafter. Mutable because pick_drawables is const.
+    mutable std::unique_ptr<opengl::Framebuffer> m_pickFramebuffer;
     std::unique_ptr<opengl::PostProcessingPass> m_postProcessingPass;
     std::unique_ptr<opengl::FXAAPass> m_fxaaPass;
     int m_sceneSamples{1};

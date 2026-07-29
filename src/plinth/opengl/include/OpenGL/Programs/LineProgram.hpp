@@ -16,6 +16,8 @@ class OPENGL_EXPORT LineProgram {
     Uniform m_modelMatrixLocation;
     Attribute m_vertexLocation;
     Attribute m_colorLocation;
+    Uniform m_pickModeLocation;
+    Uniform m_pickColorLocation;
 
   public:
     LineProgram() noexcept = default;
@@ -23,7 +25,9 @@ class OPENGL_EXPORT LineProgram {
                 Uniform viewProjectionLocation,
                 Uniform modelMatrixLocation,
                 Attribute vertexLocation,
-                Attribute colorLocation) noexcept;
+                Attribute colorLocation,
+                Uniform pickModeLocation,
+                Uniform pickColorLocation) noexcept;
 
     LineProgram(const LineProgram&) = delete;
     LineProgram& operator=(const LineProgram&) = delete;
@@ -33,6 +37,8 @@ class OPENGL_EXPORT LineProgram {
         m_modelMatrixLocation = std::move(other.m_modelMatrixLocation);
         m_vertexLocation = std::move(other.m_vertexLocation);
         m_colorLocation = std::move(other.m_colorLocation);
+        m_pickModeLocation = std::move(other.m_pickModeLocation);
+        m_pickColorLocation = std::move(other.m_pickColorLocation);
     }
     LineProgram& operator=(LineProgram&& other) noexcept {
         if (this != &other) {
@@ -41,6 +47,8 @@ class OPENGL_EXPORT LineProgram {
             m_modelMatrixLocation = std::move(other.m_modelMatrixLocation);
             m_vertexLocation = std::move(other.m_vertexLocation);
             m_colorLocation = std::move(other.m_colorLocation);
+            m_pickModeLocation = std::move(other.m_pickModeLocation);
+            m_pickColorLocation = std::move(other.m_pickColorLocation);
         }
         return *this;
     }
@@ -66,6 +74,14 @@ class OPENGL_EXPORT LineProgram {
     [[nodiscard]]
     constexpr Location get_color_location() const {
         return m_colorLocation.get_location();
+    }
+    [[nodiscard]]
+    constexpr Location get_pick_mode_location() const {
+        return m_pickModeLocation.get_location();
+    }
+    [[nodiscard]]
+    constexpr Location get_pick_color_location() const {
+        return m_pickColorLocation.get_location();
     }
 
     void use() const;

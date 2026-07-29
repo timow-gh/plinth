@@ -10,6 +10,7 @@
 #include "OpenGL/VertexBuffer.hpp"
 #include "OpenGL/opengl_export.h"
 #include "plinth/Warnings.hpp"
+#include <array>
 #include <cstdint>
 #include <linal/hmat.hpp>
 #include <span>
@@ -77,6 +78,9 @@ class OPENGL_EXPORT PointDrawable {
     void draw_opaque(const linal::hmatf& mvp, const linal::hmatf& modelMatrix) const;
 
     void draw_translucent(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const linal::double3& viewPosition);
+
+    /** Draw all points (opaque and translucent) into a color-ID pick pass using a flat pickColor. */
+    void draw_pick(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const std::array<float, 3>& pickColor) const;
 
     [[nodiscard]]
     bool has_opaque_primitives() const noexcept {

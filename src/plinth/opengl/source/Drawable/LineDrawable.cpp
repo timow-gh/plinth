@@ -151,6 +151,37 @@ void LineDrawable::draw_index_buffer(const linal::hmatf& mvp,
     }
 }
 
+void LineDrawable::draw_pick(const linal::hmatf& mvp,
+                             const linal::hmatf& modelMatrix,
+                             const std::array<float, 3>& pickColor) const {
+    RENDERER_ASSERT(m_program != nullptr);
+    auto& prog = *m_program;
+    const auto draw_buffer = [&](const IndexBuffer& indexBuffer) {
+        if (indexBuffer.get_index_count() == 0) {
+            return;
+        }
+        prog.use();
+        glUniformMatrix4fv(prog.get_view_projection_location().get_value(), 1, GL_TRUE, mvp.data());
+        glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
+        glUniform1i(prog.get_pick_mode_location().get_value(), GL_TRUE);
+        glUniform3fv(prog.get_pick_color_location().get_value(), 1, pickColor.data());
+        glLineWidth(m_lineThickness);
+        m_vertexArray.bind();
+        indexBuffer.bind();
+        glDrawElements(to_gl_primitive(m_lineType), indexBuffer.get_index_count(), GL_UNSIGNED_INT, nullptr);
+        if (m_pointSize != 0.0F) {
+            glPointSize(m_pointSize);
+            glDrawElements(GL_POINTS, indexBuffer.get_index_count(), GL_UNSIGNED_INT, nullptr);
+        }
+    };
+
+    // Pick both opaque and translucent segments: a translucent line is still selectable.
+    draw_buffer(m_opaqueLineIndicesBuffer);
+    draw_buffer(m_translucentLineIndicesBuffer);
+
+    glUniform1i(prog.get_pick_mode_location().get_value(), GL_FALSE);
+}
+
 void LineDrawable::rebuild_index_buffers(BufferAccessPattern accessPattern) {
     LineTransparencyIndexSplit split =
         split_line_indices_by_transparency(m_lineIndices, m_vertexPositions, m_vertexTranslucency);

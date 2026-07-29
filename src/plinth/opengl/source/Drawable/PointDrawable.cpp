@@ -149,6 +149,33 @@ void PointDrawable::draw_index_buffer(const linal::hmatf& mvp,
     glDrawElements(GL_POINTS, indexBuffer.get_index_count(), GL_UNSIGNED_INT, nullptr);
 }
 
+void PointDrawable::draw_pick(const linal::hmatf& mvp,
+                              const linal::hmatf& modelMatrix,
+                              const std::array<float, 3>& pickColor) const {
+    RENDERER_ASSERT(m_program != nullptr);
+    auto& prog = *m_program;
+    const auto draw_buffer = [&](const IndexBuffer& indexBuffer) {
+        if (indexBuffer.get_index_count() == 0) {
+            return;
+        }
+        prog.use();
+        glUniformMatrix4fv(prog.get_view_projection_location().get_value(), 1, GL_TRUE, mvp.data());
+        glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
+        glUniform1i(prog.get_pick_mode_location().get_value(), GL_TRUE);
+        glUniform3fv(prog.get_pick_color_location().get_value(), 1, pickColor.data());
+        glPointSize(m_pointSize);
+        m_vertexArray.bind();
+        indexBuffer.bind();
+        glDrawElements(GL_POINTS, indexBuffer.get_index_count(), GL_UNSIGNED_INT, nullptr);
+    };
+
+    // Pick both opaque and translucent points: a translucent point is still selectable.
+    draw_buffer(m_opaquePointIndicesBuffer);
+    draw_buffer(m_translucentPointIndicesBuffer);
+
+    glUniform1i(prog.get_pick_mode_location().get_value(), GL_FALSE);
+}
+
 void PointDrawable::rebuild_index_buffers(BufferAccessPattern accessPattern) {
     PointTransparencyIndexSplit split =
         split_point_indices_by_transparency(m_pointIndices, m_vertexPositions, m_vertexTranslucency);

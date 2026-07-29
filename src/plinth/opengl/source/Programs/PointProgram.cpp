@@ -13,17 +13,23 @@ PointProgram::PointProgram(ProgramHandle program,
                            Uniform viewProjectionLocation,
                            Uniform modelMatrixLocation,
                            Attribute vertexLocation,
-                           Attribute colorLocation) noexcept
+                           Attribute colorLocation,
+                           Uniform pickModeLocation,
+                           Uniform pickColorLocation) noexcept
     : m_program{std::move(program)}
     , m_viewProjectionLocation{viewProjectionLocation}
     , m_modelMatrixLocation{modelMatrixLocation}
     , m_vertexLocation{vertexLocation}
-    , m_colorLocation{colorLocation} {
+    , m_colorLocation{colorLocation}
+    , m_pickModeLocation{pickModeLocation}
+    , m_pickColorLocation{pickColorLocation} {
     RENDERER_ASSERT(m_program.is_valid());
     RENDERER_ASSERT(viewProjectionLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(modelMatrixLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(vertexLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(colorLocation.get_location().get_value() != -1);
+    RENDERER_ASSERT(pickModeLocation.get_location().get_value() != -1);
+    RENDERER_ASSERT(pickColorLocation.get_location().get_value() != -1);
 }
 
 void PointProgram::use() const {
@@ -48,8 +54,16 @@ PointProgram make_point_program() {
     Uniform modelMatrixLocation = make_uniform("u_model", programId);
     Attribute vertexLocation = make_attribute("a_vertex", programId);
     Attribute colorLocation = make_attribute("a_color", programId);
+    Uniform pickModeLocation = make_uniform("u_pickMode", programId);
+    Uniform pickColorLocation = make_uniform("u_pickColor", programId);
 
-    return PointProgram{std::move(*program), viewProjectionLocation, modelMatrixLocation, vertexLocation, colorLocation};
+    return PointProgram{std::move(*program),
+                        viewProjectionLocation,
+                        modelMatrixLocation,
+                        vertexLocation,
+                        colorLocation,
+                        pickModeLocation,
+                        pickColorLocation};
 }
 
 } // namespace opengl

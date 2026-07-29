@@ -5,11 +5,13 @@
 #include "OpenGL/Drawable/MeshDrawable.hpp"
 #include "OpenGL/Drawable/PointDrawable.hpp"
 #include "OpenGL/OpenGL.hpp"
+#include "OpenGL/PickId.hpp"
 #include "OpenGL/Programs/ProgramManager.hpp"
 #include "OpenGL/Texture2D.hpp"
 #include "plinth/LightingConfig.hpp"
 #include "plinth/MeshCullFaceMode.hpp"
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <linal/hmat.hpp>
@@ -25,9 +27,24 @@ namespace opengl {
 using renderer::LightingConfig;
 using renderer::MeshCullFaceMode;
 
+// Drawable category reported by the pick pass. Kept independent of renderer::DrawableKind so the
+// OpenGL layer does not depend on the public Renderer header; Renderer translates it.
+enum class PickDrawableKind {
+    point,
+    line,
+    mesh,
+};
+
 class DrawablesManager {
   public:
     using DrawableId = std::uint64_t;
+
+    // Maps a pass-index (the value encoded into the pick color, starting at 1) back to the drawable
+    // it represents. The vector is indexed by (passIndex - 1).
+    struct PickEntry {
+        PickDrawableKind kind{};
+        DrawableId id{};
+    };
 
   private:
     template <typename Drawable>
@@ -550,6 +567,40 @@ class DrawablesManager {
                                 lighting.materialDiffuse,
                                 lighting.materialSpecular);
         }
+    }
+
+    // Renders every drawable into the currently-bound framebuffer using a flat color that encodes a
+    // per-pass sequential index (see PickId.hpp). Returns the index -> drawable mapping so a pixel
+    // read back from the framebuffer can be resolved to a drawable. Depth testing (which the caller
+    // must enable) resolves occlusion. The caller owns framebuffer binding, viewport, clear, and
+    // depth/blend state.
+    [[nodiscard]]
+    std::vector<PickEntry> draw_pick_pass(const linal::hmatf& mvp,
+                                          const linal::hmatf& viewMatrix,
+                                          const linal::hmatf& projectionMatrix) const {
+        std::vector<PickEntry> entries;
+        entries.reserve(m_pointDrawables.size() + m_lineDrawables.size() + m_meshDrawables.size());
+
+        const auto next_color = [&entries](PickDrawableKind kind, DrawableId id) {
+            entries.push_back({kind, id});
+            // Pass index 0 is the reserved "no hit" clear color, so the first drawable is index 1.
+            return encode_pick_index(static_cast<std::uint32_t>(entries.size()));
+        };
+
+        for (const auto& entry: m_meshDrawables) {
+            const std::array<float, 3> color = next_color(PickDrawableKind::mesh, entry.id);
+            entry.drawable.draw_pick(entry.transform, viewMatrix, projectionMatrix, color);
+        }
+        for (const auto& entry: m_lineDrawables) {
+            const std::array<float, 3> color = next_color(PickDrawableKind::line, entry.id);
+            entry.drawable.draw_pick(mvp, entry.transform, color);
+        }
+        for (const auto& entry: m_pointDrawables) {
+            const std::array<float, 3> color = next_color(PickDrawableKind::point, entry.id);
+            entry.drawable.draw_pick(mvp, entry.transform, color);
+        }
+
+        return entries;
     }
 
   private:

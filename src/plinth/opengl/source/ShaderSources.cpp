@@ -25,9 +25,16 @@ std::string line_fragment_shader_source() {
 
 in vec4 v_color;
 
+uniform bool u_pickMode;
+uniform vec3 u_pickColor;
+
 out vec4 FragColor;
 
 void main() {
+    if (u_pickMode) {
+        FragColor = vec4(u_pickColor, 1.0);
+        return;
+    }
     FragColor = v_color;
 }
 )";
@@ -57,9 +64,16 @@ std::string point_color_fragment_shader_source() {
 
 in vec4 v_color;
 
+uniform bool u_pickMode;
+uniform vec3 u_pickColor;
+
 out vec4 FragColor;
 
 void main() {
+    if (u_pickMode) {
+        FragColor = vec4(u_pickColor, 1.0);
+        return;
+    }
     FragColor = v_color;
 })";
 }
@@ -119,7 +133,15 @@ std::string mesh_fragment_shader_source() {
     uniform vec3 u_materialDiffuse;
     uniform vec3 u_materialSpecular;
 
+    uniform bool u_pickMode;
+    uniform vec3 u_pickColor;
+
     void main() {
+        if (u_pickMode) {
+            FragColor = vec4(u_pickColor, 1.0);
+            return;
+        }
+
         // Normalize input vectors
         vec3 norm = normalize(v_normal);
         vec3 lightDir = normalize(u_lightPos - v_position);

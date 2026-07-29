@@ -53,6 +53,7 @@ set(plinth_examples
     example_load_mesh_low_poly_tree
     example_load_mesh_plant
     example_mesh
+    example_picking
     example_renderer_standalone
     example_showcase_scene
     example_textured_mesh

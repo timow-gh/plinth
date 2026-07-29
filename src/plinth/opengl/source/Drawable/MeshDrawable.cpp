@@ -130,6 +130,28 @@ void MeshDrawable::draw(const linal::hmatf& modelMatrix,
     glDrawElements(GL_TRIANGLES, m_triangleIndicesBuffer.get_index_count(), GL_UNSIGNED_INT, nullptr);
 }
 
+void MeshDrawable::draw_pick(const linal::hmatf& modelMatrix,
+                             const linal::hmatf& viewMatrix,
+                             const linal::hmatf& projectionMatrix,
+                             const std::array<float, 3>& pickColor) const {
+    RENDERER_ASSERT(m_program != nullptr);
+    const auto& prog = *m_program;
+    prog.use();
+
+    glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
+    glUniformMatrix4fv(prog.get_view_matrix_location().get_value(), 1, GL_TRUE, viewMatrix.data());
+    glUniformMatrix4fv(prog.get_projection_matrix_location().get_value(), 1, GL_TRUE, projectionMatrix.data());
+    glUniform1i(prog.get_pick_mode_location().get_value(), GL_TRUE);
+    glUniform3fv(prog.get_pick_color_location().get_value(), 1, pickColor.data());
+
+    m_vertexArray.bind();
+    m_triangleIndicesBuffer.bind();
+    glDrawElements(GL_TRIANGLES, m_triangleIndicesBuffer.get_index_count(), GL_UNSIGNED_INT, nullptr);
+
+    // Leave pick mode disabled so a subsequent normal draw with this program is unaffected.
+    glUniform1i(prog.get_pick_mode_location().get_value(), GL_FALSE);
+}
+
 std::optional<MeshDrawable> make_mesh_soup(MeshProgram& program,
                                            std::span<const float> vertices,
                                            std::int32_t vertexDimension,

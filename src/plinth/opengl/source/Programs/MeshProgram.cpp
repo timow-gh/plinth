@@ -58,7 +58,9 @@ MeshProgram make_mesh_program() {
                                .lightAttenuation = make_uniform("u_lightAttenuation", id),
                                .materialAmbient = make_uniform("u_materialAmbient", id),
                                .materialDiffuse = make_uniform("u_materialDiffuse", id),
-                               .materialSpecular = make_uniform("u_materialSpecular", id)};
+                               .materialSpecular = make_uniform("u_materialSpecular", id),
+                               .m_pickMode = make_uniform("u_pickMode", id),
+                               .m_pickColor = make_uniform("u_pickColor", id)};
 
     return MeshProgram{std::move(program), input};
 }

@@ -34,6 +34,11 @@ struct OPENGL_EXPORT MeshProgramInput {
     Uniform materialAmbient;
     Uniform materialDiffuse;
     Uniform materialSpecular;
+
+    // Color-ID picking: when m_pickMode is set the fragment shader outputs m_pickColor instead of
+    // the lit surface color.
+    Uniform m_pickMode;
+    Uniform m_pickColor;
 };
 
 constexpr void assert_mesh_program_input([[maybe_unused]] const MeshProgramInput& input) noexcept {
@@ -58,6 +63,8 @@ constexpr void assert_mesh_program_input([[maybe_unused]] const MeshProgramInput
     RENDERER_ASSERT(input.materialAmbient.get_location().get_value() != -1);
     RENDERER_ASSERT(input.materialDiffuse.get_location().get_value() != -1);
     RENDERER_ASSERT(input.materialSpecular.get_location().get_value() != -1);
+    RENDERER_ASSERT(input.m_pickMode.get_location().get_value() != -1);
+    RENDERER_ASSERT(input.m_pickColor.get_location().get_value() != -1);
 }
 
 class OPENGL_EXPORT MeshProgram {
@@ -156,6 +163,8 @@ class OPENGL_EXPORT MeshProgram {
     [[nodiscard]] constexpr Location get_material_ambient_location() const noexcept { return m_input.materialAmbient.get_location(); }
     [[nodiscard]] constexpr Location get_material_diffuse_location() const noexcept { return m_input.materialDiffuse.get_location(); }
     [[nodiscard]] constexpr Location get_material_specular_location() const noexcept { return m_input.materialSpecular.get_location(); }
+    [[nodiscard]] constexpr Location get_pick_mode_location() const noexcept { return m_input.m_pickMode.get_location(); }
+    [[nodiscard]] constexpr Location get_pick_color_location() const noexcept { return m_input.m_pickColor.get_location(); }
 
     void use() const;
 };

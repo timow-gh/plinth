@@ -39,7 +39,7 @@ jobs:
 
       - name: Test
         run: |
-          ctest --preset test-msvc-${{ matrix.build_type }} --label-regex "unit|install"
+          ctest --preset test-msvc-${{ matrix.build_type }} --label-regex "unit|consumer"
         shell: pwsh
 
   windows-graphics:

@@ -13,12 +13,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # ubuntu-build-steps installs build deps, clang-tidy, and runs configure,
-      # build, and ctest. Only unit|install tests are needed.
+      # build, and ctest. Only unit|consumer tests are needed.
       - uses: ./.github/actions/ubuntu-build-steps
         with:
           cmake_workflow: workflow-test-clang-debug
           install_tools: clang-tidy-20
-          test_label_regex: unit|install
+          test_label_regex: unit|consumer
           # Ninja -k 0 keeps building independent targets after failures, so
           # clang-tidy reports as many compile and analysis issues as possible.
           build_native_args: "-k 0"

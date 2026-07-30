@@ -21,9 +21,13 @@ inputs:
     required: false
     default: ''
   test_label_regex:
-    description: 'CTest label regex passed to ctest -L (e.g. "unit|install" or "graphics")'
+    description: 'CTest label regex passed to ctest -L (e.g. "unit|consumer" or "graphics")'
     required: false
-    default: 'unit|install'
+    default: 'unit|consumer'
+  build_shared_libs:
+    description: 'Whether to build Plinth and its consumer fixtures as shared libraries.'
+    required: false
+    default: 'ON'
   test_name_regex:
     description: 'Optional CTest test-name regex passed to ctest -R'
     required: false
@@ -80,7 +84,7 @@ runs:
 
     - name: Configure
       run: |
-        cmake --preset ${{ steps.preset.outputs.configure }} -DBUILD_SHARED_LIBS=ON ${{ inputs.configure_args }}
+        cmake --preset ${{ steps.preset.outputs.configure }} -DBUILD_SHARED_LIBS=${{ inputs.build_shared_libs }} ${{ inputs.configure_args }}
       shell: bash
     
     - name: Build

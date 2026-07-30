@@ -74,7 +74,6 @@ constexpr double minimumFitDistance = 1.0;
 // or above this value.
 constexpr double minimumNearPlane = 0.01;
 constexpr double maxFrameDeltaSeconds = 0.1;
-constexpr CameraAutoFitSettings defaultAutoFitSettings{};
 
 constexpr float maxFxaaEdgeThreshold = 0.5F;
 constexpr float maxFxaaEdgeThresholdMin = 0.25F;
@@ -170,9 +169,8 @@ std::vector<float> compute_vertex_normals(std::span<const float> vertices,
     }
     std::vector<float> normals(vertexCount * 3U, 0.0F);
     for (std::size_t v = 0; v < vertexCount; ++v) {
-        const linal::float3 unit = linal::length(accum[v]) > 1.0e-6F
-                                       ? linal::normalize(accum[v])
-                                       : linal::float3{0.0F, 0.0F, 1.0F};
+        const linal::float3 unit =
+            linal::length(accum[v]) > 1.0e-6F ? linal::normalize(accum[v]) : linal::float3{0.0F, 0.0F, 1.0F};
         normals[v * 3U] = unit[0];
         normals[(v * 3U) + 1U] = unit[1];
         normals[(v * 3U) + 2U] = unit[2];
@@ -259,8 +257,7 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
     const int framebufferWidth = static_cast<int>(valid_framebuffer_dimension(fbWidth));
     const int framebufferHeight = static_cast<int>(valid_framebuffer_dimension(fbHeight));
 
-    opengl::Framebuffer::HdrConfig hdrConfig{
-        framebufferWidth, framebufferHeight, sceneSamples, true, reversedDepth};
+    opengl::Framebuffer::HdrConfig hdrConfig{framebufferWidth, framebufferHeight, sceneSamples, true, reversedDepth};
     auto hdrSceneFb = opengl::Framebuffer::create_hdr(hdrConfig);
     if (!hdrSceneFb.has_value()) {
         opengl::report_error("Error: Renderer::create failed - HDR scene framebuffer creation failed");
@@ -269,8 +266,7 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 
     std::unique_ptr<opengl::Framebuffer> hdrResolveFb;
     if (sceneSamples > 1) {
-        opengl::Framebuffer::HdrConfig resolveConfig{
-            framebufferWidth, framebufferHeight, 1, true, reversedDepth};
+        opengl::Framebuffer::HdrConfig resolveConfig{framebufferWidth, framebufferHeight, 1, true, reversedDepth};
         auto resolve = opengl::Framebuffer::create_hdr(resolveConfig);
         if (!resolve.has_value()) {
             opengl::report_error("Error: Renderer::create failed - HDR resolve framebuffer creation failed");
@@ -351,11 +347,13 @@ Renderer::Renderer(GlfwWindow window,
     , m_fxaaPass(std::move(fxaaPass))
     , m_sceneSamples(sceneSamples)
     , m_lastFrameTime(std::chrono::steady_clock::now())
-    , m_lastCameraInteractionTime(m_lastFrameTime)
     , m_maxTextureSize(maxTextureSize)
     , m_maxAnisotropy(maxAnisotropy)
     , m_reversedDepth(reversedDepth)
     , m_rendererInstance(rendererInstance) {
+    // Preserve the historical Renderer default. CameraAutoFitSettings itself
+    // remains enabled by default for direct calculate_camera_auto_fit callers.
+    m_cameraAutoFitSettings.enabled = false;
 }
 
 void Renderer::on_cursor_pos(double xpos, double ypos) {
@@ -465,6 +463,7 @@ DrawableHandle Renderer::add_point_drawable(std::span<const float> vertices,
     if (!id.has_value()) {
         return DrawableHandle{};
     }
+    request_auto_fit();
     return DrawableHandle{DrawableKind::point, *id, m_rendererInstance};
 }
 
@@ -501,6 +500,7 @@ DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
     if (!id.has_value()) {
         return DrawableHandle{};
     }
+    request_auto_fit();
     return DrawableHandle{DrawableKind::line, *id, m_rendererInstance};
 }
 
@@ -547,7 +547,7 @@ DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
     m_drawablesManager->set_mesh_drawable_cull_mode(*id, cullMode);
     // Adding geometry schedules a camera re-pose so the new mesh is framed on the
     // next auto-fit pass. Clip planes are refit every frame regardless.
-    m_autoFitPending = true;
+    request_auto_fit();
     return DrawableHandle{DrawableKind::mesh, *id, m_rendererInstance};
 }
 
@@ -573,8 +573,7 @@ DrawableHandle Renderer::add_mesh_drawable(const renderer::MeshData& mesh,
 
     const std::vector<float> generatedColors =
         mesh.colors.empty() ? expand_color(mesh.vertices, color) : std::vector<float>{};
-    const std::span<const float> colors =
-        mesh.colors.empty() ? std::span<const float>{generatedColors} : mesh.colors;
+    const std::span<const float> colors = mesh.colors.empty() ? std::span<const float>{generatedColors} : mesh.colors;
 
     return add_mesh_drawable(mesh.vertices, indices, normals, colors, cullMode, accessPattern);
 }
@@ -608,7 +607,11 @@ DrawableHandle Renderer::add_textured_mesh_drawable(std::span<const float> verti
                                                                    triangleIndices,
                                                                    texture.id,
                                                                    accessPattern);
-    return id ? DrawableHandle{DrawableKind::mesh, *id, m_rendererInstance} : DrawableHandle{};
+    if (!id.has_value()) {
+        return {};
+    }
+    request_auto_fit();
+    return DrawableHandle{DrawableKind::mesh, *id, m_rendererInstance};
 }
 
 void Renderer::set_mesh_drawable_cull_mode(DrawableHandle handle, renderer::MeshCullFaceMode mode) {
@@ -622,14 +625,17 @@ bool Renderer::remove_drawable(DrawableHandle handle) {
         return false;
     }
 
+    bool removed = false;
     switch (handle.kind) {
-    case DrawableKind::point:       return m_drawablesManager->remove_point_drawable(handle.id);
-    case DrawableKind::line:        return m_drawablesManager->remove_line_drawable(handle.id);
-    case DrawableKind::mesh:        return m_drawablesManager->remove_mesh_drawable(handle.id);
-    case DrawableKind::invalid:     return false;
+    case DrawableKind::point:   removed = m_drawablesManager->remove_point_drawable(handle.id); break;
+    case DrawableKind::line:    removed = m_drawablesManager->remove_line_drawable(handle.id); break;
+    case DrawableKind::mesh:    removed = m_drawablesManager->remove_mesh_drawable(handle.id); break;
+    case DrawableKind::invalid: return false;
     }
-
-    return false;
+    if (removed) {
+        request_auto_fit();
+    }
+    return removed;
 }
 
 bool Renderer::set_drawable_transform(DrawableHandle handle, const linal::hmatf& transform) {
@@ -637,14 +643,19 @@ bool Renderer::set_drawable_transform(DrawableHandle handle, const linal::hmatf&
         return false;
     }
 
+    bool transformed = false;
     switch (handle.kind) {
-    case DrawableKind::point: return m_drawablesManager->set_point_drawable_transform(handle.id, transform);
-    case DrawableKind::line:  return m_drawablesManager->set_line_drawable_transform(handle.id, transform);
-    case DrawableKind::mesh:  return m_drawablesManager->set_mesh_drawable_transform(handle.id, transform);
+    case DrawableKind::point:
+        transformed = m_drawablesManager->set_point_drawable_transform(handle.id, transform);
+        break;
+    case DrawableKind::line:    transformed = m_drawablesManager->set_line_drawable_transform(handle.id, transform); break;
+    case DrawableKind::mesh:    transformed = m_drawablesManager->set_mesh_drawable_transform(handle.id, transform); break;
     case DrawableKind::invalid: return false;
     }
-
-    return false;
+    if (transformed) {
+        request_auto_fit();
+    }
+    return transformed;
 }
 
 std::optional<linal::hmatf> Renderer::get_drawable_transform(DrawableHandle handle) const {
@@ -653,10 +664,10 @@ std::optional<linal::hmatf> Renderer::get_drawable_transform(DrawableHandle hand
     }
 
     switch (handle.kind) {
-    case DrawableKind::point:       return m_drawablesManager->get_point_drawable_transform(handle.id);
-    case DrawableKind::line:        return m_drawablesManager->get_line_drawable_transform(handle.id);
-    case DrawableKind::mesh:        return m_drawablesManager->get_mesh_drawable_transform(handle.id);
-    case DrawableKind::invalid:     return std::nullopt;
+    case DrawableKind::point:   return m_drawablesManager->get_point_drawable_transform(handle.id);
+    case DrawableKind::line:    return m_drawablesManager->get_line_drawable_transform(handle.id);
+    case DrawableKind::mesh:    return m_drawablesManager->get_mesh_drawable_transform(handle.id);
+    case DrawableKind::invalid: return std::nullopt;
     }
 
     return std::nullopt;
@@ -670,27 +681,39 @@ void Renderer::update_last_point_drawable(std::span<const float> vertices,
                                           std::span<const float> colors,
                                           std::span<const std::uint32_t> indices,
                                           renderer::BufferAccessPattern accessPattern) {
-    m_drawablesManager->update_last_point_drawable(vertices, colors, indices, accessPattern);
+    if (m_drawablesManager->update_last_point_drawable(vertices, colors, indices, accessPattern)) {
+        request_auto_fit();
+    }
 }
 
 void Renderer::update_last_line_drawable(std::span<const float> vertices,
                                          std::span<const float> colors,
                                          std::span<const std::uint32_t> indices,
                                          renderer::BufferAccessPattern accessPattern) {
-    m_drawablesManager->update_last_line_drawable(vertices, colors, indices, accessPattern);
+    if (m_drawablesManager->update_last_line_drawable(vertices, colors, indices, accessPattern)) {
+        request_auto_fit();
+    }
 }
 
 void Renderer::clear_point_drawables() {
-    m_drawablesManager->clear_point_drawables();
+    if (m_drawablesManager->clear_point_drawables()) {
+        request_auto_fit();
+    }
 }
 void Renderer::clear_line_drawables() {
-    m_drawablesManager->clear_line_drawables();
+    if (m_drawablesManager->clear_line_drawables()) {
+        request_auto_fit();
+    }
 }
 void Renderer::clear_mesh_drawables() {
-    m_drawablesManager->clear_mesh_drawables();
+    if (m_drawablesManager->clear_mesh_drawables()) {
+        request_auto_fit();
+    }
 }
 void Renderer::clear_drawables() {
-    m_drawablesManager->clear_drawables();
+    if (m_drawablesManager->clear_drawables()) {
+        request_auto_fit();
+    }
 }
 
 bool Renderer::has_point_drawables() const {
@@ -705,13 +728,12 @@ bool Renderer::has_mesh_drawables() const {
 
 Renderer::PickRay Renderer::compute_pick_ray(double xpos, double ypos) const {
     const renderer::PickRay ray = m_camera->get_pick_ray(xpos, ypos);
-    return PickRay{
-        linal::float3{static_cast<float>(ray.origin[0]),
-                      static_cast<float>(ray.origin[1]),
-                      static_cast<float>(ray.origin[2])},
-        linal::float3{static_cast<float>(ray.direction[0]),
-                      static_cast<float>(ray.direction[1]),
-                      static_cast<float>(ray.direction[2])}};
+    return PickRay{linal::float3{static_cast<float>(ray.origin[0]),
+                                 static_cast<float>(ray.origin[1]),
+                                 static_cast<float>(ray.origin[2])},
+                   linal::float3{static_cast<float>(ray.direction[0]),
+                                 static_cast<float>(ray.direction[1]),
+                                 static_cast<float>(ray.direction[2])}};
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -803,7 +825,9 @@ std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double y
                 if (dx * dx + dy * dy > radiusSquared) {
                     continue;
                 }
-                const std::size_t base = (static_cast<std::size_t>(row) * static_cast<std::size_t>(boxWidth) + static_cast<std::size_t>(col)) * 4U;
+                const std::size_t base = (static_cast<std::size_t>(row) * static_cast<std::size_t>(boxWidth) +
+                                          static_cast<std::size_t>(col)) *
+                                         4U;
                 const std::uint32_t index = opengl::decode_pick_index(pixels[base], pixels[base + 1], pixels[base + 2]);
                 if (index == 0U || index > entries.size()) {
                     continue;
@@ -860,15 +884,21 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
     const int framebufferWidth = static_cast<int>(valid_framebuffer_dimension(windowFramebufferWidth));
     const int framebufferHeight = static_cast<int>(valid_framebuffer_dimension(windowFramebufferHeight));
     if (m_sceneFramebuffer->get_width() != framebufferWidth || m_sceneFramebuffer->get_height() != framebufferHeight) {
-        opengl::Framebuffer::HdrConfig hdrConfig{
-            framebufferWidth, framebufferHeight, m_sceneSamples, true, m_reversedDepth};
+        opengl::Framebuffer::HdrConfig hdrConfig{framebufferWidth,
+                                                 framebufferHeight,
+                                                 m_sceneSamples,
+                                                 true,
+                                                 m_reversedDepth};
         auto scene = opengl::Framebuffer::create_hdr(hdrConfig);
         std::optional<opengl::Framebuffer> resolve;
         std::optional<opengl::Framebuffer> ldr;
         if (scene.has_value()) {
             if (m_sceneSamples > 1) {
-                opengl::Framebuffer::HdrConfig resolveConfig{
-                    framebufferWidth, framebufferHeight, 1, true, m_reversedDepth};
+                opengl::Framebuffer::HdrConfig resolveConfig{framebufferWidth,
+                                                             framebufferHeight,
+                                                             1,
+                                                             true,
+                                                             m_reversedDepth};
                 resolve = opengl::Framebuffer::create_hdr(resolveConfig);
             }
             ldr = opengl::Framebuffer::create_ldr_intermediate(framebufferWidth, framebufferHeight);
@@ -922,7 +952,7 @@ void Renderer::draw(const renderer::LightingConfig& lighting) {
 
 void Renderer::end_frame() {
     bool homeRequested = false;
-    end_frame(m_autoFitEnabled, homeRequested);
+    end_frame(m_cameraAutoFitSettings.enabled, homeRequested);
 }
 
 void Renderer::end_frame(bool& autoFitEnabled) {
@@ -956,7 +986,7 @@ void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
         m_camera->set_projection_type(projectionType);
     }
 
-    m_autoFitEnabled = autoFitEnabled;
+    m_cameraAutoFitSettings.enabled = autoFitEnabled;
 
     if (homeRequested) {
         go_to_home_view();
@@ -1141,10 +1171,25 @@ void Renderer::set_ui_mode(renderer::UiMode mode) {
 
 // --- Camera navigation (geometry-fit aware) ---
 
+void Renderer::request_auto_fit() noexcept {
+    m_autoFitPending = true;
+}
+
+void Renderer::set_camera_auto_fit_settings(const CameraAutoFitSettings& settings) {
+    m_cameraAutoFitSettings = settings;
+    request_auto_fit();
+}
+
+void Renderer::set_camera_far_plane_multiplier(double multiplier) {
+    m_cameraFarPlaneMultiplier = multiplier;
+    request_auto_fit();
+}
+
 CameraAutoFitResult Renderer::compute_fit_destination(const linal::double3& direction,
                                                       const linal::double3& up,
                                                       const linal::double3& targetHint,
-                                                      double currentDistance) const {
+                                                      double currentDistance,
+                                                      bool suppressZoomIn) const {
     const double distance = std::max(currentDistance, minimumFitDistance);
 
     CameraAutoFitInput input;
@@ -1155,6 +1200,12 @@ CameraAutoFitResult Renderer::compute_fit_destination(const linal::double3& dire
     input.verticalFovDegrees = m_camera->get_fov();
     input.aspectRatio = m_camera->get_viewport().get_aspect_ratio();
     input.nearPlane = minimumNearPlane;
+    input.farPlaneMultiplier = m_cameraFarPlaneMultiplier;
+    input.suppressZoomIn = suppressZoomIn;
+    input.settings = m_cameraAutoFitSettings;
+    // Automatic callers gate on the renderer-owned enabled state. Explicit
+    // Home and preset fits must remain geometry-aware even when it is disabled.
+    input.settings.enabled = true;
     input.useReversedDepth = m_reversedDepth;
     const auto orthoParams = m_camera->get_orthographic_params();
     input.orthographicWidth = orthoParams.width;
@@ -1172,20 +1223,23 @@ CameraAutoFitResult Renderer::compute_fit_destination(const linal::double3& dire
 void Renderer::maybe_update_auto_fit(std::chrono::steady_clock::time_point now) {
     if (m_camera->get_was_blocking()) {
         m_lastCameraInteractionTime = now;
-        m_autoFitPending = true;
         m_camera->reset_was_blocking();
-        return;
     }
-    if (m_autoFitEnabled && m_autoFitPending && !m_camera->is_transitioning_view() &&
-        (now - m_lastCameraInteractionTime) >= defaultAutoFitSettings.suppressAfterUserCameraInteraction) {
+    if (m_cameraAutoFitSettings.enabled && m_autoFitPending && !m_camera->is_transitioning_view()) {
+        const bool suppressZoomIn =
+            m_lastCameraInteractionTime.has_value() &&
+            (now - *m_lastCameraInteractionTime) < m_cameraAutoFitSettings.suppressAfterUserCameraInteraction;
         const linal::double3 currentPosition = m_camera->get_position();
         const linal::double3 currentTarget = m_camera->get_target();
         const double currentDistance = linal::length(currentPosition - currentTarget);
         const linal::double3 direction = currentDistance > 1.0e-9 ? linal::normalize(currentPosition - currentTarget)
                                                                   : linal::double3{0.0, -1.0, 0.0};
 
-        const CameraAutoFitResult result =
-            compute_fit_destination(direction, m_camera->get_vertical(), currentTarget, currentDistance);
+        const CameraAutoFitResult result = compute_fit_destination(direction,
+                                                                   m_camera->get_vertical(),
+                                                                   currentTarget,
+                                                                   currentDistance,
+                                                                   suppressZoomIn);
         if (result.hasGeometry && result.changed) {
             m_camera->transition_to_pose(result.position, result.target, result.vertical);
             apply_fit_result(result);
@@ -1225,6 +1279,7 @@ void Renderer::update_clip_planes_from_bounds() {
     input.verticalFovDegrees = m_camera->get_fov();
     input.aspectRatio = m_camera->get_viewport().get_aspect_ratio();
     input.nearPlane = minimumNearPlane;
+    input.farPlaneMultiplier = m_cameraFarPlaneMultiplier;
     input.useReversedDepth = m_reversedDepth;
 
     const std::vector<std::vector<float>> positionBuffers = m_drawablesManager->collect_vertex_position_buffers();

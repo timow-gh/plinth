@@ -11,7 +11,7 @@ See [`examples/example_renderer_standalone.cpp`](examples/example_renderer_stand
 ```sh
 cmake --preset conf-gcc-debug
 cmake --build --preset build-gcc-debug
-ctest --preset test-gcc-debug --label-regex "unit|install"
+ctest --preset test-gcc-debug --label-regex "unit|consumer"
 xvfb-run --auto-servernum --server-args="-noreset -ac" ctest --preset test-gcc-debug --label-regex graphics
 ```
 

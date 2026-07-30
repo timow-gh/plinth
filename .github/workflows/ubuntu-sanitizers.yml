@@ -20,13 +20,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # ubuntu-build-steps installs build deps and runs configure, build, and ctest.
-      # Keep unit|install as the fast broad sanitizer suite; graphics runs below.
+      # Keep unit|consumer as the fast broad sanitizer suite; graphics runs below.
       # Static analysis is left to the dedicated static-analysis job.
       - uses: ./.github/actions/ubuntu-build-steps
         with:
           cmake_workflow: workflow-test-clang-debug-${{ matrix.sanitizer }}
           configure_args: -Dplinth_STATIC_ANALYSIS=OFF
-          test_label_regex: unit|install
+          test_label_regex: unit|consumer
 
   ubuntu-graphics-sanitizers:
     runs-on: ubuntu-24.04

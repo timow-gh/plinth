@@ -8,7 +8,32 @@ on:
       - 'v*'
 
 jobs:
+  validate-consumers-shared:
+    runs-on: ubuntu-24.04
+    name: Validate consumers - gcc - release - shared
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ubuntu-build-steps
+        with:
+          cmake_workflow: workflow-test-gcc-release
+          build_shared_libs: 'ON'
+          configure_args: -Dplinth_STATIC_ANALYSIS=OFF
+          test_label_regex: consumer
+
+  validate-consumers-static:
+    runs-on: ubuntu-24.04
+    name: Validate consumers - gcc - release - static
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ubuntu-build-steps
+        with:
+          cmake_workflow: workflow-test-gcc-release
+          build_shared_libs: 'OFF'
+          configure_args: -Dplinth_STATIC_ANALYSIS=OFF
+          test_label_regex: consumer
+
   create-release:
+    needs: [validate-consumers-shared, validate-consumers-static]
     runs-on: ubuntu-latest
     permissions:
       contents: write

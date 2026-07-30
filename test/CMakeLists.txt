@@ -1,2 +1,3 @@
 add_subdirectory(TestInstall)
+add_subdirectory(TestFetchContent)
 add_subdirectory(TestRenderer)

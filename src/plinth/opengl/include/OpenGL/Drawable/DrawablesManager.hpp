@@ -331,43 +331,56 @@ class DrawablesManager {
         return get_drawable_transform_by_id(m_meshDrawables, id);
     }
 
-    void update_last_point_drawable(std::span<const float> vertices,
+    bool update_last_point_drawable(std::span<const float> vertices,
                                     std::span<const float> colors,
                                     std::span<const std::uint32_t> indices,
                                     opengl::BufferAccessPattern accessPattern) {
         if (m_pointDrawables.empty()) {
-            return;
+            return false;
         }
         m_pointDrawables.back().drawable.update_vertex_buffer(vertices, accessPattern);
         m_pointDrawables.back().drawable.update_color_buffer(colors, accessPattern);
         m_pointDrawables.back().drawable.update_indices_buffer(indices, accessPattern);
+        return true;
     }
 
-    void update_last_line_drawable(std::span<const float> vertices,
+    bool update_last_line_drawable(std::span<const float> vertices,
                                    std::span<const float> colors,
                                    std::span<const std::uint32_t> indices,
                                    opengl::BufferAccessPattern accessPattern) {
         if (m_lineDrawables.empty()) {
-            return;
+            return false;
         }
         m_lineDrawables.back().drawable.update_vertex_buffer(vertices, accessPattern);
         m_lineDrawables.back().drawable.update_color_buffer(colors, accessPattern);
         m_lineDrawables.back().drawable.update_indices_buffer(indices, accessPattern);
+        return true;
     }
 
-    void clear_point_drawables() { m_pointDrawables.clear(); }
+    bool clear_point_drawables() {
+        const bool changed = !m_pointDrawables.empty();
+        m_pointDrawables.clear();
+        return changed;
+    }
 
-    void clear_line_drawables() { m_lineDrawables.clear(); }
+    bool clear_line_drawables() {
+        const bool changed = !m_lineDrawables.empty();
+        m_lineDrawables.clear();
+        return changed;
+    }
 
-    void clear_mesh_drawables() {
+    bool clear_mesh_drawables() {
+        const bool changed = !m_meshDrawables.empty();
         m_meshDrawables.clear();
         m_meshCullModes.clear();
+        return changed;
     }
 
-    void clear_drawables() {
-        clear_point_drawables();
-        clear_line_drawables();
-        clear_mesh_drawables();
+    bool clear_drawables() {
+        const bool pointsChanged = clear_point_drawables();
+        const bool linesChanged = clear_line_drawables();
+        const bool meshesChanged = clear_mesh_drawables();
+        return pointsChanged || linesChanged || meshesChanged;
     }
 
     void draw_points(const linal::hmatf& mvp) const {

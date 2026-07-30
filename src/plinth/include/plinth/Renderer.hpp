@@ -1,6 +1,7 @@
 #ifndef RENDERER_RENDERER_HPP
 #define RENDERER_RENDERER_HPP
 
+#include "linal/vec.hpp"
 #include "plinth/BufferAccessPattern.hpp"
 #include "plinth/CameraAutoFit.hpp"
 #include "plinth/CameraInteractor.hpp"
@@ -16,7 +17,6 @@
 #include "plinth/UiMode.hpp"
 #include "plinth/WindowSettings.hpp"
 #include "plinth/loader/MeshData.hpp"
-#include "linal/vec.hpp"
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -141,79 +141,69 @@ class Renderer {
     static std::optional<std::pair<double, double>>
     to_scene_framebuffer_coordinates(const SceneViewport& sceneViewport, double xpos, double ypos);
 
-    DrawableHandle
-    add_point_drawable(std::span<const float> vertices,
-                       std::array<float, 4> color,
-                       float pointSize = 2.0F,
-                       BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+    DrawableHandle add_point_drawable(std::span<const float> vertices,
+                                      std::array<float, 4> color,
+                                      float pointSize = 2.0F,
+                                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
-    DrawableHandle
-    add_point_drawable(std::span<const float> vertices,
-                       std::span<const float> colors,
-                       float pointSize = 2.0F,
-                       BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+    DrawableHandle add_point_drawable(std::span<const float> vertices,
+                                      std::span<const float> colors,
+                                      float pointSize = 2.0F,
+                                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
-    DrawableHandle
-    add_point_drawable(std::span<const float> vertices,
-                       std::span<const std::uint32_t> indices,
-                       std::span<const float> colors,
-                       float pointSize = 2.0F,
-                       BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+    DrawableHandle add_point_drawable(std::span<const float> vertices,
+                                      std::span<const std::uint32_t> indices,
+                                      std::span<const float> colors,
+                                      float pointSize = 2.0F,
+                                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
-    DrawableHandle
-    add_line_drawable(std::span<const float> vertices,
-                      std::array<float, 4> color,
-                      renderer::LineType lineType,
-                      float lineWidth = 2.0F,
-                      float pointSize = 0.0F,
-                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+    DrawableHandle add_line_drawable(std::span<const float> vertices,
+                                     std::array<float, 4> color,
+                                     renderer::LineType lineType,
+                                     float lineWidth = 2.0F,
+                                     float pointSize = 0.0F,
+                                     BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
-    DrawableHandle
-    add_line_drawable(std::span<const float> vertices,
-                      std::span<const float> color,
-                      renderer::LineType lineType,
-                      float lineWidth = 2.0F,
-                      float pointSize = 0.0F,
-                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+    DrawableHandle add_line_drawable(std::span<const float> vertices,
+                                     std::span<const float> color,
+                                     renderer::LineType lineType,
+                                     float lineWidth = 2.0F,
+                                     float pointSize = 0.0F,
+                                     BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
-    DrawableHandle
-    add_line_drawable(std::span<const float> vertices,
-                      std::span<const std::uint32_t> indices,
-                      std::span<const float> colors,
-                      renderer::LineType lineType,
-                      float lineWidth = 2.0F,
-                      float pointSize = 0.0F,
-                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+    DrawableHandle add_line_drawable(std::span<const float> vertices,
+                                     std::span<const std::uint32_t> indices,
+                                     std::span<const float> colors,
+                                     renderer::LineType lineType,
+                                     float lineWidth = 2.0F,
+                                     float pointSize = 0.0F,
+                                     BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
-    DrawableHandle
-    add_mesh_drawable(std::span<const float> vertices,
-                      std::span<const std::uint32_t> triangleIndices,
-                      std::array<float, 4> color,
-                      MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
-                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+    DrawableHandle add_mesh_drawable(std::span<const float> vertices,
+                                     std::span<const std::uint32_t> triangleIndices,
+                                     std::array<float, 4> color,
+                                     MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
+                                     BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
-    DrawableHandle
-    add_mesh_drawable(std::span<const float> vertices,
-                      std::span<const std::uint32_t> triangleIndices,
-                      std::span<const float> colors,
-                      MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
-                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+    DrawableHandle add_mesh_drawable(std::span<const float> vertices,
+                                     std::span<const std::uint32_t> triangleIndices,
+                                     std::span<const float> colors,
+                                     MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
+                                     BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
-    DrawableHandle
-    add_mesh_drawable(std::span<const float> vertices,
-                      std::span<const std::uint32_t> triangleIndices,
-                      std::array<float, 4> color,
-                      std::span<const float> normals,
-                      MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
-                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+    DrawableHandle add_mesh_drawable(std::span<const float> vertices,
+                                     std::span<const std::uint32_t> triangleIndices,
+                                     std::array<float, 4> color,
+                                     std::span<const float> normals,
+                                     MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
+                                     BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
-    DrawableHandle
-    add_mesh_drawable(std::span<const float> vertices,
-                      std::span<const std::uint32_t> triangleIndices,
-                      std::span<const float> normals,
-                      std::span<const float> colors,
-                      MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
-                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+    DrawableHandle add_mesh_drawable(std::span<const float> vertices,
+                                     std::span<const std::uint32_t> triangleIndices,
+                                     std::span<const float> normals,
+                                     std::span<const float> colors,
+                                     MeshCullFaceMode cullMode = MeshCullFaceMode::BACK,
+                                     BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     DrawableHandle add_mesh_drawable(const renderer::MeshData& mesh,
                                      std::array<float, 4> color = {0.8F, 0.8F, 0.8F, 1.0F},
@@ -225,14 +215,13 @@ class Renderer {
     bool remove_texture(TextureHandle texture);
     /// Returns an invalid handle when creation fails. The texture must outlive
     /// this drawable or be re-registered before removal.
-    DrawableHandle
-    add_textured_mesh_drawable(std::span<const float> vertices,
-                               std::span<const float> normals,
-                               std::span<const float> textureCoordinates,
-                               std::span<const float> colors,
-                               std::span<const std::uint32_t> triangleIndices,
-                               TextureHandle texture,
-                               BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+    DrawableHandle add_textured_mesh_drawable(std::span<const float> vertices,
+                                              std::span<const float> normals,
+                                              std::span<const float> textureCoordinates,
+                                              std::span<const float> colors,
+                                              std::span<const std::uint32_t> triangleIndices,
+                                              TextureHandle texture,
+                                              BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     /// Invalid, foreign, removed, and stale handles leave state unchanged.
     void set_mesh_drawable_cull_mode(DrawableHandle handle, MeshCullFaceMode mode);
@@ -409,6 +398,24 @@ class Renderer {
     void make_context_current() const;
 
     // --- Camera navigation (geometry-fit aware) ---
+    /// Schedules one geometry-aware camera fit for the next eligible
+    /// begin_frame(). Requests coalesce and remain pending while automatic
+    /// fitting is disabled or a camera view transition is active.
+    void request_auto_fit() noexcept;
+    /// Replaces renderer-owned automatic-fit configuration and schedules a
+    /// fit. Automatic fitting remains disabled by default for a new Renderer.
+    void set_camera_auto_fit_settings(const CameraAutoFitSettings& settings);
+    [[nodiscard]]
+    CameraAutoFitSettings get_camera_auto_fit_settings() const noexcept {
+        return m_cameraAutoFitSettings;
+    }
+    /// Controls the scene-radius padding used for fitted far clip planes and
+    /// schedules a fit. Callers are responsible for providing a valid value.
+    void set_camera_far_plane_multiplier(double multiplier);
+    [[nodiscard]]
+    double get_camera_far_plane_multiplier() const noexcept {
+        return m_cameraFarPlaneMultiplier;
+    }
     /// Animates the camera to a preset view orientation.
     void go_to_preset_view(PresetView view);
     /// Animates the camera to the home (initial) view.
@@ -445,7 +452,7 @@ class Renderer {
     }
     [[nodiscard]]
     bool is_auto_fit_enabled() const noexcept {
-        return m_autoFitEnabled;
+        return m_cameraAutoFitSettings.enabled;
     }
     /// True when GL_ARB_clip_control or OpenGL 4.5 support allowed the renderer
     /// to select a floating-point reversed-Z pipeline.
@@ -498,7 +505,8 @@ class Renderer {
     CameraAutoFitResult compute_fit_destination(const linal::double3& direction,
                                                 const linal::double3& up,
                                                 const linal::double3& targetHint,
-                                                double currentDistance) const;
+                                                double currentDistance,
+                                                bool suppressZoomIn = false) const;
     void maybe_update_auto_fit(std::chrono::steady_clock::time_point now);
     void apply_fit_result(const CameraAutoFitResult& result);
     // Refits near/far clip planes to the current geometry at the camera's
@@ -538,9 +546,10 @@ class Renderer {
     bool m_cameraMouseInteractionActive{false};
     int m_cameraMouseInteractionButton{-1};
     std::chrono::steady_clock::time_point m_lastFrameTime;
-    std::chrono::steady_clock::time_point m_lastCameraInteractionTime;
+    std::optional<std::chrono::steady_clock::time_point> m_lastCameraInteractionTime;
     bool m_autoFitPending{false};
-    bool m_autoFitEnabled{false};
+    CameraAutoFitSettings m_cameraAutoFitSettings;
+    double m_cameraFarPlaneMultiplier{3.0};
     int m_maxTextureSize{0};
     int m_maxAnisotropy{1};
     bool m_reversedDepth{false};

@@ -1380,6 +1380,27 @@ void Renderer::go_to_home_view() {
     apply_fit_result(result);
 }
 
+void Renderer::refit_current_view() {
+    const linal::double3 currentPosition = m_camera->get_position();
+    const linal::double3 currentTarget = m_camera->get_target();
+    const double currentDistance = linal::length(currentPosition - currentTarget);
+    // Degenerate pose (camera on its target): fall back to the default direction so normalize is
+    // well-defined. This mirrors maybe_update_auto_fit's guard.
+    const linal::double3 direction = currentDistance > 1.0e-9
+                                         ? linal::normalize(currentPosition - currentTarget)
+                                         : linal::double3{0.0, -1.0, 0.0};
+
+    const CameraAutoFitResult result =
+        compute_fit_destination(direction, m_camera->get_vertical(), currentTarget, currentDistance);
+
+    if (!result.hasGeometry) {
+        return;
+    }
+
+    m_camera->transition_to_pose(result.position, result.target, result.vertical);
+    apply_fit_result(result);
+}
+
 // --- Callback extension ---
 
 template <typename Callback>

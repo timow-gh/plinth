@@ -25,8 +25,8 @@ constexpr double sidePanelLogicalWidth = 320.0;
 // Reserve a fixed-width strip on the left of the window for the application's own UI and
 // give the remaining area to the 3D scene, in logical (window) coordinates.
 renderer::LogicalViewportRect scene_rect(std::pair<int, int> windowSize) {
-    const double windowWidth = static_cast<double>(windowSize.first);
-    const double windowHeight = static_cast<double>(windowSize.second);
+    const auto windowWidth = static_cast<double>(windowSize.first);
+    const auto windowHeight = static_cast<double>(windowSize.second);
     const double sceneX = sidePanelLogicalWidth < windowWidth ? sidePanelLogicalWidth : 0.0;
     return renderer::LogicalViewportRect{sceneX, 0.0, windowWidth - sceneX, windowHeight};
 }

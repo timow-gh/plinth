@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <gtest/gtest.h>
 #include <linal/hmat.hpp>
+#include "plinth/ImGuiOverlay.hpp"
 #include "plinth/Renderer.hpp"
 #include "plinth/WindowSettings.hpp"
 #include <array>
@@ -1407,8 +1408,25 @@ TEST_F(RendererTest, CallbackSubscriptionCanDisconnectExplicitlyAndDuringDispatc
     EXPECT_EQ(1, selfCalls);
 }
 
-TEST_F(RendererTest, RetainedImGuiViewDoesNotKeepBackendAlive) {
-    const renderer::ImGuiOverlayView view = m_renderer->get_imgui();
+TEST_F(RendererTest, InjectedOverlayIsReleasedWithRenderer) {
+    // Only one live Renderer is supported, and injecting a second ImGui overlay onto a
+    // renderer that already owns one would double-initialize the ImGui backend. Release the
+    // fixture renderer and create one with no built-in overlay.
+    m_renderer.reset();
+
+    renderer::WindowSettings settings;
+    settings.title = "plinth renderer overlay-injection test";
+    settings.width = 64;
+    settings.height = 64;
+    settings.visible = false;
+    settings.resizable = false;
+    settings.overlay = renderer::OverlayKind::None;
+    m_renderer = renderer::Renderer::create(settings);
+    ASSERT_NE(nullptr, m_renderer);
+
+    auto overlay = std::make_shared<renderer::ImGuiOverlay>(m_renderer->window().get_native_handle());
+    const std::weak_ptr<renderer::ImGuiOverlay> view = overlay;
+    m_renderer->set_overlay(std::move(overlay));
     ASSERT_NE(nullptr, view.lock());
 
     m_renderer.reset();

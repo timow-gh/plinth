@@ -147,9 +147,9 @@ bool FXAAPass::is_valid() const noexcept {
     return m_program.is_valid() && m_vertexArray != 0;
 }
 
-void FXAAPass::process(GLuint inputTexture, int width, int height) const {
+void FXAAPass::process(GLuint inputTexture, int width, int height, int destX, int destY) const {
     ScopedFullscreenState state;
-    glViewport(0, 0, width, height);
+    glViewport(destX, destY, width, height);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
     glDisable(GL_BLEND);

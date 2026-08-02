@@ -37,15 +37,7 @@ class RendererPickingTest : public ::testing::Test {
     // The center of the scene viewport, expressed in scene-framebuffer coordinates (the space
     // pick_drawables consumes: local to the scene viewport, top-left origin).
     static SizePair scene_center(renderer::Renderer& renderer) {
-        const auto imgui = renderer.get_imgui().lock();
-        if (!imgui) {
-            ADD_FAILURE() << "Renderer ImGui overlay is unavailable";
-            return {0, 0};
-        }
-        const auto sceneViewport = renderer::Renderer::calculate_scene_viewport(
-            renderer.window().get_window_size(),
-            renderer.window().get_framebuffer_size(),
-            static_cast<double>(imgui->get_reserved_control_panel_width()));
+        const auto sceneViewport = renderer.scene_viewport();
         return {sceneViewport.framebuffer.width / 2, sceneViewport.framebuffer.height / 2};
     }
 

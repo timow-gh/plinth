@@ -7,6 +7,7 @@
 #include "OpenGL/GpuCapabilities.hpp"
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/PostProcessingPass.hpp"
+#include "plinth/ImGuiOverlay.hpp"
 #include "plinth/ScopeExit.hpp"
 #include <algorithm>
 #include <atomic>
@@ -53,8 +54,9 @@ bool CallbackSubscription::is_connected() const noexcept {
 
 Renderer::~Renderer() {
     m_window.make_context_current();
-    m_imgui.reset();
-    m_imguiLifetime.reset();
+    // Destroy the overlay while the GL context is current so an ImGui backend (if any) shuts
+    // down cleanly.
+    m_overlay.reset();
     m_fxaaPass.reset();
     m_postProcessingPass.reset();
     m_ldrIntermediate.reset();
@@ -182,22 +184,33 @@ std::vector<float> compute_vertex_normals(std::span<const float> vertices,
 
 SceneViewport Renderer::calculate_scene_viewport(std::pair<int, int> windowSize,
                                                  std::pair<int, int> framebufferSize,
-                                                 double reservedLogicalWidth) {
+                                                 const LogicalViewportRect& logicalRect) {
     const double logicalWindowWidth = valid_logical_dimension(windowSize.first);
     const double logicalWindowHeight = valid_logical_dimension(windowSize.second);
     const int framebufferWidth = std::max(1, framebufferSize.first);
     const int framebufferHeight = std::max(1, framebufferSize.second);
 
-    const double sceneX = std::clamp(reservedLogicalWidth, 0.0, logicalWindowWidth - 1.0);
-    const double sceneWidth = std::max(1.0, logicalWindowWidth - sceneX);
+    // Clamp the requested logical rect to the window so the mapped framebuffer viewport
+    // always covers at least one pixel and never runs past the framebuffer edges.
+    const double sceneX = std::clamp(logicalRect.x, 0.0, logicalWindowWidth - 1.0);
+    const double sceneY = std::clamp(logicalRect.y, 0.0, logicalWindowHeight - 1.0);
+    const double sceneWidth = std::clamp(logicalRect.width, 1.0, logicalWindowWidth - sceneX);
+    const double sceneHeight = std::clamp(logicalRect.height, 1.0, logicalWindowHeight - sceneY);
+
     const double xScale = static_cast<double>(framebufferWidth) / logicalWindowWidth;
+    const double yScale = static_cast<double>(framebufferHeight) / logicalWindowHeight;
 
     const int framebufferX = std::clamp(round_to_framebuffer_pixel(sceneX * xScale), 0, framebufferWidth - 1);
+    const int framebufferY = std::clamp(round_to_framebuffer_pixel(sceneY * yScale), 0, framebufferHeight - 1);
+    const int framebufferSceneWidth =
+        std::clamp(round_to_framebuffer_pixel(sceneWidth * xScale), 1, framebufferWidth - framebufferX);
+    const int framebufferSceneHeight =
+        std::clamp(round_to_framebuffer_pixel(sceneHeight * yScale), 1, framebufferHeight - framebufferY);
 
     SceneViewport viewport;
-    viewport.logical = LogicalViewportRect{sceneX, 0.0, sceneWidth, logicalWindowHeight};
+    viewport.logical = LogicalViewportRect{sceneX, sceneY, sceneWidth, sceneHeight};
     viewport.framebuffer =
-        renderer::ViewportRect{framebufferX, 0, std::max(1, framebufferWidth - framebufferX), framebufferHeight};
+        renderer::ViewportRect{framebufferX, framebufferY, framebufferSceneWidth, framebufferSceneHeight};
     return viewport;
 }
 
@@ -238,7 +251,13 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
                                          valid_framebuffer_dimension(fbHeight));
     auto camera = std::make_shared<CameraInteractor>(window->get_input_state(), cameraSettings);
 
-    auto imgui = std::make_unique<ImGuiOverlay>(window->get_native_handle());
+    // The built-in ImGui overlay is created only for OverlayKind::BuiltInImGui. For None,
+    // no ImGui context or GLFW/GL backends are initialized and the application drives its
+    // own UI. The Renderer drives whatever overlay it is given only through IOverlay.
+    std::shared_ptr<IOverlay> overlay;
+    if (settings.overlay == OverlayKind::BuiltInImGui) {
+        overlay = std::make_shared<ImGuiOverlay>(window->get_native_handle());
+    }
 
     auto drawablesManager = opengl::DrawablesManager::create();
     if (!drawablesManager) {
@@ -303,7 +322,7 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
         new Renderer(std::move(window.value()),
                      std::move(drawablesManager),
                      std::move(camera),
-                     std::move(imgui),
+                     std::move(overlay),
                      std::make_unique<opengl::Framebuffer>(std::move(*hdrSceneFb)),
                      std::move(hdrResolveFb),
                      std::make_unique<opengl::Framebuffer>(std::move(*ldrFb)),
@@ -317,7 +336,6 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 
     renderer->update_scene_viewport();
     renderer->wire_callbacks();
-    renderer->set_ui_mode(settings.ui_mode);
 
     return renderer;
 }
@@ -325,7 +343,7 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
 Renderer::Renderer(GlfwWindow window,
                    std::unique_ptr<opengl::DrawablesManager> drawables,
                    std::shared_ptr<CameraInteractor> camera,
-                   std::unique_ptr<ImGuiOverlay> imgui,
+                   std::shared_ptr<IOverlay> overlay,
                    std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
                    std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
                    std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
@@ -339,7 +357,7 @@ Renderer::Renderer(GlfwWindow window,
     : m_window(std::move(window))
     , m_drawablesManager(std::move(drawables))
     , m_camera(std::move(camera))
-    , m_imgui(std::move(imgui))
+    , m_overlay(std::move(overlay))
     , m_sceneFramebuffer(std::move(sceneFramebuffer))
     , m_hdrResolveFramebuffer(std::move(hdrResolveFramebuffer))
     , m_ldrIntermediate(std::move(ldrIntermediate))
@@ -358,7 +376,7 @@ Renderer::Renderer(GlfwWindow window,
 
 void Renderer::on_cursor_pos(double xpos, double ypos) {
     m_lastWindowCursorPos = CursorPosState{xpos, ypos};
-    if (!m_imgui->handle_cursor_position(xpos, ypos)) {
+    if (m_overlay && !m_overlay->handle_cursor_position(xpos, ypos)) {
         return;
     }
     const auto sceneCoordinates = Renderer::to_scene_framebuffer_coordinates(m_sceneViewport, xpos, ypos);
@@ -372,7 +390,7 @@ void Renderer::on_cursor_pos(double xpos, double ypos) {
 }
 
 void Renderer::on_scroll(double xoff, double yoff) {
-    if (!m_imgui->handle_scroll(xoff, yoff)) {
+    if (m_overlay && !m_overlay->handle_scroll(xoff, yoff)) {
         return;
     }
     if (!current_scene_framebuffer_coordinates().has_value()) {
@@ -385,7 +403,7 @@ void Renderer::on_scroll(double xoff, double yoff) {
 }
 
 void Renderer::on_mouse_button(int button, Action action, Mods mods) {
-    if (!m_imgui->handle_mouse_button(button, action, mods)) {
+    if (m_overlay && !m_overlay->handle_mouse_button(button, action, mods)) {
         return;
     }
     const auto sceneCoordinates = current_scene_framebuffer_coordinates();
@@ -418,17 +436,20 @@ void Renderer::wire_callbacks() {
         [this](int button, Action action, Mods mods) { on_mouse_button(button, action, mods); });
 
     m_window.set_key_callback([this](Key key, Scancode scancode, Action action, Mods mods) {
-        const bool forward = m_imgui->handle_key(key, scancode, action, mods);
-        if (!forward) {
+        if (m_overlay && !m_overlay->handle_key(key, scancode, action, mods)) {
             return;
         }
-        if (key == Key::KEY_H && action == Action::PRESS && !m_imgui->wants_keyboard()) {
+        if (key == Key::KEY_H && action == Action::PRESS && (!m_overlay || !m_overlay->wants_keyboard())) {
             go_to_home_view();
         }
         dispatch_callbacks(m_keyCallbacks, key, scancode, action, mods);
     });
 
-    m_window.set_char_callback([this](std::uint32_t codepoint) { m_imgui->handle_char(codepoint); });
+    m_window.set_char_callback([this](std::uint32_t codepoint) {
+        if (m_overlay) {
+            m_overlay->handle_char(codepoint);
+        }
+    });
 
     m_window.set_framebuffer_size_callback([this]([[maybe_unused]] std::uint32_t width,
                                                   [[maybe_unused]]
@@ -872,20 +893,23 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
         std::min(maxFrameDeltaSeconds, std::chrono::duration<double>(now - m_lastFrameTime).count());
     m_lastFrameTime = now;
 
-    m_camera->update(deltaSeconds,
-                     [this](Key key) { return !m_imgui->wants_keyboard() && m_window.is_key_pressed(key); });
+    m_camera->update(deltaSeconds, [this](Key key) {
+        return (!m_overlay || !m_overlay->wants_keyboard()) && m_window.is_key_pressed(key);
+    });
 
     maybe_update_auto_fit(now);
     update_clip_planes_from_bounds();
 
     update_scene_viewport();
 
-    const auto [windowFramebufferWidth, windowFramebufferHeight] = m_window.get_framebuffer_size();
-    const int framebufferWidth = static_cast<int>(valid_framebuffer_dimension(windowFramebufferWidth));
-    const int framebufferHeight = static_cast<int>(valid_framebuffer_dimension(windowFramebufferHeight));
-    if (m_sceneFramebuffer->get_width() != framebufferWidth || m_sceneFramebuffer->get_height() != framebufferHeight) {
-        opengl::Framebuffer::HdrConfig hdrConfig{framebufferWidth,
-                                                 framebufferHeight,
+    // The scene framebuffers are sized to the scene viewport rect, not the whole window.
+    // Geometry is drawn at the origin and the whole scene texture is post-processed and
+    // presented at the viewport's window offset, so the reserved UI band is never touched.
+    const int sceneWidth = static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.width));
+    const int sceneHeight = static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.height));
+    if (m_sceneFramebuffer->get_width() != sceneWidth || m_sceneFramebuffer->get_height() != sceneHeight) {
+        opengl::Framebuffer::HdrConfig hdrConfig{sceneWidth,
+                                                 sceneHeight,
                                                  m_sceneSamples,
                                                  true,
                                                  m_reversedDepth};
@@ -894,14 +918,14 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
         std::optional<opengl::Framebuffer> ldr;
         if (scene.has_value()) {
             if (m_sceneSamples > 1) {
-                opengl::Framebuffer::HdrConfig resolveConfig{framebufferWidth,
-                                                             framebufferHeight,
+                opengl::Framebuffer::HdrConfig resolveConfig{sceneWidth,
+                                                             sceneHeight,
                                                              1,
                                                              true,
                                                              m_reversedDepth};
                 resolve = opengl::Framebuffer::create_hdr(resolveConfig);
             }
-            ldr = opengl::Framebuffer::create_ldr_intermediate(framebufferWidth, framebufferHeight);
+            ldr = opengl::Framebuffer::create_ldr_intermediate(sceneWidth, sceneHeight);
         }
         if (!scene.has_value() || (m_sceneSamples > 1 && !resolve.has_value()) || !ldr.has_value()) {
             opengl::report_error("Error: Renderer::begin_frame failed to resize framebuffer targets");
@@ -914,11 +938,15 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
         m_ldrIntermediate = std::make_unique<opengl::Framebuffer>(std::move(*ldr));
     }
 
-    if (m_sceneFramebuffer->get_width() != framebufferWidth || m_sceneFramebuffer->get_height() != framebufferHeight) {
+    if (m_sceneFramebuffer->get_width() != sceneWidth || m_sceneFramebuffer->get_height() != sceneHeight) {
         return;
     }
     m_sceneFramebuffer->bind();
-    opengl::begin_frame(clearColor, m_sceneViewport.framebuffer, false, m_reversedDepth);
+    // The scene framebuffer *is* the viewport, so render into all of it starting at the origin.
+    opengl::begin_frame(clearColor,
+                        renderer::ViewportRect{0, 0, sceneWidth, sceneHeight},
+                        false,
+                        m_reversedDepth);
 }
 
 void Renderer::draw() {
@@ -928,9 +956,8 @@ void Renderer::draw() {
 
 void Renderer::draw(const renderer::LightingConfig& lighting) {
     make_context_current();
-    const auto [windowFramebufferWidth, windowFramebufferHeight] = m_window.get_framebuffer_size();
-    if (m_sceneFramebuffer->get_width() != static_cast<int>(valid_framebuffer_dimension(windowFramebufferWidth)) ||
-        m_sceneFramebuffer->get_height() != static_cast<int>(valid_framebuffer_dimension(windowFramebufferHeight))) {
+    if (m_sceneFramebuffer->get_width() != static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.width)) ||
+        m_sceneFramebuffer->get_height() != static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.height))) {
         return;
     }
 
@@ -962,35 +989,43 @@ void Renderer::end_frame(bool& autoFitEnabled) {
 
 void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
     make_context_current();
-    const auto [windowFramebufferWidth, windowFramebufferHeight] = m_window.get_framebuffer_size();
-    if (m_sceneFramebuffer->get_width() != static_cast<int>(valid_framebuffer_dimension(windowFramebufferWidth)) ||
-        m_sceneFramebuffer->get_height() != static_cast<int>(valid_framebuffer_dimension(windowFramebufferHeight))) {
+    if (m_sceneFramebuffer->get_width() != static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.width)) ||
+        m_sceneFramebuffer->get_height() != static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.height))) {
         return;
     }
 
-    m_imgui->new_frame();
-    CameraProjectionType projectionType = m_camera->get_projection_type();
-    m_imgui->add_camera_controls(autoFitEnabled, projectionType, homeRequested);
-
-    if (m_uiMode == renderer::UiMode::Debug) {
-        m_imgui->add_post_processing_controls(*this);
-    } else {
-        m_imgui->add_release_post_processing_controls(*this);
+    if (m_overlay) {
+        m_overlay->new_frame();
     }
 
     present_scene();
-    m_imgui->render();
-    m_imgui->end_frame();
 
-    if (projectionType != m_camera->get_projection_type()) {
-        m_camera->set_projection_type(projectionType);
-    }
+    if (m_overlay) {
+        OverlayFrameContext ctx{*this};
+        ctx.autoFitEnabled = autoFitEnabled;
+        ctx.projectionType = m_camera->get_projection_type();
+        ctx.homeRequested = homeRequested;
 
-    m_cameraAutoFitSettings.enabled = autoFitEnabled;
+        m_overlay->build_controls(ctx);
+        m_overlay->render();
+        m_overlay->end_frame();
 
-    if (homeRequested) {
-        go_to_home_view();
-        homeRequested = false;
+        // The overlay reports the region it leaves free for the scene. It takes effect on the
+        // next begin_frame() and only when the application has not set an explicit viewport.
+        m_overlaySceneViewport = ctx.sceneViewportHint;
+
+        if (ctx.projectionType != m_camera->get_projection_type()) {
+            m_camera->set_projection_type(ctx.projectionType);
+        }
+
+        autoFitEnabled = ctx.autoFitEnabled;
+        m_cameraAutoFitSettings.enabled = autoFitEnabled;
+
+        homeRequested = ctx.homeRequested;
+        if (homeRequested) {
+            go_to_home_view();
+            homeRequested = false;
+        }
     }
 
     m_window.swap_buffers();
@@ -1032,6 +1067,8 @@ void Renderer::present_scene() {
     m_postProcessingPass->set_hdr_display_max(m_hdrDisplayMax);
     m_postProcessingPass->set_grayscale(m_grayscale);
 
+    // The scene framebuffers are viewport-sized, so post-processing runs over the whole
+    // texture at the origin.
     const int w = m_sceneFramebuffer->get_width();
     const int h = m_sceneFramebuffer->get_height();
 
@@ -1040,11 +1077,29 @@ void Renderer::present_scene() {
 
     opengl::Framebuffer::unbind();
 
+    // FXAA presents only the scene viewport rect into the default framebuffer. Clear the whole
+    // window first so any region outside the scene (a reserved UI band) is a defined color
+    // instead of stale garbage; an overlay or the application draws over it afterwards.
+    const auto [windowFramebufferWidth, windowFramebufferHeight] = m_window.get_framebuffer_size();
+    glViewport(0,
+               0,
+               static_cast<GLsizei>(valid_framebuffer_dimension(windowFramebufferWidth)),
+               static_cast<GLsizei>(valid_framebuffer_dimension(windowFramebufferHeight)));
+    glDisable(GL_SCISSOR_TEST);
+    glClearColor(defaultClearColor.r, defaultClearColor.g, defaultClearColor.b, defaultClearColor.a);
+    glClear(GL_COLOR_BUFFER_BIT);
+
     m_fxaaPass->set_enabled(m_fxaaEnabled);
     m_fxaaPass->set_edge_threshold(m_fxaaEdgeThreshold);
     m_fxaaPass->set_edge_threshold_min(m_fxaaEdgeThresholdMin);
     m_fxaaPass->set_subpixel_amount(m_fxaaSubpixelAmount);
-    m_fxaaPass->process(m_ldrIntermediate->get_color_texture(), w, h);
+    // Present into the default (whole-window) framebuffer at the scene viewport's offset so
+    // the scene lands beside the reserved UI band instead of stretching across it.
+    m_fxaaPass->process(m_ldrIntermediate->get_color_texture(),
+                        w,
+                        h,
+                        m_sceneViewport.framebuffer.x,
+                        m_sceneViewport.framebuffer.y);
 }
 
 // --- Post-processing setters ---
@@ -1159,14 +1214,8 @@ void Renderer::set_fxaa_subpixel_amount(float amount) {
     m_fxaaSubpixelAmount = amount;
 }
 
-void Renderer::set_ui_mode(renderer::UiMode mode) {
-    if (mode == renderer::UiMode::Release) {
-        // Pin debug-only state so a leftover debug visualization (e.g. Depth)
-        // cannot persist into the game-like release panel.
-        m_visualizationMode = renderer::VisualizationMode::Final;
-        m_grayscale = false;
-    }
-    m_uiMode = mode;
+void Renderer::set_overlay(std::shared_ptr<IOverlay> overlay) {
+    m_overlay = std::move(overlay);
 }
 
 // --- Camera navigation (geometry-fit aware) ---
@@ -1365,16 +1414,26 @@ CallbackSubscription Renderer::add_key_callback(KeyCB cb) {
 }
 
 void Renderer::update_scene_viewport() {
-    double reservedWidth = 0.0;
-    if (m_imgui) {
-        reservedWidth = static_cast<double>(m_imgui->get_reserved_control_panel_width());
-    }
+    const auto windowSize = m_window.get_window_size();
+    // Precedence: an explicit application request wins; otherwise the active overlay's
+    // reserved region; otherwise the whole window.
+    const LogicalViewportRect fullWindow{0.0,
+                                         0.0,
+                                         valid_logical_dimension(windowSize.first),
+                                         valid_logical_dimension(windowSize.second)};
+    const LogicalViewportRect logicalRect =
+        m_requestedSceneViewport.value_or(m_overlaySceneViewport.value_or(fullWindow));
     m_sceneViewport =
-        Renderer::calculate_scene_viewport(m_window.get_window_size(), m_window.get_framebuffer_size(), reservedWidth);
+        Renderer::calculate_scene_viewport(windowSize, m_window.get_framebuffer_size(), logicalRect);
     m_camera->set_viewport(0,
                            0,
                            valid_framebuffer_dimension(m_sceneViewport.framebuffer.width),
                            valid_framebuffer_dimension(m_sceneViewport.framebuffer.height));
+}
+
+void Renderer::set_scene_viewport(std::optional<LogicalViewportRect> logicalRect) {
+    m_requestedSceneViewport = logicalRect;
+    update_scene_viewport();
 }
 
 std::optional<std::pair<double, double>> Renderer::current_scene_framebuffer_coordinates() const {

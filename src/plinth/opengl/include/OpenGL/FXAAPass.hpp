@@ -23,7 +23,12 @@ class OPENGL_EXPORT FXAAPass {
     [[nodiscard]]
     bool is_valid() const noexcept;
 
-    void process(GLuint inputTexture, int width, int height) const;
+    /// Runs FXAA over the whole input texture (size width x height) and writes the
+    /// result into the currently bound draw framebuffer at the rectangle
+    /// [destX, destY, width, height]. destX/destY let the caller place the scene
+    /// output at its window offset while leaving the rest of the framebuffer (e.g. a
+    /// reserved UI band) untouched.
+    void process(GLuint inputTexture, int width, int height, int destX = 0, int destY = 0) const;
 
     void set_enabled(bool enabled) const;
     void set_edge_threshold(float threshold) const;

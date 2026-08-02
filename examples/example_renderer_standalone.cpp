@@ -1,7 +1,10 @@
+#include "plinth/ImGuiOverlay.hpp"
 #include "plinth/Renderer.hpp"
+#include "plinth/UiMode.hpp"
 #include "plinth/WindowSettings.hpp"
 #include <array>
 #include <cstdint>
+#include <memory>
 
 namespace {
 constexpr std::uint32_t defaultWindowWidth = 1024;
@@ -46,10 +49,16 @@ int main() {
     settings.width = defaultWindowWidth;
     settings.height = defaultWindowHeight;
 
+    // Own the ImGui overlay so we can toggle its UiMode from the F1 key handler below.
+    settings.overlay = renderer::OverlayKind::None;
     auto renderer = renderer::Renderer::create(settings);
     if (!renderer) {
         return 1;
     }
+
+    auto overlay = std::make_shared<renderer::ImGuiOverlay>(renderer->window().get_native_handle());
+    renderer::ImGuiOverlay& ui = *overlay;
+    renderer->set_overlay(std::move(overlay));
 
     const std::array<float, 9> pointVertices{0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F};
     const std::array<float, 4> yellow{1.0F, 1.0F, 0.0F, 1.0F};
@@ -98,13 +107,13 @@ int main() {
 
     // F1 toggles between the game-like Release control panel (the default) and the full
     // Debug panel exposing every post-processing and visualization control.
-    const auto uiModeSubscription = renderer->add_key_callback([&renderer](renderer::Key key,
-                                                                           renderer::Scancode /*scancode*/,
-                                                                           renderer::Action action,
-                                                                           renderer::Mods /*mods*/) {
+    const auto uiModeSubscription = renderer->add_key_callback([&ui](renderer::Key key,
+                                                                      renderer::Scancode /*scancode*/,
+                                                                      renderer::Action action,
+                                                                      renderer::Mods /*mods*/) {
         if (key == renderer::Key::KEY_F1 && action == renderer::Action::PRESS) {
-            renderer->set_ui_mode(renderer->ui_mode() == renderer::UiMode::Release ? renderer::UiMode::Debug
-                                                                                   : renderer::UiMode::Release);
+            ui.set_ui_mode(ui.ui_mode() == renderer::UiMode::Release ? renderer::UiMode::Debug
+                                                                     : renderer::UiMode::Release);
         }
     });
 

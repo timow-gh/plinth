@@ -49,6 +49,7 @@ function(add_plinth_example target)
 endfunction()
 
 set(plinth_examples
+    example_custom_ui
     example_load_mesh_in_memory
     example_load_mesh_low_poly_tree
     example_load_mesh_plant

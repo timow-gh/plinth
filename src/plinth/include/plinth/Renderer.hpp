@@ -7,14 +7,14 @@
 #include "plinth/CameraInteractor.hpp"
 #include "plinth/FrameState.hpp"
 #include "plinth/GlfwWindow.hpp"
-#include "plinth/ImGuiOverlay.hpp"
+#include "plinth/IOverlay.hpp"
 #include "plinth/InputState.hpp"
 #include "plinth/LightingConfig.hpp"
 #include "plinth/LineType.hpp"
+#include "plinth/LogicalViewportRect.hpp"
 #include "plinth/MeshCullFaceMode.hpp"
 #include "plinth/PostProcessingEnums.hpp"
 #include "plinth/Texture.hpp"
-#include "plinth/UiMode.hpp"
 #include "plinth/WindowSettings.hpp"
 #include "plinth/loader/MeshData.hpp"
 #include <array>
@@ -79,38 +79,9 @@ class CallbackSubscription {
     std::shared_ptr<CallbackConnection> m_connection;
 };
 
-struct LogicalViewportRect {
-    double x{0.0};
-    double y{0.0};
-    double width{1.0};
-    double height{1.0};
-
-    [[nodiscard]]
-    bool contains(double xpos, double ypos) const {
-        return xpos >= x && ypos >= y && xpos < x + width && ypos < y + height;
-    }
-};
-
 struct SceneViewport {
     LogicalViewportRect logical;
     renderer::ViewportRect framebuffer;
-};
-
-class ImGuiOverlayView {
-  public:
-    [[nodiscard]]
-    ImGuiOverlay* lock() const {
-        return m_lifetime.expired() ? nullptr : m_overlay;
-    }
-
-  private:
-    friend class Renderer;
-    ImGuiOverlayView(ImGuiOverlay* overlay, std::weak_ptr<void> lifetime)
-        : m_overlay(overlay)
-        , m_lifetime(std::move(lifetime)) {}
-
-    ImGuiOverlay* m_overlay{nullptr};
-    std::weak_ptr<void> m_lifetime;
 };
 
 class Renderer {
@@ -128,18 +99,29 @@ class Renderer {
     [[nodiscard]]
     static std::unique_ptr<Renderer> create(const WindowSettings& settings);
     /// Computes the scene viewport layout from window and framebuffer dimensions.
-    /// The logical viewport reserves the given width for UI; the framebuffer
-    /// viewport covers the remaining area in pixel coordinates.
+    /// The given logical rect (in window coordinates) defines the area the scene
+    /// occupies; the framebuffer viewport is that rect mapped to pixel coordinates.
     [[nodiscard]]
     static SceneViewport calculate_scene_viewport(std::pair<int, int> windowSize,
                                                   std::pair<int, int> framebufferSize,
-                                                  double reservedLogicalWidth);
+                                                  const LogicalViewportRect& logicalRect);
     /// Converts window cursor coordinates to the scene framebuffer coordinate
     /// system. Returns std::nullopt when the position lies outside the scene
     /// logical viewport.
     [[nodiscard]]
     static std::optional<std::pair<double, double>>
     to_scene_framebuffer_coordinates(const SceneViewport& sceneViewport, double xpos, double ypos);
+
+    /// Sets the scene viewport in logical (window) coordinates. Passing std::nullopt (the
+    /// default) makes the scene fill the whole window. The renderer maps this rect to
+    /// framebuffer pixels and keeps camera aspect and input picking consistent. Applies on
+    /// the next begin_frame().
+    void set_scene_viewport(std::optional<LogicalViewportRect> logicalRect);
+    /// The scene viewport currently in effect (framebuffer + logical rects).
+    [[nodiscard]]
+    SceneViewport scene_viewport() const {
+        return m_sceneViewport;
+    }
 
     DrawableHandle add_point_drawable(std::span<const float> vertices,
                                       std::array<float, 4> color,
@@ -363,14 +345,11 @@ class Renderer {
         return m_fxaaSubpixelAmount;
     }
 
-    /// Selects the ImGui control surface. Switching to Release pins debug-only
-    /// state (visualization mode, grayscale) back to sensible defaults so leftover
-    /// debug state cannot persist into the release panel. Callable at any time.
-    void set_ui_mode(renderer::UiMode mode);
-    [[nodiscard]]
-    renderer::UiMode ui_mode() const {
-        return m_uiMode;
-    }
+    /// Replaces the active overlay. Passing nullptr removes any overlay (the frame loop and
+    /// input routing then run with no UI). The caller may retain a co-owning handle to the
+    /// overlay to drive its concrete features (e.g. the built-in ImGuiOverlay's UiMode); the
+    /// Renderer itself drives it only through the IOverlay interface.
+    void set_overlay(std::shared_ptr<IOverlay> overlay);
 
     /// Renderer owns one GLFW/OpenGL context. All methods that access the window,
     /// renderer state, or GL must be called on its creating thread. Frame methods
@@ -460,27 +439,13 @@ class Renderer {
     bool uses_reversed_depth() const noexcept {
         return m_reversedDepth;
     }
-    [[nodiscard]]
-    /// The returned overlay is owned by this Renderer and must not be used
-    /// after the Renderer is destroyed. Use get_imgui() for a lifetime-safe view.
-    [[nodiscard]]
-    ImGuiOverlay& imgui() {
-        return *m_imgui;
-    }
-    [[nodiscard]]
-    /// Returns a lifetime-safe view of the ImGui overlay. Returns nullptr from
-    /// lock() if the Renderer has been destroyed.
-    ImGuiOverlayView get_imgui() {
-        return ImGuiOverlayView{m_imgui.get(), m_imguiLifetime};
-    }
-
     static constexpr renderer::ClearColor defaultClearColor{0.05F, 0.05F, 0.05F, 1.0F};
 
   private:
     Renderer(GlfwWindow window,
              std::unique_ptr<opengl::DrawablesManager> drawablesManager,
              std::shared_ptr<CameraInteractor> camera,
-             std::unique_ptr<ImGuiOverlay> imgui,
+             std::shared_ptr<IOverlay> overlay,
              std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
              std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
              std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
@@ -530,8 +495,9 @@ class Renderer {
     GlfwWindow m_window;
     std::unique_ptr<opengl::DrawablesManager> m_drawablesManager;
     std::shared_ptr<CameraInteractor> m_camera;
-    std::shared_ptr<void> m_imguiLifetime{std::make_shared<int>(0)};
-    std::unique_ptr<ImGuiOverlay> m_imgui;
+    /// Active overlay (may be null). The Renderer drives it only through the IOverlay
+    /// interface and holds no knowledge of the concrete overlay type.
+    std::shared_ptr<IOverlay> m_overlay;
     std::unique_ptr<opengl::Framebuffer> m_sceneFramebuffer;
     std::unique_ptr<opengl::Framebuffer> m_hdrResolveFramebuffer;
     std::unique_ptr<opengl::Framebuffer> m_ldrIntermediate;
@@ -542,6 +508,14 @@ class Renderer {
     std::unique_ptr<opengl::FXAAPass> m_fxaaPass;
     int m_sceneSamples{1};
     SceneViewport m_sceneViewport;
+    /// Application-requested scene viewport in logical coordinates, set via
+    /// set_scene_viewport(). std::nullopt means the app has not requested one; the scene
+    /// then falls back to the overlay-reserved region, or the whole window.
+    std::optional<LogicalViewportRect> m_requestedSceneViewport;
+    /// Scene viewport region reported by the active overlay (the window minus the UI it
+    /// occupies). Applied only when m_requestedSceneViewport is empty. std::nullopt when no
+    /// overlay reserves space.
+    std::optional<LogicalViewportRect> m_overlaySceneViewport;
     CursorPosState m_lastWindowCursorPos;
     bool m_cameraMouseInteractionActive{false};
     int m_cameraMouseInteractionButton{-1};
@@ -577,7 +551,6 @@ class Renderer {
     float m_fxaaEdgeThreshold{0.166f};
     float m_fxaaEdgeThresholdMin{0.0833f};
     float m_fxaaSubpixelAmount{0.75f};
-    renderer::UiMode m_uiMode{renderer::UiMode::Release};
 };
 
 } // namespace renderer

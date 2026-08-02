@@ -429,7 +429,34 @@ void ImGuiOverlay::add_release_post_processing_controls(Renderer& renderer) {
     });
 }
 
-void ImGuiOverlay::build_controls() {
+void ImGuiOverlay::build_controls(OverlayFrameContext& ctx) {
+    // Report the window region left free for the 3D scene: the main viewport minus the
+    // left control panel (its margins on both sides plus the current panel width). The
+    // Renderer applies this as the scene viewport when the app hasn't set one. The panel
+    // width comes from the previous frame's layout, so a resize takes effect one frame later.
+    if (const ImGuiViewport* viewport = ImGui::GetMainViewport(); viewport != nullptr) {
+        const float panelWidth = clamp_panel_width(m_controlPanelWidth, viewport->WorkSize.x);
+        const float reservedLeft = (controlPanelSideCount * controlPanelMargin) + panelWidth;
+        const float sceneWidth = std::max(1.0F, viewport->WorkSize.x - reservedLeft);
+        ctx.sceneViewportHint = LogicalViewportRect{static_cast<double>(viewport->WorkPos.x + reservedLeft),
+                                                    static_cast<double>(viewport->WorkPos.y),
+                                                    static_cast<double>(sceneWidth),
+                                                    static_cast<double>(viewport->WorkSize.y)};
+    }
+
+    add_camera_controls(ctx.autoFitEnabled, ctx.projectionType, ctx.homeRequested);
+    if (m_uiMode == UiMode::Debug) {
+        add_post_processing_controls(ctx.renderer);
+    } else {
+        // The game-like Release panel exposes no debug visualizations, so pin those back to
+        // sensible defaults; leftover debug state (e.g. a Depth view) must not persist here.
+        ctx.renderer.set_visualization_mode(VisualizationMode::Final);
+        ctx.renderer.set_grayscale(false);
+        add_release_post_processing_controls(ctx.renderer);
+    }
+}
+
+void ImGuiOverlay::layout_controls() {
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     if (viewport != nullptr) {
         m_controlPanelWidth = clamp_panel_width(m_controlPanelWidth, viewport->WorkSize.x);
@@ -467,7 +494,7 @@ void ImGuiOverlay::build_controls() {
 }
 
 void ImGuiOverlay::render() {
-    build_controls();
+    layout_controls();
     ImGui::Render();
     ImDrawData* drawData = ImGui::GetDrawData();
     if (drawData != nullptr && drawData->Valid) {
@@ -478,10 +505,6 @@ void ImGuiOverlay::render() {
 void ImGuiOverlay::end_frame() // NOLINT(readability-convert-member-functions-to-static)
 {
     ImGui::EndFrame();
-}
-
-float ImGuiOverlay::get_reserved_control_panel_width() const {
-    return m_controlPanelWidth + (controlPanelSideCount * controlPanelMargin);
 }
 
 bool ImGuiOverlay::wants_mouse() const // NOLINT(readability-convert-member-functions-to-static)

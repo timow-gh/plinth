@@ -165,9 +165,8 @@ std::string describe_resize(const ResizeResult& result,
     return output.str();
 }
 
-ReadCoordinates calculate_read_coordinates(const SizeSnapshot& snapshot, double reservedLogicalWidth) {
-    const auto viewport = renderer::Renderer::calculate_scene_viewport(
-        snapshot.logical, snapshot.framebuffer, reservedLogicalWidth);
+ReadCoordinates calculate_read_coordinates(const SizeSnapshot& snapshot, const renderer::LogicalViewportRect& sceneRect) {
+    const auto viewport = renderer::Renderer::calculate_scene_viewport(snapshot.logical, snapshot.framebuffer, sceneRect);
     const int edgeInset = std::max(16, snapshot.framebuffer.first / 64);
     return {{viewport.framebuffer.x + viewport.framebuffer.width / 2,
              viewport.framebuffer.y + viewport.framebuffer.height / 2},
@@ -234,6 +233,9 @@ class RendererPresentationTest : public ::testing::Test {
         settings.double_buffer = false;
         settings.srgb_capable = false;
         settings.samples = samples;
+        // These tests read presented scene pixels; the built-in ImGui panel would cover the
+        // scene sample point, so run with no overlay.
+        settings.overlay = renderer::OverlayKind::None;
         return renderer::Renderer::create(settings);
     }
 
@@ -291,10 +293,6 @@ class RendererPresentationTest : public ::testing::Test {
         const renderer::DrawableHandle handle = instance->add_point_drawable(vertices, indices, colors, 64.0F);
         ASSERT_TRUE(handle.is_valid());
 
-        const auto imgui = instance->get_imgui().lock();
-        ASSERT_NE(nullptr, imgui) << "Renderer ImGui overlay is unavailable";
-        const double reservedLogicalWidth = static_cast<double>(imgui->get_reserved_control_panel_width());
-
         const auto verify_frame = [&](const SizeSnapshot& snapshot,
                                       const renderer::ClearColor& clearColor,
                                       const std::array<int, 4>& expectedBackground) {
@@ -303,7 +301,11 @@ class RendererPresentationTest : public ::testing::Test {
             ASSERT_EQ(snapshot.framebuffer, instance->window().get_framebuffer_size())
                 << "framebuffer size changed before begin_frame; expected " << describe_sizes(snapshot);
 
-            const ReadCoordinates coordinates = calculate_read_coordinates(snapshot, reservedLogicalWidth);
+            const renderer::LogicalViewportRect sceneRect{0.0,
+                                                          0.0,
+                                                          static_cast<double>(snapshot.logical.first),
+                                                          static_cast<double>(snapshot.logical.second)};
+            const ReadCoordinates coordinates = calculate_read_coordinates(snapshot, sceneRect);
             ASSERT_TRUE(coordinate_in_bounds(coordinates.center, snapshot.framebuffer))
                 << "center coordinate is outside " << describe_sizes(snapshot);
             ASSERT_TRUE(coordinate_in_bounds(coordinates.background, snapshot.framebuffer))
@@ -384,16 +386,7 @@ class RendererPresentationTest : public ::testing::Test {
     }
 
     static std::pair<int, int> scene_interior_coordinate(renderer::Renderer& renderer) {
-        const auto imgui = renderer.get_imgui().lock();
-        if (!imgui) {
-            ADD_FAILURE() << "Renderer ImGui overlay is unavailable";
-            return {0, 0};
-        }
-
-        const auto sceneViewport = renderer::Renderer::calculate_scene_viewport(
-            renderer.window().get_window_size(),
-            renderer.window().get_framebuffer_size(),
-            static_cast<double>(imgui->get_reserved_control_panel_width()));
+        const auto sceneViewport = renderer.scene_viewport();
         return {sceneViewport.framebuffer.x + sceneViewport.framebuffer.width / 2,
                 sceneViewport.framebuffer.y + sceneViewport.framebuffer.height / 2};
     }
@@ -581,6 +574,58 @@ TEST_F(RendererPresentationTest, ResolvesMultisampledPointThroughPublicFrameLife
 
     const auto [x, y] = scene_interior_coordinate(*instance);
     expect_pixel_near(read_front_pixel(x, y), {255, 0, 0, 255});
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(RendererPresentationTest, ReservedSceneViewportPresentsBesideBandInsteadOfAcrossIt) {
+    // Reserve a left strip for a UI band. The scene must be presented only within its viewport
+    // rect; the reserved band must keep the clear color instead of having scene content stretched
+    // across it.
+    auto instance = create_renderer(1);
+    ASSERT_NE(nullptr, instance);
+    GLboolean doubleBuffered = GL_TRUE;
+    glGetBooleanv(GL_DOUBLEBUFFER, &doubleBuffered);
+    ASSERT_EQ(GL_FALSE, doubleBuffered) << "Front-buffer readback requires a single-buffered context";
+
+    const auto [winWidth, winHeight] = instance->window().get_window_size();
+    constexpr double reserved = 128.0;
+    ASSERT_GT(winWidth, reserved);
+    instance->set_scene_viewport(renderer::LogicalViewportRect{
+        reserved, 0.0, static_cast<double>(winWidth) - reserved, static_cast<double>(winHeight)});
+
+    // A single point at the world origin sits at the center of the scene viewport (the camera
+    // frames the scene rect), so it lands in the presented scene interior and never in the band.
+    constexpr std::array<float, 3> vertices{0.0F, 0.0F, 0.0F};
+    constexpr std::array<float, 4> colors{0.0F, 1.0F, 0.0F, 1.0F};
+    constexpr std::array<std::uint32_t, 1> indices{0U};
+    ASSERT_TRUE(instance->add_point_drawable(vertices, indices, colors, 48.0F).is_valid());
+
+    instance->set_fxaa_enabled(false);
+    instance->begin_frame({0.2F, 0.0F, 0.0F, 1.0F});
+    instance->draw();
+    instance->end_frame();
+    glFinish();
+
+    const auto sceneViewport = instance->scene_viewport();
+    const auto [fbWidth, fbHeight] = instance->window().get_framebuffer_size();
+
+    // The scene interior shows the green point.
+    const int sceneX = sceneViewport.framebuffer.x + sceneViewport.framebuffer.width / 2;
+    const int sceneY = sceneViewport.framebuffer.y + sceneViewport.framebuffer.height / 2;
+    expect_pixel_near(read_front_pixel(sceneX, sceneY), {0, 255, 0, 255});
+
+    // A pixel deep inside the reserved band (left of the scene viewport) shows the default clear
+    // color, proving the scene was not stretched across the whole window.
+    ASSERT_GT(sceneViewport.framebuffer.x, 4);
+    const int bandX = sceneViewport.framebuffer.x / 2;
+    const int bandY = fbHeight / 2;
+    ASSERT_LT(bandX, fbWidth);
+    const std::array<int, 4> defaultBand{
+        static_cast<int>(renderer::Renderer::defaultClearColor.r * 255.0F + 0.5F),
+        static_cast<int>(renderer::Renderer::defaultClearColor.g * 255.0F + 0.5F),
+        static_cast<int>(renderer::Renderer::defaultClearColor.b * 255.0F + 0.5F),
+        255};
+    expect_pixel_near(read_front_pixel(bandX, bandY), defaultBand);
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 

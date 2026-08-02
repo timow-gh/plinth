@@ -1,3 +1,4 @@
+#include "plinth/ImGuiOverlay.hpp"
 #include "plinth/LightingConfig.hpp"
 #include "plinth/Renderer.hpp"
 #include "plinth/Texture.hpp"
@@ -5,6 +6,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <numeric>
 
 namespace {
@@ -14,10 +16,17 @@ constexpr std::size_t kVertexCount = 4;
 int main() {
     renderer::WindowSettings settings;
     settings.title = "textured mesh example";
+    // Own the ImGui overlay so we can add our own panels to it. Create the renderer without
+    // the built-in overlay, then inject ours.
+    settings.overlay = renderer::OverlayKind::None;
     auto renderer = renderer::Renderer::create(settings);
     if (!renderer) {
         return 1;
     }
+
+    auto overlay = std::make_shared<renderer::ImGuiOverlay>(renderer->window().get_native_handle());
+    renderer::ImGuiOverlay& ui = *overlay;
+    renderer->set_overlay(std::move(overlay));
 
     const std::array<float, 4> colorGrey{0.5F, 0.5F, 0.5F, 1.0F};
     const std::array<float, 4> colorBlack{0.0F, 0.0F, 0.0F, 1.0F};
@@ -33,7 +42,7 @@ int main() {
         renderer::Renderer::poll_events();
         // Controls are consumed and cleared every frame, so re-register the
         // lighting panel each iteration. It edits `lighting` in place.
-        renderer->imgui().add_lighting_controls(lighting);
+        ui.add_lighting_controls(lighting);
         renderer->begin_frame();
         renderer->draw(lighting);
         renderer->end_frame();

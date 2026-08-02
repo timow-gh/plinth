@@ -1,12 +1,18 @@
 #ifndef RENDERER_WINDOWSETTINGS_HPP
 #define RENDERER_WINDOWSETTINGS_HPP
 
-#include "plinth/UiMode.hpp"
 #include "plinth/plinth_export.h"
 #include <cstdint>
 #include <string>
 
 namespace renderer {
+
+/// Selects which overlay the Renderer creates at startup.
+enum class OverlayKind {
+    BuiltInImGui, ///< The built-in ImGui control panels (default; today's behavior).
+    None,         ///< No overlay: no ImGui context/backends are created. The application
+                  ///< drives its own UI and input via the raw window handle.
+};
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -47,9 +53,11 @@ struct PLINTH_EXPORT WindowSettings {
     bool transparent_framebuffer = false; ///< Whether the framebuffer should be transparent.
     bool focus_on_show = true;            ///< Whether the window should be focused when shown.
     bool scale_to_monitor = true; ///< Whether the window content should be scaled based on the monitor content scale.
-    renderer::UiMode ui_mode =
-        renderer::UiMode::Release; ///< Which control surface the ImGui overlay starts in.
-                                   ///< Release is the game-like panel; Debug exposes all controls.
+    renderer::OverlayKind overlay =
+        renderer::OverlayKind::BuiltInImGui; ///< Which overlay the renderer creates. None disables
+                                             ///< the built-in UI so the application can roll its own.
+                                             ///< The overlay owns its own state (e.g. the built-in
+                                             ///< ImGuiOverlay's UiMode); set it via the overlay.
     bool debug_context = false;    ///< Request a debug-capable GL context (GL 4.3 core +
                                    ///< GLFW_OPENGL_DEBUG_CONTEXT) instead of the default GL 4.1 core.
                                    ///< Intended for development builds only - see OpenGL/ErrorReporting.hpp.

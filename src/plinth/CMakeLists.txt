@@ -19,10 +19,12 @@ set(plinth_HEADER_FILES
         include/plinth/Color.hpp
         include/plinth/ColorConversion.hpp
         include/plinth/Viewport.hpp
+        include/plinth/LogicalViewportRect.hpp
         include/plinth/Camera.hpp
         include/plinth/CameraAutoFit.hpp
         include/plinth/RayPlaneIntersection.hpp
         include/plinth/CameraInteractor.hpp
+        include/plinth/IOverlay.hpp
         include/plinth/ImGuiOverlay.hpp
         include/plinth/Renderer.hpp
         include/plinth/loader/MeshData.hpp

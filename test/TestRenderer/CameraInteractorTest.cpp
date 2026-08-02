@@ -116,17 +116,50 @@ TEST(CameraInteractorTest, ScrollZoomsOrthographicCamera) {
     EXPECT_LT(interactor.get_orthographic_params().width, initialWidth);
 }
 
-TEST(CameraInteractorTest, ScrollDoesNotBlockWhenGroundPlaneIsNotHit) {
+TEST(CameraInteractorTest, ScrollStillZoomsWhenGroundPlaneIsNotHit) {
     renderer::InputState inputState;
     renderer::CameraInteractor interactor = make_interactor(inputState);
     inputState.cursorPosState = renderer::CursorPosState{400.0, 300.0};
+    // A ground plane the cursor ray never intersects: it is offset far away and its normal is
+    // perpendicular to the gaze, so the ray is parallel to it. Previously this dropped the scroll;
+    // now zoom falls back to the camera-to-target distance so it keeps working from every angle.
     interactor.set_ground_plane(renderer::Plane{linal::double3{0.0, 0.0, 100.0}, linal::double3{1.0, 0.0, 0.0}});
 
     const linal::double3 initialPosition = interactor.get_position();
     interactor.on_scroll(0.0, 1.0);
 
-    EXPECT_FALSE(interactor.get_was_blocking());
-    EXPECT_EQ(interactor.get_position(), initialPosition);
+    EXPECT_TRUE(interactor.get_was_blocking());
+    // Positive scroll zooms in, i.e. moves the camera closer to its target.
+    EXPECT_LT(linal::length(interactor.get_position() - interactor.get_target()),
+              linal::length(initialPosition - interactor.get_target()));
+}
+
+TEST(CameraInteractorTest, SetGroundPlaneIsRetrievable) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    const renderer::Plane plane{linal::double3{1.0, 2.0, 3.0}, linal::double3{0.0, 1.0, 0.0}};
+    interactor.set_ground_plane(plane);
+
+    EXPECT_EQ(interactor.get_ground_plane().get_origin(), (linal::double3{1.0, 2.0, 3.0}));
+    EXPECT_EQ(interactor.get_ground_plane().get_normal(), (linal::double3{0.0, 1.0, 0.0}));
+}
+
+TEST(CameraInteractorTest, ScrollUsesGroundPlaneDistanceWhenHit) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+    inputState.cursorPosState = renderer::CursorPosState{400.0, 300.0};
+
+    // Ground plane through the origin with a Z-up normal: the centered cursor ray from the default
+    // pose hits it, so the ground-plane-intersection distance (not the target fallback) drives zoom.
+    interactor.set_ground_plane(renderer::Plane{linal::double3{0.0, 0.0, 0.0}, linal::double3{0.0, 0.0, 1.0}});
+
+    const linal::double3 initialPosition = interactor.get_position();
+    interactor.on_scroll(0.0, 1.0);
+
+    EXPECT_TRUE(interactor.get_was_blocking());
+    EXPECT_LT(linal::length(interactor.get_position() - interactor.get_target()),
+              linal::length(initialPosition - interactor.get_target()));
 }
 
 TEST(CameraInteractorTest, MiddleMouseDragPansCamera) {

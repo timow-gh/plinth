@@ -270,7 +270,14 @@ class CameraInteractor : private CameraSettings {
         update_mvp();
     }
 
+    /** @brief Set the ground plane used as the pan/rotate reference and as the preferred distance
+     *  measure for scroll zoom. When the cursor ray misses this plane (e.g. grazing views that look
+     *  along it), zoom falls back to the camera-to-target distance so scrolling still works. */
     void set_ground_plane(const Plane& groundPlane) { m_groundPlane = groundPlane; }
+    [[nodiscard]]
+    const Plane& get_ground_plane() const noexcept {
+        return m_groundPlane;
+    }
 
     void set_navigation_style(NavigationStyle style) noexcept { m_navigationStyle = style; }
     [[nodiscard]]
@@ -343,11 +350,18 @@ class CameraInteractor : private CameraSettings {
         linal::double3 groundPlaneIntersection;
         linal::double3 pos = to_linal(m_camera.get_position());
 
+        // The zoom step scales with how far the scene is from the camera. Preferred measure is the
+        // distance to where the cursor ray meets the ground plane. In grazing views (e.g. the FRONT
+        // preset, which looks along the ground plane) that ray can be parallel to the plane or point
+        // away from it, so it never intersects; fall back to the camera-to-target distance instead of
+        // dropping the scroll, so zoom keeps working from every viewing angle.
         auto pickRay = get_pick_ray(m_inputState->cursorPosState.xpos, m_inputState->cursorPosState.ypos);
-        if (!ray_plane_intersection(pos, pickRay.direction, m_groundPlane, groundPlaneIntersection)) {
-            return;
+        double distance{0.0};
+        if (ray_plane_intersection(pos, pickRay.direction, m_groundPlane, groundPlaneIntersection)) {
+            distance = linal::length(pos - groundPlaneIntersection);
+        } else {
+            distance = linal::length(pos - to_linal(m_camera.get_target()));
         }
-        double distance = linal::length(pos - groundPlaneIntersection);
         double distanceZoomFactor = distance / 10;
         distanceZoomFactor = std::clamp(distanceZoomFactor, 1.0, 100.0);
         switch (m_projectionType) {

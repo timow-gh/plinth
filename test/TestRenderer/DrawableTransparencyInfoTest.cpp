@@ -1,4 +1,5 @@
 #include "OpenGL/Drawable/DrawableTransparencyInfo.hpp"
+#include "OpenGL/Drawable/LineInstanceData.hpp"
 #include <gtest/gtest.h>
 #include <linal/hmat.hpp>
 #include <vector>
@@ -108,4 +109,120 @@ TEST(DrawableTransparencyInfoTransformTest, DistanceSquaredToTransformsSortCente
     const double expected = 11.0 * 11.0;
     EXPECT_DOUBLE_EQ(expected, info.distance_squared_to(viewPosition, translation));
     EXPECT_NE(expected, info.distance_squared_to(viewPosition));
+}
+
+TEST(LineInstanceDataTest, ExpandsIndicesToSegmentPairsPerLineType) {
+    const std::vector<std::uint32_t> indices = {0U, 1U, 2U, 3U};
+
+    // lines: consecutive pairs are kept as-is.
+    const std::vector<std::uint32_t> linePairs =
+        opengl::expand_indices_to_segment_pairs(indices, opengl::LineType::lines());
+    EXPECT_EQ((std::vector<std::uint32_t>{0U, 1U, 2U, 3U}), linePairs);
+
+    // strip: (0,1),(1,2),(2,3).
+    const std::vector<std::uint32_t> stripPairs =
+        opengl::expand_indices_to_segment_pairs(indices, opengl::LineType::line_strip());
+    EXPECT_EQ((std::vector<std::uint32_t>{0U, 1U, 1U, 2U, 2U, 3U}), stripPairs);
+
+    // loop: strip plus a closing (3,0) segment.
+    const std::vector<std::uint32_t> loopPairs =
+        opengl::expand_indices_to_segment_pairs(indices, opengl::LineType::line_loop());
+    EXPECT_EQ((std::vector<std::uint32_t>{0U, 1U, 1U, 2U, 2U, 3U, 3U, 0U}), loopPairs);
+
+    // A dangling trailing index in a lines list is dropped.
+    const std::vector<std::uint32_t> odd = {0U, 1U, 2U};
+    EXPECT_EQ((std::vector<std::uint32_t>{0U, 1U}),
+              opengl::expand_indices_to_segment_pairs(odd, opengl::LineType::lines()));
+}
+
+TEST(LineInstanceDataTest, ArcLengthAccumulatesAlongStripRuns) {
+    // Three colinear vertices 2 units apart along X.
+    const std::vector<linal::float3> positions = {
+        linal::float3{0.0F, 0.0F, 0.0F},
+        linal::float3{2.0F, 0.0F, 0.0F},
+        linal::float3{4.0F, 0.0F, 0.0F},
+    };
+
+    // strip: cumulative 0, 2, 4.
+    const std::vector<std::uint32_t> stripIndices = {0U, 1U, 2U};
+    const std::vector<float> stripArc =
+        opengl::make_vertex_arc_lengths(stripIndices, positions, opengl::LineType::line_strip());
+    ASSERT_EQ(3U, stripArc.size());
+    EXPECT_FLOAT_EQ(0.0F, stripArc[0]);
+    EXPECT_FLOAT_EQ(2.0F, stripArc[1]);
+    EXPECT_FLOAT_EQ(4.0F, stripArc[2]);
+}
+
+TEST(LineInstanceDataTest, IndependentArc0ForcesPerSegmentStart) {
+    // Four distinct vertices forming two independent line segments.
+    const std::vector<linal::float3> positions = {
+        linal::float3{0.0F, 0.0F, 0.0F},
+        linal::float3{2.0F, 0.0F, 0.0F},
+        linal::float3{5.0F, 0.0F, 0.0F},
+        linal::float3{9.0F, 0.0F, 0.0F},
+    };
+    // A non-trivial per-vertex arc buffer that would leak into arc0 if not overridden.
+    const std::vector<float> arcLengths = {0.0F, 2.0F, 100.0F, 200.0F};
+    const std::vector<std::uint32_t> pairs = {0U, 1U, 2U, 3U};
+
+    // With independentArc0 (GL_LINES), every segment's stored arc0 (a_p1.w, index 7) must be 0.
+    const std::vector<float> lineData =
+        opengl::make_line_instance_data(pairs, positions, {}, 0, arcLengths, {}, /*independentArc0=*/true);
+    ASSERT_EQ(2U * opengl::kLineInstanceFloats, lineData.size());
+    EXPECT_FLOAT_EQ(0.0F, lineData[7]);                              // segment 0 arc0
+    EXPECT_FLOAT_EQ(0.0F, lineData[opengl::kLineInstanceFloats + 7]); // segment 1 arc0
+
+    // Without it (strips), arc0 comes from the per-vertex arc buffer.
+    const std::vector<float> stripData =
+        opengl::make_line_instance_data(pairs, positions, {}, 0, arcLengths, {}, /*independentArc0=*/false);
+    EXPECT_FLOAT_EQ(0.0F, stripData[7]);                                // arcLengths[0]
+    EXPECT_FLOAT_EQ(100.0F, stripData[opengl::kLineInstanceFloats + 7]); // arcLengths[2]
+}
+
+TEST(LineInstanceDataTest, BuildsInterleavedInstanceBlobWithDashAndColors) {
+    const std::vector<linal::float3> positions = {
+        linal::float3{0.0F, 0.0F, 0.0F},
+        linal::float3{3.0F, 0.0F, 0.0F},
+    };
+    const std::vector<float> colors = {
+        1.0F, 0.0F, 0.0F, 1.0F, // vertex 0 red
+        0.0F, 1.0F, 0.0F, 0.5F, // vertex 1 translucent green
+    };
+    const std::vector<float> arcLengths = {0.0F, 3.0F};
+    const std::vector<std::uint8_t> dashFlags = {1U, 0U}; // segment dashed because one endpoint is flagged
+
+    const std::vector<std::uint32_t> pairs = {0U, 1U};
+    const std::vector<float> blob =
+        opengl::make_line_instance_data(pairs, positions, colors, 4, arcLengths, dashFlags);
+
+    ASSERT_EQ(opengl::kLineInstanceFloats, blob.size());
+    // a_p0 = (p0.xyz, dashedFlag)
+    EXPECT_FLOAT_EQ(0.0F, blob[0]);
+    EXPECT_FLOAT_EQ(0.0F, blob[1]);
+    EXPECT_FLOAT_EQ(0.0F, blob[2]);
+    EXPECT_FLOAT_EQ(1.0F, blob[3]); // dashed
+    // a_p1 = (p1.xyz, arc0)
+    EXPECT_FLOAT_EQ(3.0F, blob[4]);
+    EXPECT_FLOAT_EQ(0.0F, blob[7]); // arc0
+    // a_color0
+    EXPECT_FLOAT_EQ(1.0F, blob[8]);
+    EXPECT_FLOAT_EQ(1.0F, blob[11]);
+    // a_color1
+    EXPECT_FLOAT_EQ(0.0F, blob[12]);
+    EXPECT_FLOAT_EQ(1.0F, blob[13]);
+    EXPECT_FLOAT_EQ(0.5F, blob[15]);
+}
+
+TEST(LineInstanceDataTest, EmptyDashFlagsProduceSolidSegments) {
+    const std::vector<linal::float3> positions = {
+        linal::float3{0.0F, 0.0F, 0.0F},
+        linal::float3{1.0F, 0.0F, 0.0F},
+    };
+    const std::vector<std::uint32_t> pairs = {0U, 1U};
+    const std::vector<float> blob = opengl::make_line_instance_data(pairs, positions, {}, 0, {}, {});
+    ASSERT_EQ(opengl::kLineInstanceFloats, blob.size());
+    EXPECT_FLOAT_EQ(0.0F, blob[3]); // dashedFlag defaults to solid
+    // With no colors provided, colors fall back to white.
+    EXPECT_FLOAT_EQ(1.0F, blob[8]);
+    EXPECT_FLOAT_EQ(1.0F, blob[15]);
 }

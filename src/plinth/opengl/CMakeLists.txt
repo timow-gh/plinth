@@ -10,7 +10,9 @@ set(opengl_HEADER_FILES
         include/OpenGL/Drawable/PointDrawable.hpp
         include/OpenGL/Drawable/DrawablesManager.hpp
         include/OpenGL/Drawable/DrawableTransparencyInfo.hpp
+        include/OpenGL/Drawable/LineInstanceData.hpp
         include/OpenGL/VertexBuffer.hpp
+        include/OpenGL/InstanceBuffer.hpp
         include/OpenGL/BufferId.hpp
         include/OpenGL/Framebuffer.hpp
         include/OpenGL/Texture2D.hpp
@@ -52,6 +54,7 @@ set(opengl_SOURCE_FILES
         source/Programs/ProgramManager.cpp
         source/VertexArray.cpp
         source/VertexBuffer.cpp
+        source/InstanceBuffer.cpp
         source/Drawable/LineDrawable.cpp
         source/Drawable/MeshDrawable.cpp
         source/Drawable/PointDrawable.cpp

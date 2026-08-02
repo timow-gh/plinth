@@ -8,6 +8,7 @@
 #include "OpenGL/PickId.hpp"
 #include "OpenGL/Programs/ProgramManager.hpp"
 #include "OpenGL/Texture2D.hpp"
+#include "plinth/DashSpace.hpp"
 #include "plinth/LightingConfig.hpp"
 #include "plinth/MeshCullFaceMode.hpp"
 #include <algorithm>
@@ -193,7 +194,12 @@ class DrawablesManager {
                                                 opengl::LineType lineType,
                                                 float lineWidth,
                                                 float pointSize,
-                                                opengl::BufferAccessPattern accessPattern) {
+                                                opengl::BufferAccessPattern accessPattern,
+                                                bool dashEnabled = false,
+                                                float dashSize = 10.0F,
+                                                float gapSize = 10.0F,
+                                                renderer::DashSpace dashSpace = renderer::DashSpace::World,
+                                                std::span<const std::uint8_t> perVertexDashFlags = {}) {
         auto drawable = opengl::make_line_drawable(get_line_program(),
                                                    vertices,
                                                    3,
@@ -203,7 +209,12 @@ class DrawablesManager {
                                                    lineType,
                                                    lineWidth,
                                                    pointSize,
-                                                   accessPattern);
+                                                   accessPattern,
+                                                   dashEnabled,
+                                                   dashSize,
+                                                   gapSize,
+                                                   dashSpace,
+                                                   perVertexDashFlags);
         if (!drawable.has_value()) {
             return std::nullopt;
         }
@@ -323,6 +334,20 @@ class DrawablesManager {
         return get_drawable_transform_by_id(m_lineDrawables, id);
     }
 
+    bool set_line_dash_enabled(DrawableId id, bool enabled) {
+        return mutate_line_drawable_by_id(id, [enabled](opengl::LineDrawable& d) { d.set_line_dash_enabled(enabled); });
+    }
+    bool set_line_dash(DrawableId id, float dashSize, float gapSize) {
+        return mutate_line_drawable_by_id(
+            id, [dashSize, gapSize](opengl::LineDrawable& d) { d.set_line_dash(dashSize, gapSize); });
+    }
+    bool set_line_dash_phase(DrawableId id, float phase) {
+        return mutate_line_drawable_by_id(id, [phase](opengl::LineDrawable& d) { d.set_line_dash_phase(phase); });
+    }
+    bool set_line_dash_space(DrawableId id, renderer::DashSpace space) {
+        return mutate_line_drawable_by_id(id, [space](opengl::LineDrawable& d) { d.set_line_dash_space(space); });
+    }
+
     bool set_mesh_drawable_transform(DrawableId id, const linal::hmatf& transform) {
         return set_drawable_transform_by_id(m_meshDrawables, id, transform);
     }
@@ -389,13 +414,15 @@ class DrawablesManager {
         }
     }
 
-    void draw_lines(const linal::hmatf& mvp) const {
+    void draw_lines(const linal::hmatf& mvp, const linal::float2& viewportSize) const {
         for (const auto& entry: m_lineDrawables) {
-            entry.drawable.draw(mvp, entry.transform);
+            entry.drawable.draw(mvp, entry.transform, viewportSize);
         }
     }
 
-    void draw_lines_and_points(const linal::hmatf& mvp, const linal::double3& viewPosition) {
+    void draw_lines_and_points(const linal::hmatf& mvp,
+                               const linal::float2& viewportSize,
+                               const linal::double3& viewPosition) {
         struct RenderCommand {
             enum class Type {
                 line,
@@ -451,7 +478,8 @@ class DrawablesManager {
             if (opaqueCommand.type == RenderCommand::Type::line) {
                 m_lineDrawables[opaqueCommand.index].drawable.draw_opaque(
                     mvp,
-                    m_lineDrawables[opaqueCommand.index].transform);
+                    m_lineDrawables[opaqueCommand.index].transform,
+                    viewportSize);
             } else {
                 m_pointDrawables[opaqueCommand.index].drawable.draw_opaque(
                     mvp,
@@ -475,6 +503,7 @@ class DrawablesManager {
                 m_lineDrawables[transparentCommand.index].drawable.draw_translucent(
                     mvp,
                     m_lineDrawables[transparentCommand.index].transform,
+                    viewportSize,
                     viewPosition);
             } else {
                 m_pointDrawables[transparentCommand.index].drawable.draw_translucent(
@@ -590,7 +619,8 @@ class DrawablesManager {
     [[nodiscard]]
     std::vector<PickEntry> draw_pick_pass(const linal::hmatf& mvp,
                                           const linal::hmatf& viewMatrix,
-                                          const linal::hmatf& projectionMatrix) const {
+                                          const linal::hmatf& projectionMatrix,
+                                          const linal::float2& viewportSize) const {
         std::vector<PickEntry> entries;
         entries.reserve(m_pointDrawables.size() + m_lineDrawables.size() + m_meshDrawables.size());
 
@@ -606,7 +636,7 @@ class DrawablesManager {
         }
         for (const auto& entry: m_lineDrawables) {
             const std::array<float, 3> color = next_color(PickDrawableKind::line, entry.id);
-            entry.drawable.draw_pick(mvp, entry.transform, color);
+            entry.drawable.draw_pick(mvp, entry.transform, viewportSize, color);
         }
         for (const auto& entry: m_pointDrawables) {
             const std::array<float, 3> color = next_color(PickDrawableKind::point, entry.id);
@@ -625,6 +655,21 @@ class DrawablesManager {
     MeshProgram& get_mesh_program() { return programManager.get_mesh_program(); }
 
     DrawableId next_drawable_id() { return m_nextDrawableId++; }
+
+    template <typename Fn>
+    bool mutate_line_drawable_by_id(DrawableId id, Fn&& fn) {
+        if (id == 0U) {
+            return false;
+        }
+        const auto it = std::find_if(m_lineDrawables.begin(),
+                                     m_lineDrawables.end(),
+                                     [id](const DrawableEntry<opengl::LineDrawable>& entry) { return entry.id == id; });
+        if (it == m_lineDrawables.end()) {
+            return false;
+        }
+        fn(it->drawable);
+        return true;
+    }
 
     template <typename Drawable>
     static bool remove_drawable_by_id(std::vector<DrawableEntry<Drawable>>& drawables, DrawableId id) {

@@ -515,9 +515,24 @@ DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
                                            renderer::LineType lineType,
                                            float lineWidth,
                                            float pointSize,
-                                           renderer::BufferAccessPattern accessPattern) {
-    const auto id =
-        m_drawablesManager->add_line_drawable(vertices, indices, colors, lineType, lineWidth, pointSize, accessPattern);
+                                           renderer::BufferAccessPattern accessPattern,
+                                           bool dashEnabled,
+                                           float dashSize,
+                                           float gapSize,
+                                           renderer::DashSpace dashSpace,
+                                           std::span<const std::uint8_t> perVertexDashFlags) {
+    const auto id = m_drawablesManager->add_line_drawable(vertices,
+                                                          indices,
+                                                          colors,
+                                                          lineType,
+                                                          lineWidth,
+                                                          pointSize,
+                                                          accessPattern,
+                                                          dashEnabled,
+                                                          dashSize,
+                                                          gapSize,
+                                                          dashSpace,
+                                                          perVertexDashFlags);
     if (!id.has_value()) {
         return DrawableHandle{};
     }
@@ -698,6 +713,34 @@ bool Renderer::reset_drawable_transform(DrawableHandle handle) {
     return set_drawable_transform(handle, linal::hmatf::identity());
 }
 
+bool Renderer::set_line_dash_enabled(DrawableHandle handle, bool enabled) {
+    if (handle.kind != DrawableKind::line || !handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
+        return false;
+    }
+    return m_drawablesManager->set_line_dash_enabled(handle.id, enabled);
+}
+
+bool Renderer::set_line_dash(DrawableHandle handle, float dashSize, float gapSize) {
+    if (handle.kind != DrawableKind::line || !handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
+        return false;
+    }
+    return m_drawablesManager->set_line_dash(handle.id, dashSize, gapSize);
+}
+
+bool Renderer::set_line_dash_phase(DrawableHandle handle, float phase) {
+    if (handle.kind != DrawableKind::line || !handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
+        return false;
+    }
+    return m_drawablesManager->set_line_dash_phase(handle.id, phase);
+}
+
+bool Renderer::set_line_dash_space(DrawableHandle handle, renderer::DashSpace space) {
+    if (handle.kind != DrawableKind::line || !handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
+        return false;
+    }
+    return m_drawablesManager->set_line_dash_space(handle.id, space);
+}
+
 void Renderer::update_last_point_drawable(std::span<const float> vertices,
                                           std::span<const float> colors,
                                           std::span<const std::uint32_t> indices,
@@ -808,10 +851,12 @@ std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double y
     glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    const linal::float2 pickViewportSize{static_cast<float>(width), static_cast<float>(height)};
     const std::vector<opengl::DrawablesManager::PickEntry> entries =
         m_drawablesManager->draw_pick_pass(m_camera->get_current_MVP(),
                                            m_camera->get_view_matrix(),
-                                           m_camera->get_projection_matrix());
+                                           m_camera->get_projection_matrix(),
+                                           pickViewportSize);
 
     // Read back the axis-aligned pixel box that bounds the circular pick region, clamped to the
     // target. Coordinates flip on Y because glReadPixels uses a bottom-left origin.
@@ -961,7 +1006,11 @@ void Renderer::draw(const renderer::LightingConfig& lighting) {
         return;
     }
 
-    m_drawablesManager->draw_lines_and_points(m_camera->get_current_MVP(), m_camera->get_position());
+    const linal::float2 sceneViewportSize{static_cast<float>(m_sceneViewport.framebuffer.width),
+                                          static_cast<float>(m_sceneViewport.framebuffer.height)};
+    m_drawablesManager->draw_lines_and_points(m_camera->get_current_MVP(),
+                                              sceneViewportSize,
+                                              m_camera->get_position());
 
     if (m_drawablesManager->has_mesh_drawables()) {
         const linal::float3 viewPosF{static_cast<float>(m_camera->get_position()[0]),

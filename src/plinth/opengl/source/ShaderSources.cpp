@@ -3,38 +3,98 @@
 namespace opengl {
 std::string line_vertex_shader_source() {
     return
-        R"(#version 330
+        R"(#version 330 core
 
-uniform mat4 u_viewProjection;
-uniform mat4 u_model;
+uniform mat4  u_viewProjection;
+uniform mat4  u_model;
+uniform vec2  u_viewportSize; // scene framebuffer size in pixels
+uniform float u_lineWidth;    // line thickness in pixels
+uniform int   u_dashSpace;    // 0 = World, 1 = Screen
 
-in vec3 a_vertex;
-in vec4 a_color;
+// Shared unit quad (divisor 0): x in {0,1} selects endpoint, y in {-0.5,0.5} selects side.
+in vec2 a_corner;
+// Per-instance segment data (divisor 1).
+in vec4 a_p0;     // (p0.xyz, dashedFlag)
+in vec4 a_p1;     // (p1.xyz, arc0)
+in vec4 a_color0; // start rgba
+in vec4 a_color1; // end rgba
 
-out vec4 v_color;
+out vec4  v_color;
+out float v_arcLen;
+out float v_dashedFlag;
 
 void main() {
-    gl_Position = u_viewProjection * u_model * vec4(a_vertex, 1.0);
-    v_color = a_color;
+    vec3 p0 = a_p0.xyz;
+    vec3 p1 = a_p1.xyz;
+    float dashedFlag = a_p0.w;
+    float arc0 = a_p1.w;
+
+    // Same transform path as the previous thin-line shader -> reversed-Z safe.
+    vec4 clip0 = u_viewProjection * u_model * vec4(p0, 1.0);
+    vec4 clip1 = u_viewProjection * u_model * vec4(p1, 1.0);
+
+    // Screen-space endpoints (pixels) for building the thick quad.
+    vec2 s0 = (clip0.xy / clip0.w) * 0.5 * u_viewportSize;
+    vec2 s1 = (clip1.xy / clip1.w) * 0.5 * u_viewportSize;
+    vec2 dir = s1 - s0;
+    float screenLen = length(dir);
+    dir = screenLen > 0.0 ? dir / screenLen : vec2(1.0, 0.0);
+    vec2 nrm = vec2(-dir.y, dir.x);
+
+    float t = a_corner.x;
+    vec4  clip = mix(clip0, clip1, t);
+
+    // Offset by half-width in pixels, converted to NDC and scaled by w so the
+    // perspective divide restores a constant pixel width. z/w untouched -> depth
+    // equals the interpolated endpoint depth (reversed-Z safe).
+    vec2 offsetPixels = nrm * (a_corner.y * u_lineWidth);
+    vec2 ndcOffset = offsetPixels / (0.5 * u_viewportSize);
+    clip.xy += ndcOffset * clip.w;
+    gl_Position = clip;
+
+    float worldArc1 = arc0 + distance(p0, p1);
+    float worldArc = mix(arc0, worldArc1, t);
+    float screenArc = mix(0.0, screenLen, t); // pixels from p0 within this segment
+    v_arcLen = (u_dashSpace == 1) ? screenArc : worldArc;
+
+    v_color = mix(a_color0, a_color1, t);
+    v_dashedFlag = dashedFlag;
 })";
 }
 
 std::string line_fragment_shader_source() {
     return
-        R"(#version 330
+        R"(#version 330 core
 
-in vec4 v_color;
+in vec4  v_color;
+in float v_arcLen;
+in float v_dashedFlag;
 
-uniform bool u_pickMode;
-uniform vec3 u_pickColor;
+uniform bool  u_pickMode;
+uniform vec3  u_pickColor;
+
+uniform bool  u_dashEnabled;
+uniform float u_dashSize;  // in world units or pixels, matching u_dashSpace
+uniform float u_gapSize;
+uniform float u_dashPhase; // subtracted before fract() to animate marching ants
 
 out vec4 FragColor;
 
 void main() {
     if (u_pickMode) {
+        // Picking ignores dashing so the whole line footprint stays selectable.
         FragColor = vec4(u_pickColor, 1.0);
         return;
     }
+
+    if (u_dashEnabled && v_dashedFlag > 0.5) {
+        float period = max(u_dashSize + u_gapSize, 1e-6);
+        float f = fract((v_arcLen - u_dashPhase) / period) * period;
+        if (f > u_dashSize) {
+            discard; // in the gap between dashes
+        }
+    }
+
     FragColor = v_color;
 }
 )";

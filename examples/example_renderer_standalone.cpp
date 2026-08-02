@@ -1,8 +1,10 @@
+#include "plinth/DashSpace.hpp"
 #include "plinth/ImGuiOverlay.hpp"
 #include "plinth/Renderer.hpp"
 #include "plinth/UiMode.hpp"
 #include "plinth/WindowSettings.hpp"
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 
@@ -88,6 +90,24 @@ int main() {
                                 renderer::LineType::lines(),
                                 standaloneLineWidth);
 
+    // A dashed cross above the solid one. The indexed line overload takes the dash parameters;
+    // the handle is kept so the dash phase can be animated for a "marching ants" effect below.
+    const std::array<float, 12> dashedLineVertices{
+        -1.0F, 1.5F, 0.0F, 1.0F, 1.5F, 0.0F, 0.0F, 0.5F, 0.0F, 0.0F, 2.5F, 0.0F};
+    const std::array<float, 4> magenta{1.0F, 0.0F, 1.0F, 1.0F};
+    const renderer::DrawableHandle dashedLines =
+        renderer->add_line_drawable(dashedLineVertices,
+                                    lineIndices,
+                                    magenta,
+                                    renderer::LineType::lines(),
+                                    standaloneLineWidth,
+                                    /*pointSize=*/0.0F,
+                                    renderer::BufferAccessPattern::Static,
+                                    /*dashEnabled=*/true,
+                                    /*dashSize=*/0.2F,
+                                    /*gapSize=*/0.15F,
+                                    renderer::DashSpace::World);
+
     // Add a rectangle
     const std::array<float, 4> darkBlue{0.0F, 0.0F, 0.5F, 1.0F};
     const std::array<float, 12>
@@ -138,11 +158,19 @@ int main() {
     // to whatever geometry currently exists in the scene.
     const auto presetViewSubscription = add_preset_view_callback(*renderer);
 
+    const auto startTime = std::chrono::steady_clock::now();
+
     while (!renderer->should_close()) {
         renderer::Renderer::poll_events();
         if (renderer->is_escape_pressed()) {
             break;
         }
+
+        // Advance the dash phase over time for a "marching ants" effect.
+        const float elapsedSeconds =
+            std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
+        renderer->set_line_dash_phase(dashedLines, elapsedSeconds * 0.5F);
+
         renderer->begin_frame();
         renderer->draw();
         // This overload retains the renderer-owned Auto Zoom state across frames.

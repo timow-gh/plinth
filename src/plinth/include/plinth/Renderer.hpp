@@ -5,6 +5,7 @@
 #include "plinth/BufferAccessPattern.hpp"
 #include "plinth/CameraAutoFit.hpp"
 #include "plinth/CameraInteractor.hpp"
+#include "plinth/DashSpace.hpp"
 #include "plinth/FrameState.hpp"
 #include "plinth/GlfwWindow.hpp"
 #include "plinth/IOverlay.hpp"
@@ -159,7 +160,12 @@ class Renderer {
                                      renderer::LineType lineType,
                                      float lineWidth = 2.0F,
                                      float pointSize = 0.0F,
-                                     BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+                                     BufferAccessPattern accessPattern = BufferAccessPattern::Static,
+                                     bool dashEnabled = false,
+                                     float dashSize = 10.0F,
+                                     float gapSize = 10.0F,
+                                     renderer::DashSpace dashSpace = renderer::DashSpace::World,
+                                     std::span<const std::uint8_t> perVertexDashFlags = {});
 
     DrawableHandle add_mesh_drawable(std::span<const float> vertices,
                                      std::span<const std::uint32_t> triangleIndices,
@@ -217,6 +223,15 @@ class Renderer {
     [[nodiscard]]
     std::optional<linal::hmatf> get_drawable_transform(DrawableHandle handle) const;
     bool reset_drawable_transform(DrawableHandle handle);
+
+    /// Line dashing controls. Return false for invalid, foreign, removed, non-line, or stale
+    /// handles. Dash and gap sizes are in world units or pixels per the dash space. Enabling dashing
+    /// without per-segment dash flags dashes the whole line; per-segment flags are supplied when the
+    /// line is added. The dash phase animates "marching ants" when advanced over time.
+    bool set_line_dash_enabled(DrawableHandle handle, bool enabled);
+    bool set_line_dash(DrawableHandle handle, float dashSize, float gapSize);
+    bool set_line_dash_phase(DrawableHandle handle, float phase);
+    bool set_line_dash_space(DrawableHandle handle, renderer::DashSpace space);
 
     /// Updates affect the most recently added drawable of that kind. If none
     /// exists, the call is ignored. Input spans are copied during the call.

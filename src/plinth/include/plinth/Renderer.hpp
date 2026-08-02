@@ -399,6 +399,13 @@ class Renderer {
     void go_to_preset_view(PresetView view);
     /// Animates the camera to the home (initial) view.
     void go_to_home_view();
+    /// Refits all geometry into view along the camera's CURRENT viewing direction, animating to the
+    /// fitted pose immediately. Unlike go_to_home_view (which resets to the default direction), this
+    /// preserves the current orientation - e.g. a front/top/iso preset stays put and is only
+    /// re-framed. Unlike enabling auto-fit, it moves the camera unconditionally, independent of the
+    /// auto-fit-enabled setting and the post-interaction suppression window. No-op if there is no
+    /// geometry to fit.
+    void refit_current_view();
 
     // --- Callback extension points ---
     /// Keep the returned subscription alive for the callback lifetime. Destroying

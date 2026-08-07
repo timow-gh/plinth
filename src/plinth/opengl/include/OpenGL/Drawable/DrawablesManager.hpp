@@ -9,6 +9,7 @@
 #include "OpenGL/Programs/ProgramManager.hpp"
 #include "OpenGL/Texture2D.hpp"
 #include "plinth/DashSpace.hpp"
+#include "plinth/StrokeStyle.hpp"
 #include "plinth/LightingConfig.hpp"
 #include "plinth/MeshCullFaceMode.hpp"
 #include <algorithm>
@@ -195,9 +196,9 @@ class DrawablesManager {
                                                 float lineWidth,
                                                 float pointSize,
                                                 opengl::BufferAccessPattern accessPattern,
-                                                bool dashEnabled = false,
-                                                float dashSize = 10.0F,
-                                                float gapSize = 10.0F,
+                                                renderer::LineCap cap = renderer::LineCap::Butt,
+                                                renderer::LineJoin join = renderer::LineJoin::Miter,
+                                                std::span<const float> dashPattern = {},
                                                 renderer::DashSpace dashSpace = renderer::DashSpace::World,
                                                 std::span<const std::uint8_t> perVertexDashFlags = {}) {
         auto drawable = opengl::make_line_drawable(get_line_program(),
@@ -210,9 +211,9 @@ class DrawablesManager {
                                                    lineWidth,
                                                    pointSize,
                                                    accessPattern,
-                                                   dashEnabled,
-                                                   dashSize,
-                                                   gapSize,
+                                                   cap,
+                                                   join,
+                                                   dashPattern,
                                                    dashSpace,
                                                    perVertexDashFlags);
         if (!drawable.has_value()) {
@@ -346,6 +347,16 @@ class DrawablesManager {
     }
     bool set_line_dash_space(DrawableId id, renderer::DashSpace space) {
         return mutate_line_drawable_by_id(id, [space](opengl::LineDrawable& d) { d.set_line_dash_space(space); });
+    }
+    bool set_line_cap(DrawableId id, renderer::LineCap cap) {
+        return mutate_line_drawable_by_id(id, [cap](opengl::LineDrawable& d) { d.set_line_cap(cap); });
+    }
+    bool set_line_join(DrawableId id, renderer::LineJoin join) {
+        return mutate_line_drawable_by_id(id, [join](opengl::LineDrawable& d) { d.set_line_join(join); });
+    }
+    bool set_line_dash_pattern(DrawableId id, std::span<const float> pattern) {
+        return mutate_line_drawable_by_id(
+            id, [pattern](opengl::LineDrawable& d) { d.set_line_dash_pattern(pattern); });
     }
 
     bool set_mesh_drawable_transform(DrawableId id, const linal::hmatf& transform) {

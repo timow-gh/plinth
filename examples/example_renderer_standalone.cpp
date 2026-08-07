@@ -84,36 +84,33 @@ int main() {
     const std::array<float, 16>
         lineColors{1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F};
     const std::array<std::uint32_t, 4> lineIndices{0, 1, 2, 3};
-    renderer->add_line_drawable(lineVertices,
-                                lineIndices,
-                                lineColors,
-                                renderer::LineType::lines(),
-                                standaloneLineWidth);
+    {
+        renderer::StrokeStyle crossStyle;
+        crossStyle.lineWidth = standaloneLineWidth;
+        renderer->add_line_drawable(lineVertices, lineIndices, lineColors,
+                                    renderer::LineType::lines(), crossStyle);
+    }
 
-    // A dashed cross above the solid one. The indexed line overload takes the dash parameters;
-    // the handle is kept so the dash phase can be animated for a "marching ants" effect below.
+    // A dashed cross above the solid one; the handle is kept so dashPhase can be animated.
     const std::array<float, 12> dashedLineVertices{
         -1.0F, 1.5F, 0.0F, 1.0F, 1.5F, 0.0F, 0.0F, 0.5F, 0.0F, 0.0F, 2.5F, 0.0F};
     const std::array<float, 4> magenta{1.0F, 0.0F, 1.0F, 1.0F};
+    renderer::StrokeStyle dashedStyle;
+    dashedStyle.lineWidth   = standaloneLineWidth;
+    dashedStyle.dashPattern = {0.2F, 0.15F};
+    dashedStyle.dashSpace   = renderer::DashSpace::World;
     const renderer::DrawableHandle dashedLines =
-        renderer->add_line_drawable(dashedLineVertices,
-                                    lineIndices,
-                                    magenta,
-                                    renderer::LineType::lines(),
-                                    standaloneLineWidth,
-                                    /*pointSize=*/0.0F,
-                                    renderer::BufferAccessPattern::Static,
-                                    /*dashEnabled=*/true,
-                                    /*dashSize=*/0.2F,
-                                    /*gapSize=*/0.15F,
-                                    renderer::DashSpace::World);
+        renderer->add_line_drawable(dashedLineVertices, lineIndices, magenta,
+                                    renderer::LineType::lines(), dashedStyle);
 
     // Add a rectangle
     const std::array<float, 4> darkBlue{0.0F, 0.0F, 0.5F, 1.0F};
     const std::array<float, 12>
         rectangleVertices{0.0F, 0.0F, 0.0F, 3.0F, 0.0F, 0.0F, 3.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F};
+    renderer::StrokeStyle rectangleStyle;
+    rectangleStyle.lineWidth = standaloneLineWidth;
     auto rectangleLines =
-        renderer->add_line_drawable(rectangleVertices, darkBlue, renderer::LineType::line_loop(), standaloneLineWidth);
+        renderer->add_line_drawable(rectangleVertices, darkBlue, renderer::LineType::line_loop(), rectangleStyle);
 
     const std::array<float, 4> lightBlue{0.0F, 0.5F, 1.0F, 1.0F};
     const std::array<std::uint32_t, 6> triangleIndices{0, 1, 2, 0, 2, 3};

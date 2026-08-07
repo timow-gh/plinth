@@ -16,12 +16,16 @@ namespace opengl {
 using renderer::LineType;
 
 // Per-instance layout for the instanced line-quad shader. Each line segment is one instance built
-// from four vec4 attributes (16 floats / 64 bytes), all with attribute divisor 1:
-//   a_p0     = (p0.xyz, dashedFlag)   dashedFlag is 0.0 or 1.0 (no integer attribute path)
-//   a_p1     = (p1.xyz, arc0)         arc1 is derived in the shader as arc0 + distance(p0, p1)
+// from six vec4 attributes (24 floats / 96 bytes), all with attribute divisor 1:
+//   a_p0     = (p0.xyz,    dashedFlag)  dashedFlag is 0.0 or 1.0 (no integer attribute path)
+//   a_p1     = (p1.xyz,    arc0)        arc1 is derived in the shader as arc0 + distance(p0, p1)
 //   a_color0 = start rgba
 //   a_color1 = end rgba
-inline constexpr std::size_t kLineInstanceFloats = 16U;
+//   a_pPrev  = (pPrev.xyz, 0)           world pos of vertex before p0; == p0 when no predecessor
+//   a_pNext  = (pNext.xyz, 0)           world pos of vertex after  p1; == p1 when no successor
+// Sentinel: pPrev == p0 (world space) means open start endpoint → apply cap style.
+//           pNext == p1 (world space) means open end   endpoint → apply cap style.
+inline constexpr std::size_t kLineInstanceFloats = 24U;
 inline constexpr std::size_t kLineInstanceStrideBytes = kLineInstanceFloats * sizeof(float);
 
 // The shared unit quad expanded per instance. .x in {0,1} selects the endpoint (0 at p0, 1 at p1);
@@ -146,6 +150,60 @@ inline bool dash_flag_at(std::span<const std::uint8_t> dashFlags, std::uint32_t 
     return i < dashFlags.size() && dashFlags[i] != 0U;
 }
 
+// Per-segment neighbour positions: pPrev[s] is the world position of the vertex that precedes
+// segment s's p0 in the polyline run; pNext[s] is the vertex following segment s's p1.
+// Sentinel: pPrev[s] == p0 (segment start) when s has no predecessor (open cap end).
+//           pNext[s] == p1 (segment end)   when s has no successor   (open cap end).
+struct SegmentNeighbours {
+    std::vector<linal::float3> pPrev; // indexed by segment index (segmentPairs.size()/2)
+    std::vector<linal::float3> pNext;
+};
+
+[[nodiscard]]
+inline SegmentNeighbours make_segment_neighbours(std::span<const std::uint32_t> segmentPairs,
+                                                  std::span<const linal::float3> positions,
+                                                  const LineType& lineType) {
+    const std::size_t segmentCount = segmentPairs.size() / 2U;
+    SegmentNeighbours result;
+    result.pPrev.reserve(segmentCount);
+    result.pNext.reserve(segmentCount);
+
+    for (std::size_t s = 0; s < segmentCount; ++s) {
+        const linal::float3 p0 = get_sort_position_or_origin(positions, segmentPairs[s * 2U]);
+        const linal::float3 p1 = get_sort_position_or_origin(positions, segmentPairs[s * 2U + 1U]);
+
+        if (lineType.is_lines()) {
+            // Disjoint segments: no connectivity — both ends are open caps.
+            result.pPrev.push_back(p0);
+            result.pNext.push_back(p1);
+        } else {
+            // Strip / loop: pPrev for segment s is p0 of the previous segment (if any).
+            // pNext for segment s is p1 of the next segment (if any).
+            // For a strip the first segment has no prev and last has no next.
+            // For a loop both wrap around.
+            const bool isLoop = lineType.is_line_loop();
+
+            linal::float3 pPrev = p0; // sentinel: no predecessor
+            if (s > 0U) {
+                pPrev = get_sort_position_or_origin(positions, segmentPairs[(s - 1U) * 2U]);
+            } else if (isLoop && segmentCount >= 2U) {
+                pPrev = get_sort_position_or_origin(positions, segmentPairs[(segmentCount - 1U) * 2U]);
+            }
+
+            linal::float3 pNext = p1; // sentinel: no successor
+            if (s + 1U < segmentCount) {
+                pNext = get_sort_position_or_origin(positions, segmentPairs[(s + 1U) * 2U + 1U]);
+            } else if (isLoop && segmentCount >= 2U) {
+                pNext = get_sort_position_or_origin(positions, segmentPairs[1U]);
+            }
+
+            result.pPrev.push_back(pPrev);
+            result.pNext.push_back(pNext);
+        }
+    }
+    return result;
+}
+
 // Builds the interleaved per-instance blob from flat segment index pairs. dashFlags may be empty
 // (all segments solid); a segment is dashed if either endpoint is flagged.
 //
@@ -154,6 +212,9 @@ inline bool dash_flag_at(std::span<const std::uint8_t> dashFlags, std::uint32_t 
 // a vertex can be shared by several segments, so a per-vertex value is ambiguous; independentArc0
 // forces every segment's arc0 to 0 (the shader derives arc1 from the segment length), which is the
 // correct behavior for disjoint line soup.
+//
+// neighbours carries the pPrev/pNext world positions for cap and join geometry. When empty,
+// sentinel values (pPrev == p0, pNext == p1) are used, meaning all endpoints are treated as caps.
 [[nodiscard]]
 inline std::vector<float> make_line_instance_data(std::span<const std::uint32_t> segmentPairs,
                                                   std::span<const linal::float3> positions,
@@ -161,12 +222,14 @@ inline std::vector<float> make_line_instance_data(std::span<const std::uint32_t>
                                                   std::int32_t colorDimension,
                                                   std::span<const float> arcLengths,
                                                   std::span<const std::uint8_t> dashFlags,
-                                                  bool independentArc0 = false) {
+                                                  bool independentArc0 = false,
+                                                  const SegmentNeighbours* neighbours = nullptr) {
     std::vector<float> data;
     const std::size_t segmentCount = segmentPairs.size() / 2U;
     data.reserve(segmentCount * kLineInstanceFloats);
 
     for (std::size_t s = 0; s + 1 < segmentPairs.size(); s += 2) {
+        const std::size_t segIdx = s / 2U;
         const std::uint32_t i0 = segmentPairs[s];
         const std::uint32_t i1 = segmentPairs[s + 1];
         const linal::float3 p0 = get_sort_position_or_origin(positions, i0);
@@ -176,6 +239,14 @@ inline std::vector<float> make_line_instance_data(std::span<const std::uint32_t>
             independentArc0 ? 0.0F : (static_cast<std::size_t>(i0) < arcLengths.size() ? arcLengths[i0] : 0.0F);
         const std::array<float, 4> color0 = get_color_or_white(colors, colorDimension, i0);
         const std::array<float, 4> color1 = get_color_or_white(colors, colorDimension, i1);
+
+        // Neighbour positions for cap/join geometry (sentinels == p0/p1 mean open endpoint).
+        const linal::float3 pPrev = (neighbours && segIdx < neighbours->pPrev.size())
+                                        ? neighbours->pPrev[segIdx]
+                                        : p0;
+        const linal::float3 pNext = (neighbours && segIdx < neighbours->pNext.size())
+                                        ? neighbours->pNext[segIdx]
+                                        : p1;
 
         // a_p0 = (p0.xyz, dashedFlag)
         data.push_back(p0[0]);
@@ -197,6 +268,16 @@ inline std::vector<float> make_line_instance_data(std::span<const std::uint32_t>
         data.push_back(color1[1]);
         data.push_back(color1[2]);
         data.push_back(color1[3]);
+        // a_pPrev = (pPrev.xyz, 0)
+        data.push_back(pPrev[0]);
+        data.push_back(pPrev[1]);
+        data.push_back(pPrev[2]);
+        data.push_back(0.0F);
+        // a_pNext = (pNext.xyz, 0)
+        data.push_back(pNext[0]);
+        data.push_back(pNext[1]);
+        data.push_back(pNext[2]);
+        data.push_back(0.0F);
     }
 
     return data;

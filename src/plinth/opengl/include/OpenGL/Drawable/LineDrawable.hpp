@@ -11,6 +11,7 @@
 #include "OpenGL/VertexBuffer.hpp"
 #include "OpenGL/opengl_export.h"
 #include "plinth/DashSpace.hpp"
+#include "plinth/StrokeStyle.hpp"
 #include "plinth/Warnings.hpp"
 #include <array>
 #include <cstdint>
@@ -23,6 +24,8 @@ RENDERER_DISABLE_ALL_WARNINGS
 namespace opengl {
 
 using renderer::DashSpace;
+using renderer::LineCap;
+using renderer::LineJoin;
 
 class OPENGL_EXPORT LineDrawable {
     LineProgram* m_program{nullptr};
@@ -35,9 +38,9 @@ class OPENGL_EXPORT LineDrawable {
     float m_pointSize{1.0F};
     std::int32_t m_vertexDimension{0};
     std::int32_t m_colorDimension{0};
-    bool m_dashEnabled{false};
-    float m_dashSize{10.0F};
-    float m_gapSize{10.0F};
+    LineCap  m_cap {LineCap::Butt};
+    LineJoin m_join{LineJoin::Miter};
+    std::vector<float> m_dashPattern{};
     float m_dashPhase{0.0F};
     DashSpace m_dashSpace{DashSpace::World};
     std::vector<linal::float3> m_vertexPositions;
@@ -88,27 +91,34 @@ class OPENGL_EXPORT LineDrawable {
     }
     void set_point_size(float pointSize) { m_pointSize = pointSize; }
 
-    // Dashing controls. Empty dash flags combined with dashing enabled dash the whole line; a
-    // per-vertex flag array (see set_dash_flags) enables per-segment control.
-    void set_line_dash_enabled(bool enabled) { m_dashEnabled = enabled; }
+    // Cap and join style controls.
+    void set_line_cap(LineCap cap)   { m_cap  = cap;  }
+    [[nodiscard]] LineCap  get_line_cap()  const { return m_cap;  }
+    void set_line_join(LineJoin join) { m_join = join; }
+    [[nodiscard]] LineJoin get_line_join() const { return m_join; }
+
+    // Dashing controls. dashPattern uses SVG stroke-dasharray semantics: alternating on/off lengths.
+    // Empty pattern = solid. per-vertex dash flags (see set_dash_flags) control per-segment dashing.
+    void set_line_dash_pattern(std::span<const float> pattern) {
+        m_dashPattern.assign(pattern.begin(), pattern.end());
+    }
     [[nodiscard]]
-    bool is_line_dash_enabled() const {
-        return m_dashEnabled;
+    const std::vector<float>& get_line_dash_pattern() const { return m_dashPattern; }
+
+    // Convenience: single dash+gap pair (replaces old set_line_dash_enabled / set_line_dash).
+    void set_line_dash(float dashSize, float gapSize) { m_dashPattern = {dashSize, gapSize}; }
+    void set_line_dash_enabled(bool enabled) {
+        if (!enabled) {
+            m_dashPattern.clear();
+        }
     }
-    void set_line_dash(float dashSize, float gapSize) {
-        m_dashSize = dashSize;
-        m_gapSize = gapSize;
-    }
+
     void set_line_dash_phase(float phase) { m_dashPhase = phase; }
     [[nodiscard]]
-    float get_line_dash_phase() const {
-        return m_dashPhase;
-    }
+    float get_line_dash_phase() const { return m_dashPhase; }
     void set_line_dash_space(DashSpace space) { m_dashSpace = space; }
     [[nodiscard]]
-    DashSpace get_line_dash_space() const {
-        return m_dashSpace;
-    }
+    DashSpace get_line_dash_space() const { return m_dashSpace; }
     // Replaces the per-vertex dashed flags and rebuilds the instance buffers.
     void set_dash_flags(std::span<const std::uint8_t> dashFlags, BufferAccessPattern accessPattern);
 
@@ -205,9 +215,9 @@ OPENGL_EXPORT std::optional<LineDrawable> make_line_drawable(LineProgram& progra
                                                              float lineThickness,
                                                              float pointThickness,
                                                              opengl::BufferAccessPattern accessPattern,
-                                                             bool dashEnabled = false,
-                                                             float dashSize = 10.0F,
-                                                             float gapSize = 10.0F,
+                                                             LineCap cap = LineCap::Butt,
+                                                             LineJoin join = LineJoin::Miter,
+                                                             std::span<const float> dashPattern = {},
                                                              DashSpace dashSpace = DashSpace::World,
                                                              std::span<const std::uint8_t> perVertexDashFlags = {});
 

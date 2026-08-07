@@ -12,12 +12,21 @@ namespace opengl {
 namespace {
 
 // Attribute specs describing the interleaved per-instance layout (see LineInstanceData.hpp).
-std::array<InstanceAttribSpec, 4> make_instance_attribs(const LineProgram& program) {
+// Byte offsets match kLineInstanceFloats layout:
+//   floats  0- 3  a_p0     offset  0
+//   floats  4- 7  a_p1     offset 16
+//   floats  8-11  a_color0 offset 32
+//   floats 12-15  a_color1 offset 48
+//   floats 16-19  a_pPrev  offset 64
+//   floats 20-23  a_pNext  offset 80
+std::array<InstanceAttribSpec, 6> make_instance_attribs(const LineProgram& program) {
     return {
-        InstanceAttribSpec{program.get_p0_location(), 4, 0},
-        InstanceAttribSpec{program.get_color0_location(), 4, 8 * static_cast<GLsizei>(sizeof(float))},
-        InstanceAttribSpec{program.get_p1_location(), 4, 4 * static_cast<GLsizei>(sizeof(float))},
+        InstanceAttribSpec{program.get_p0_location(),     4, 0},
+        InstanceAttribSpec{program.get_p1_location(),     4, 4  * static_cast<GLsizei>(sizeof(float))},
+        InstanceAttribSpec{program.get_color0_location(), 4, 8  * static_cast<GLsizei>(sizeof(float))},
         InstanceAttribSpec{program.get_color1_location(), 4, 12 * static_cast<GLsizei>(sizeof(float))},
+        InstanceAttribSpec{program.get_p_prev_location(), 4, 16 * static_cast<GLsizei>(sizeof(float))},
+        InstanceAttribSpec{program.get_p_next_location(), 4, 20 * static_cast<GLsizei>(sizeof(float))},
     };
 }
 
@@ -51,6 +60,8 @@ LineDrawable::LineDrawable(LineProgram& program,
     , m_pointSize(pointSize)
     , m_vertexDimension(vertexDimension)
     , m_colorDimension(colorDimension)
+    , m_cap(LineCap::Butt)
+    , m_join(LineJoin::Miter)
     , m_vertexPositions(std::move(vertexPositions))
     , m_vertexColors(std::move(vertexColors))
     , m_vertexTranslucency(std::move(vertexTranslucency))
@@ -72,9 +83,9 @@ LineDrawable::LineDrawable(LineDrawable&& other) noexcept
     , m_pointSize(other.m_pointSize)
     , m_vertexDimension(other.m_vertexDimension)
     , m_colorDimension(other.m_colorDimension)
-    , m_dashEnabled(other.m_dashEnabled)
-    , m_dashSize(other.m_dashSize)
-    , m_gapSize(other.m_gapSize)
+    , m_cap(other.m_cap)
+    , m_join(other.m_join)
+    , m_dashPattern(std::move(other.m_dashPattern))
     , m_dashPhase(other.m_dashPhase)
     , m_dashSpace(other.m_dashSpace)
     , m_vertexPositions(std::move(other.m_vertexPositions))
@@ -99,9 +110,9 @@ LineDrawable& LineDrawable::operator=(LineDrawable&& other) noexcept {
         m_pointSize = other.m_pointSize;
         m_vertexDimension = other.m_vertexDimension;
         m_colorDimension = other.m_colorDimension;
-        m_dashEnabled = other.m_dashEnabled;
-        m_dashSize = other.m_dashSize;
-        m_gapSize = other.m_gapSize;
+        m_cap = other.m_cap;
+        m_join = other.m_join;
+        m_dashPattern = std::move(other.m_dashPattern);
         m_dashPhase = other.m_dashPhase;
         m_dashSpace = other.m_dashSpace;
         m_vertexPositions = std::move(other.m_vertexPositions);
@@ -166,10 +177,20 @@ void LineDrawable::set_common_uniforms(const linal::hmatf& mvp,
     glUniform2f(prog.get_viewport_size_location().get_value(), viewportSize[0], viewportSize[1]);
     glUniform1f(prog.get_line_width_location().get_value(), m_lineThickness);
     glUniform1i(prog.get_dash_space_location().get_value(), static_cast<GLint>(m_dashSpace));
-    glUniform1i(prog.get_dash_enabled_location().get_value(), m_dashEnabled ? GL_TRUE : GL_FALSE);
-    glUniform1f(prog.get_dash_size_location().get_value(), m_dashSize);
-    glUniform1f(prog.get_gap_size_location().get_value(), m_gapSize);
     glUniform1f(prog.get_dash_phase_location().get_value(), m_dashPhase);
+    glUniform1i(prog.get_cap_style_location().get_value(),  static_cast<GLint>(m_cap));
+    glUniform1i(prog.get_join_style_location().get_value(), static_cast<GLint>(m_join));
+
+    // Dash pattern: clamp to DASH_PATTERN_MAX (16) entries, upload count + array.
+    constexpr GLint kMaxDashPattern = 16;
+    const GLint patternCount = static_cast<GLint>(
+        m_dashPattern.size() < static_cast<std::size_t>(kMaxDashPattern)
+            ? m_dashPattern.size()
+            : static_cast<std::size_t>(kMaxDashPattern));
+    glUniform1i(prog.get_dash_pattern_count_location().get_value(), patternCount);
+    if (patternCount > 0) {
+        glUniform1fv(prog.get_dash_pattern_location().get_value(), patternCount, m_dashPattern.data());
+    }
 }
 
 void LineDrawable::draw_instances(const linal::hmatf& mvp,
@@ -210,13 +231,15 @@ void LineDrawable::draw_translucent(const linal::hmatf& mvp,
     // instance blob in that order so translucent segments blend correctly.
     const std::vector<std::uint32_t> sortedPairs =
         sort_translucent_line_indices_back_to_front(m_translucentLineSegments, viewPosition);
+    const SegmentNeighbours neighbours = make_segment_neighbours(sortedPairs, m_vertexPositions, m_lineType);
     const std::vector<float> instanceData = make_line_instance_data(sortedPairs,
                                                                     m_vertexPositions,
                                                                     m_vertexColors,
                                                                     m_colorDimension,
                                                                     m_vertexArcLengths,
                                                                     m_vertexDashFlags,
-                                                                    m_lineType.is_lines());
+                                                                    m_lineType.is_lines(),
+                                                                    &neighbours);
     m_translucentInstanceBuffer.update(instanceData, BufferAccessPattern::Stream);
     draw_instances(mvp, modelMatrix, viewportSize, m_translucentInstanceBuffer);
 }
@@ -257,13 +280,16 @@ void LineDrawable::rebuild_instance_buffers(BufferAccessPattern accessPattern) {
     m_translucentLineSegments = std::move(split.translucentSegments);
 
     const bool independentArc0 = m_lineType.is_lines();
+    const SegmentNeighbours neighbours = make_segment_neighbours(segmentPairs, m_vertexPositions, m_lineType);
+
     const std::vector<float> opaqueData = make_line_instance_data(split.opaqueIndices,
                                                                   m_vertexPositions,
                                                                   m_vertexColors,
                                                                   m_colorDimension,
                                                                   m_vertexArcLengths,
                                                                   m_vertexDashFlags,
-                                                                  independentArc0);
+                                                                  independentArc0,
+                                                                  &neighbours);
     const std::vector<std::uint32_t> translucentPairs = segments_to_index_pairs(m_translucentLineSegments);
     const std::vector<float> translucentData = make_line_instance_data(translucentPairs,
                                                                        m_vertexPositions,
@@ -271,7 +297,8 @@ void LineDrawable::rebuild_instance_buffers(BufferAccessPattern accessPattern) {
                                                                        m_colorDimension,
                                                                        m_vertexArcLengths,
                                                                        m_vertexDashFlags,
-                                                                       independentArc0);
+                                                                       independentArc0,
+                                                                       &neighbours);
     m_opaqueInstanceBuffer.update(opaqueData, accessPattern);
     m_translucentInstanceBuffer.update(translucentData, accessPattern);
     m_transparencyInfo.isTranslucent = !m_translucentLineSegments.empty();
@@ -287,9 +314,9 @@ std::optional<LineDrawable> make_line_drawable(LineProgram& program,
                                                float lineThickness,
                                                float pointThickness,
                                                BufferAccessPattern accessPattern,
-                                               bool dashEnabled,
-                                               float dashSize,
-                                               float gapSize,
+                                               LineCap cap,
+                                               LineJoin join,
+                                               std::span<const float> dashPattern,
                                                DashSpace dashSpace,
                                                std::span<const std::uint8_t> perVertexDashFlags) {
     auto vertexArray = VertexArray::create();
@@ -315,19 +342,26 @@ std::optional<LineDrawable> make_line_drawable(LineProgram& program,
     auto vertexTranslucency = make_vertex_translucency_flags(lineColors, lineColorDimension);
     auto vertexArcLengths = make_vertex_arc_lengths(originalIndices, vertexPositions, lineType);
     std::vector<std::uint8_t> dashFlags(perVertexDashFlags.begin(), perVertexDashFlags.end());
+    if (!dashPattern.empty() && dashFlags.empty()) {
+        const std::size_t vertexCount = lineVertices.size() / static_cast<std::size_t>(lineVertexDimension);
+        dashFlags.assign(vertexCount, 1U);
+    }
     std::vector<float> vertexColors(lineColors.begin(), lineColors.end());
 
     const std::vector<std::uint32_t> segmentPairs = expand_indices_to_segment_pairs(lineIndices, lineType);
     auto split = split_line_indices_by_transparency(segmentPairs, vertexPositions, vertexTranslucency);
 
     const bool independentArc0 = lineType.is_lines();
+    const SegmentNeighbours neighbours = make_segment_neighbours(segmentPairs, vertexPositions, lineType);
+
     const std::vector<float> opaqueData = make_line_instance_data(split.opaqueIndices,
                                                                   vertexPositions,
                                                                   lineColors,
                                                                   lineColorDimension,
                                                                   vertexArcLengths,
                                                                   dashFlags,
-                                                                  independentArc0);
+                                                                  independentArc0,
+                                                                  &neighbours);
     const std::vector<std::uint32_t> translucentPairs = segments_to_index_pairs(split.translucentSegments);
     const std::vector<float> translucentData = make_line_instance_data(translucentPairs,
                                                                        vertexPositions,
@@ -335,9 +369,10 @@ std::optional<LineDrawable> make_line_drawable(LineProgram& program,
                                                                        lineColorDimension,
                                                                        vertexArcLengths,
                                                                        dashFlags,
-                                                                       independentArc0);
+                                                                       independentArc0,
+                                                                       &neighbours);
 
-    const std::array<InstanceAttribSpec, 4> attribs = make_instance_attribs(program);
+    const std::array<InstanceAttribSpec, 6> attribs = make_instance_attribs(program);
     auto opaqueInstanceBuffer = InstanceBuffer::create(opaqueData,
                                                        static_cast<GLsizei>(kLineInstanceStrideBytes),
                                                        attribs,
@@ -374,8 +409,9 @@ std::optional<LineDrawable> make_line_drawable(LineProgram& program,
                           std::move(dashFlags),
                           originalIndices,
                           std::move(split.translucentSegments)};
-    drawable.set_line_dash_enabled(dashEnabled);
-    drawable.set_line_dash(dashSize, gapSize);
+    drawable.set_line_cap(cap);
+    drawable.set_line_join(join);
+    drawable.set_line_dash_pattern(dashPattern);
     drawable.set_line_dash_space(dashSpace);
     return drawable;
 }

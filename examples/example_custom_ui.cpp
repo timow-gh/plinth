@@ -54,7 +54,9 @@ int main() {
 
     const std::array<float, 12> lineVertices{-1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, -1.0F, 0.0F, 0.0F, 1.0F, 0.0F};
     const std::array<float, 4> red{1.0F, 0.0F, 0.0F, 1.0F};
-    renderer->add_line_drawable(lineVertices, red, renderer::LineType::lines(), standaloneLineWidth);
+    renderer::StrokeStyle lineStyle;
+    lineStyle.lineWidth = standaloneLineWidth;
+    renderer->add_line_drawable(lineVertices, red, renderer::LineType::lines(), lineStyle);
 
     // With no overlay, mouse/key callbacks are forwarded unfiltered. Applications can also
     // read the raw window via renderer->window().get_native_handle() to install their own

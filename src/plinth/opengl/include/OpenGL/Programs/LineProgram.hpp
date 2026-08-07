@@ -11,7 +11,7 @@
 
 namespace opengl {
 
-/** @brief GPU program for instanced quad-expanded thick lines with optional dashing.
+/** @brief Program for instanced quad-expanded thick lines with optional dashing.
  *
  * Each line segment is drawn as one instance of a shared unit quad (attribute a_corner, divisor 0)
  * expanded to screen-space thickness in the vertex shader. Per-segment data (a_p0/a_p1/a_color0/
@@ -24,17 +24,20 @@ class OPENGL_EXPORT LineProgram {
     Uniform m_viewportSizeLocation;
     Uniform m_lineWidthLocation;
     Uniform m_dashSpaceLocation;
-    Uniform m_dashEnabledLocation;
-    Uniform m_dashSizeLocation;
-    Uniform m_gapSizeLocation;
     Uniform m_dashPhaseLocation;
     Uniform m_pickModeLocation;
     Uniform m_pickColorLocation;
+    Uniform m_capStyleLocation;
+    Uniform m_joinStyleLocation;
+    Uniform m_dashPatternCountLocation;
+    Uniform m_dashPatternLocation;
     Attribute m_cornerLocation;
     Attribute m_p0Location;
     Attribute m_p1Location;
     Attribute m_color0Location;
     Attribute m_color1Location;
+    Attribute m_pPrevLocation;
+    Attribute m_pNextLocation;
 
   public:
     LineProgram() noexcept = default;
@@ -44,17 +47,20 @@ class OPENGL_EXPORT LineProgram {
                 Uniform viewportSizeLocation,
                 Uniform lineWidthLocation,
                 Uniform dashSpaceLocation,
-                Uniform dashEnabledLocation,
-                Uniform dashSizeLocation,
-                Uniform gapSizeLocation,
                 Uniform dashPhaseLocation,
                 Uniform pickModeLocation,
                 Uniform pickColorLocation,
+                Uniform capStyleLocation,
+                Uniform joinStyleLocation,
+                Uniform dashPatternCountLocation,
+                Uniform dashPatternLocation,
                 Attribute cornerLocation,
                 Attribute p0Location,
                 Attribute p1Location,
                 Attribute color0Location,
-                Attribute color1Location) noexcept;
+                Attribute color1Location,
+                Attribute pPrevLocation,
+                Attribute pNextLocation) noexcept;
 
     LineProgram(const LineProgram&) = delete;
     LineProgram& operator=(const LineProgram&) = delete;
@@ -95,18 +101,6 @@ class OPENGL_EXPORT LineProgram {
         return m_dashSpaceLocation.get_location();
     }
     [[nodiscard]]
-    constexpr Location get_dash_enabled_location() const {
-        return m_dashEnabledLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_dash_size_location() const {
-        return m_dashSizeLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_gap_size_location() const {
-        return m_gapSizeLocation.get_location();
-    }
-    [[nodiscard]]
     constexpr Location get_dash_phase_location() const {
         return m_dashPhaseLocation.get_location();
     }
@@ -138,6 +132,30 @@ class OPENGL_EXPORT LineProgram {
     constexpr Location get_color1_location() const {
         return m_color1Location.get_location();
     }
+    [[nodiscard]]
+    constexpr Location get_p_prev_location() const {
+        return m_pPrevLocation.get_location();
+    }
+    [[nodiscard]]
+    constexpr Location get_p_next_location() const {
+        return m_pNextLocation.get_location();
+    }
+    [[nodiscard]]
+    constexpr Location get_cap_style_location() const {
+        return m_capStyleLocation.get_location();
+    }
+    [[nodiscard]]
+    constexpr Location get_join_style_location() const {
+        return m_joinStyleLocation.get_location();
+    }
+    [[nodiscard]]
+    constexpr Location get_dash_pattern_count_location() const {
+        return m_dashPatternCountLocation.get_location();
+    }
+    [[nodiscard]]
+    constexpr Location get_dash_pattern_location() const {
+        return m_dashPatternLocation.get_location();
+    }
 
     void use() const;
 
@@ -149,17 +167,20 @@ class OPENGL_EXPORT LineProgram {
         m_viewportSizeLocation = std::move(other.m_viewportSizeLocation);
         m_lineWidthLocation = std::move(other.m_lineWidthLocation);
         m_dashSpaceLocation = std::move(other.m_dashSpaceLocation);
-        m_dashEnabledLocation = std::move(other.m_dashEnabledLocation);
-        m_dashSizeLocation = std::move(other.m_dashSizeLocation);
-        m_gapSizeLocation = std::move(other.m_gapSizeLocation);
         m_dashPhaseLocation = std::move(other.m_dashPhaseLocation);
         m_pickModeLocation = std::move(other.m_pickModeLocation);
         m_pickColorLocation = std::move(other.m_pickColorLocation);
+        m_capStyleLocation = std::move(other.m_capStyleLocation);
+        m_joinStyleLocation = std::move(other.m_joinStyleLocation);
+        m_dashPatternCountLocation = std::move(other.m_dashPatternCountLocation);
+        m_dashPatternLocation = std::move(other.m_dashPatternLocation);
         m_cornerLocation = std::move(other.m_cornerLocation);
         m_p0Location = std::move(other.m_p0Location);
         m_p1Location = std::move(other.m_p1Location);
         m_color0Location = std::move(other.m_color0Location);
         m_color1Location = std::move(other.m_color1Location);
+        m_pPrevLocation = std::move(other.m_pPrevLocation);
+        m_pNextLocation = std::move(other.m_pNextLocation);
     }
 };
 

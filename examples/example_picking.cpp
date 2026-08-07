@@ -165,8 +165,10 @@ int main() {
                 c[0], c[1], c[2], c[3],
                 c[0], c[1], c[2], c[3],
             };
+            renderer::StrokeStyle axisStyle;
+            axisStyle.lineWidth = axisLineWidth;
             return renderer->add_line_drawable(
-                lineVertices, segmentIndices, colors, renderer::LineType::lines(), axisLineWidth);
+                lineVertices, segmentIndices, colors, renderer::LineType::lines(), axisStyle);
         };
         const renderer::DrawableHandle handle = rebuild(color);
         scene.push_back({handle, label, color, std::move(rebuild)});

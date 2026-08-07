@@ -488,56 +488,55 @@ DrawableHandle Renderer::add_point_drawable(std::span<const float> vertices,
     return DrawableHandle{DrawableKind::point, *id, m_rendererInstance};
 }
 
-DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
-                                           std::array<float, 4> color,
-                                           renderer::LineType lineType,
-                                           float lineWidth,
-                                           float pointSize,
-                                           renderer::BufferAccessPattern accessPattern) {
-    const std::vector<float> colors = expand_color(vertices, color);
-    const std::vector<std::uint32_t> indices = make_sequential_indices(vertices);
-    return add_line_drawable(vertices, indices, colors, lineType, lineWidth, pointSize, accessPattern);
-}
-
-DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
-                                           std::span<const float> color,
-                                           renderer::LineType lineType,
-                                           float lineWidth,
-                                           float pointSize,
-                                           renderer::BufferAccessPattern accessPattern) {
-    const std::vector<std::uint32_t> indices = make_sequential_indices(vertices);
-    return add_line_drawable(vertices, indices, color, lineType, lineWidth, pointSize, accessPattern);
-}
-
-DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
+DrawableHandle Renderer::add_line_drawable(std::span<const float>         vertices,
                                            std::span<const std::uint32_t> indices,
-                                           std::span<const float> colors,
-                                           renderer::LineType lineType,
-                                           float lineWidth,
-                                           float pointSize,
-                                           renderer::BufferAccessPattern accessPattern,
-                                           bool dashEnabled,
-                                           float dashSize,
-                                           float gapSize,
-                                           renderer::DashSpace dashSpace,
-                                           std::span<const std::uint8_t> perVertexDashFlags) {
+                                           std::span<const float>         colors,
+                                           renderer::LineType              lineType,
+                                           const renderer::StrokeStyle&   style,
+                                           float                           pointSize,
+                                           renderer::BufferAccessPattern   accessPattern,
+                                           std::span<const std::uint8_t>  perVertexDashFlags) {
     const auto id = m_drawablesManager->add_line_drawable(vertices,
                                                           indices,
                                                           colors,
                                                           lineType,
-                                                          lineWidth,
+                                                          style.lineWidth,
                                                           pointSize,
                                                           accessPattern,
-                                                          dashEnabled,
-                                                          dashSize,
-                                                          gapSize,
-                                                          dashSpace,
+                                                          style.cap,
+                                                          style.join,
+                                                          style.dashPattern,
+                                                          style.dashSpace,
                                                           perVertexDashFlags);
     if (!id.has_value()) {
         return DrawableHandle{};
     }
+    if (style.dashPhase != 0.0F) {
+        m_drawablesManager->set_line_dash_phase(*id, style.dashPhase);
+    }
     request_auto_fit();
     return DrawableHandle{DrawableKind::line, *id, m_rendererInstance};
+}
+
+DrawableHandle Renderer::add_line_drawable(std::span<const float>        vertices,
+                                           std::array<float, 4>          color,
+                                           renderer::LineType             lineType,
+                                           const renderer::StrokeStyle&  style,
+                                           float                          pointSize,
+                                           renderer::BufferAccessPattern  accessPattern) {
+    const std::vector<float> colors = expand_color(vertices, color);
+    const std::vector<std::uint32_t> indices = make_sequential_indices(vertices);
+    return add_line_drawable(vertices, indices, colors, lineType, style, pointSize, accessPattern);
+}
+
+DrawableHandle Renderer::add_line_drawable(std::span<const float>        vertices,
+                                           std::span<const float>        colors,
+                                           renderer::LineType             lineType,
+                                           const renderer::StrokeStyle&  style,
+                                           float                          pointSize,
+                                           renderer::BufferAccessPattern  accessPattern) {
+    const std::vector<std::uint32_t> indices = make_sequential_indices(vertices);
+    return add_line_drawable(vertices, indices, colors, lineType, style, pointSize, accessPattern);
 }
 
 DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
@@ -713,18 +712,37 @@ bool Renderer::reset_drawable_transform(DrawableHandle handle) {
     return set_drawable_transform(handle, linal::hmatf::identity());
 }
 
-bool Renderer::set_line_dash_enabled(DrawableHandle handle, bool enabled) {
+bool Renderer::set_line_cap(DrawableHandle handle, renderer::LineCap cap) {
     if (handle.kind != DrawableKind::line || !handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
         return false;
     }
-    return m_drawablesManager->set_line_dash_enabled(handle.id, enabled);
+    return m_drawablesManager->set_line_cap(handle.id, cap);
 }
 
-bool Renderer::set_line_dash(DrawableHandle handle, float dashSize, float gapSize) {
+bool Renderer::set_line_join(DrawableHandle handle, renderer::LineJoin join) {
     if (handle.kind != DrawableKind::line || !handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
         return false;
     }
-    return m_drawablesManager->set_line_dash(handle.id, dashSize, gapSize);
+    return m_drawablesManager->set_line_join(handle.id, join);
+}
+
+bool Renderer::set_line_stroke_style(DrawableHandle handle, const renderer::StrokeStyle& style) {
+    if (handle.kind != DrawableKind::line || !handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
+        return false;
+    }
+    m_drawablesManager->set_line_cap(handle.id, style.cap);
+    m_drawablesManager->set_line_join(handle.id, style.join);
+    m_drawablesManager->set_line_dash_pattern(handle.id, style.dashPattern);
+    m_drawablesManager->set_line_dash_phase(handle.id, style.dashPhase);
+    m_drawablesManager->set_line_dash_space(handle.id, style.dashSpace);
+    return true;
+}
+
+bool Renderer::set_line_dash_pattern(DrawableHandle handle, std::span<const float> pattern) {
+    if (handle.kind != DrawableKind::line || !handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
+        return false;
+    }
+    return m_drawablesManager->set_line_dash_pattern(handle.id, pattern);
 }
 
 bool Renderer::set_line_dash_phase(DrawableHandle handle, float phase) {
@@ -739,6 +757,20 @@ bool Renderer::set_line_dash_space(DrawableHandle handle, renderer::DashSpace sp
         return false;
     }
     return m_drawablesManager->set_line_dash_space(handle.id, space);
+}
+
+bool Renderer::set_line_dash_enabled(DrawableHandle handle, bool enabled) {
+    if (handle.kind != DrawableKind::line || !handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
+        return false;
+    }
+    return m_drawablesManager->set_line_dash_enabled(handle.id, enabled);
+}
+
+bool Renderer::set_line_dash(DrawableHandle handle, float dashSize, float gapSize) {
+    if (handle.kind != DrawableKind::line || !handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
+        return false;
+    }
+    return m_drawablesManager->set_line_dash(handle.id, dashSize, gapSize);
 }
 
 void Renderer::update_last_point_drawable(std::span<const float> vertices,

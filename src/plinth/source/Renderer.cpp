@@ -98,6 +98,8 @@ class ScopedFullSampleShading {
 
     ScopedFullSampleShading(const ScopedFullSampleShading&) = delete;
     ScopedFullSampleShading& operator=(const ScopedFullSampleShading&) = delete;
+    ScopedFullSampleShading(ScopedFullSampleShading&&) = delete;
+    ScopedFullSampleShading& operator=(ScopedFullSampleShading&&) = delete;
 
     ~ScopedFullSampleShading() {
         if (!m_active) {

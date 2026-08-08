@@ -444,7 +444,7 @@ TEST_F(SphereImpostorRendererTest, OffAxisSphereIsVisibleAtProjectedPosition) {
     const auto sv = instance->scene_viewport();
     const int w = sv.framebuffer.width;
     const int h = sv.framebuffer.height;
-    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(w) * h * 4U);
+    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 4U);
     glReadBuffer(GL_FRONT);
     glReadPixels(sv.framebuffer.x, sv.framebuffer.y, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
 
@@ -452,7 +452,9 @@ TEST_F(SphereImpostorRendererTest, OffAxisSphereIsVisibleAtProjectedPosition) {
     int redXSum = 0;
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
-            const std::size_t i = (static_cast<std::size_t>(y) * w + x) * 4U;
+            const std::size_t i = (static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
+                                    static_cast<std::size_t>(x)) *
+                                   4U;
             const int r = pixels[i];
             const int g = pixels[i + 1U];
             const int b = pixels[i + 2U];
@@ -489,15 +491,17 @@ TEST_F(SphereImpostorRendererTest, PerspectiveBillboardContainsLargeSphereSilhou
 
     const auto sv = instance->scene_viewport();
     const double distance = linal::length(camera->get_position() - camera->get_target());
-    const double projectionScale = camera->get_projection_matrix()(0, 0);
+    const double projectionScale = static_cast<double>(camera->get_projection_matrix()(0, 0));
     const double tangentExtent =
-        projectionScale * sphereRadius / std::sqrt(distance * distance - sphereRadius * sphereRadius);
-    const double planarExtent = projectionScale * sphereRadius / distance;
+        projectionScale * static_cast<double>(sphereRadius) /
+        std::sqrt(distance * distance - static_cast<double>(sphereRadius) * static_cast<double>(sphereRadius));
+    const double planarExtent = projectionScale * static_cast<double>(sphereRadius) / distance;
     const double tangentLeft = (1.0 - tangentExtent) * sv.framebuffer.width * 0.5;
     const double planarLeft = (1.0 - planarExtent) * sv.framebuffer.width * 0.5;
     const double probeX = std::midpoint(tangentLeft, planarLeft);
 
-    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(sv.framebuffer.width) * sv.framebuffer.height * 4U);
+    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(sv.framebuffer.width) *
+                                     static_cast<std::size_t>(sv.framebuffer.height) * 4U);
     glReadBuffer(GL_FRONT);
     glReadPixels(sv.framebuffer.x,
                  sv.framebuffer.y,
@@ -509,7 +513,9 @@ TEST_F(SphereImpostorRendererTest, PerspectiveBillboardContainsLargeSphereSilhou
     int minRedX = sv.framebuffer.width;
     for (int y = 0; y < sv.framebuffer.height; ++y) {
         for (int x = 0; x < sv.framebuffer.width; ++x) {
-            const std::size_t i = (static_cast<std::size_t>(y) * sv.framebuffer.width + x) * 4U;
+            const std::size_t i = (static_cast<std::size_t>(y) * static_cast<std::size_t>(sv.framebuffer.width) +
+                                    static_cast<std::size_t>(x)) *
+                                   4U;
             if (pixels[i] > pixels[i + 1U] + 10 && pixels[i] > pixels[i + 2U] + 10) {
                 minRedX = std::min(minRedX, x);
             }
@@ -552,7 +558,7 @@ TEST_F(SphereImpostorRendererTest, MultipleOffAxisSphereInstancesAreVisible) {
     const auto sv = instance->scene_viewport();
     const int w = sv.framebuffer.width;
     const int h = sv.framebuffer.height;
-    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(w) * h * 4U);
+    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 4U);
     glReadBuffer(GL_FRONT);
     glReadPixels(sv.framebuffer.x, sv.framebuffer.y, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
 
@@ -560,7 +566,9 @@ TEST_F(SphereImpostorRendererTest, MultipleOffAxisSphereInstancesAreVisible) {
     int rightGreen = 0;
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
-            const std::size_t i = (static_cast<std::size_t>(y) * w + x) * 4U;
+            const std::size_t i = (static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
+                                    static_cast<std::size_t>(x)) *
+                                   4U;
             const int r = pixels[i];
             const int g = pixels[i + 1U];
             const int b = pixels[i + 2U];

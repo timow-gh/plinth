@@ -181,7 +181,9 @@ int main() {
     {
         const auto verts = hline(row);
         renderer::StrokeStyle s;
+        // NOLINTNEXTLINE(readability-magic-numbers)
         s.lineWidth   = 8.0F;
+        // NOLINTNEXTLINE(readability-magic-numbers)
         s.dashPattern = {20.0F, 10.0F};
         s.dashSpace   = renderer::DashSpace::Screen;
         renderer->add_line_drawable(verts, seg2, yellow, renderer::LineType::lines(), s);
@@ -193,8 +195,10 @@ int main() {
     {
         const auto verts = hline(row);
         renderer::StrokeStyle s;
+        // NOLINTNEXTLINE(readability-magic-numbers)
         s.lineWidth   = 8.0F;
         s.cap         = renderer::LineCap::Round;
+        // NOLINTNEXTLINE(readability-magic-numbers)
         s.dashPattern = {0.3F, 0.2F};
         s.dashSpace   = renderer::DashSpace::World;
         antLine = renderer->add_line_drawable(verts, seg2, orange, renderer::LineType::lines(), s);
@@ -205,6 +209,7 @@ int main() {
     {
         const auto verts = square_loop(0.0F, row - 0.2F, 0.7F);
         renderer::StrokeStyle s;
+        // NOLINTNEXTLINE(readability-magic-numbers)
         s.lineWidth = 8.0F;
         s.cap       = renderer::LineCap::Round;
         s.join      = renderer::LineJoin::Round;
@@ -221,7 +226,7 @@ int main() {
 
         const float elapsed =
             std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
-        renderer->set_line_dash_phase(antLine, elapsed * 0.5F);
+        renderer->set_line_dash_phase(antLine, elapsed * 0.5F); // NOLINT(readability-magic-numbers)
 
         renderer->begin_frame();
         renderer->draw();

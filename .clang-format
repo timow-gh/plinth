@@ -1,12 +1,14 @@
 IncludeCategories:
   - Regex: '^".*"'
     Priority: 1
+  - Regex: '^<glad/.*>'
+    Priority: 2
   - Regex: '^"OpenGL/.*"'
-    Priority: 2
-  - Regex: '^<linal/.*>'
-    Priority: 2
-  - Regex: '^<.*>'
     Priority: 3
+  - Regex: '^<linal/.*>'
+    Priority: 3
+  - Regex: '^<.*>'
+    Priority: 4
 
 IncludeBlocks: Regroup
 SortIncludes: CaseSensitive

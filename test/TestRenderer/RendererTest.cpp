@@ -6,10 +6,10 @@
 
 #include <linal/hmat.hpp>
 
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <array>
 #include <cstdint>
-#include <glad/glad.h>
 #include <gtest/gtest.h>
 #include <span>
 

@@ -167,6 +167,9 @@ int main() {
             };
             renderer::StrokeStyle axisStyle;
             axisStyle.lineWidth = axisLineWidth;
+            axisStyle.cap = renderer::LineCap::Round;
+            axisStyle.join = renderer::LineJoin::Round;
+            axisStyle.dashPattern = {0.2F, 0.1F}; // dash/gap lengths in world units
             return renderer->add_line_drawable(
                 lineVertices, segmentIndices, colors, renderer::LineType::lines(), axisStyle);
         };

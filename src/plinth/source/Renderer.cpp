@@ -657,6 +657,26 @@ void Renderer::set_mesh_drawable_cull_mode(DrawableHandle handle, renderer::Mesh
     }
 }
 
+DrawableHandle Renderer::add_sphere_point_drawable(std::span<const float> centers,
+                                                   std::span<const float> radii,
+                                                   std::array<float, 4> color,
+                                                   renderer::BufferAccessPattern accessPattern) {
+    const std::vector<float> colors = expand_color(centers, color);
+    return add_sphere_point_drawable(centers, radii, colors, accessPattern);
+}
+
+DrawableHandle Renderer::add_sphere_point_drawable(std::span<const float> centers,
+                                                   std::span<const float> radii,
+                                                   std::span<const float> colors,
+                                                   renderer::BufferAccessPattern accessPattern) {
+    const auto id = m_drawablesManager->add_sphere_drawable(centers, radii, colors, accessPattern);
+    if (!id.has_value()) {
+        return DrawableHandle{};
+    }
+    request_auto_fit();
+    return DrawableHandle{DrawableKind::sphere, *id, m_rendererInstance};
+}
+
 bool Renderer::remove_drawable(DrawableHandle handle) {
     if (!handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
         return false;
@@ -667,6 +687,7 @@ bool Renderer::remove_drawable(DrawableHandle handle) {
     case DrawableKind::point:   removed = m_drawablesManager->remove_point_drawable(handle.id); break;
     case DrawableKind::line:    removed = m_drawablesManager->remove_line_drawable(handle.id); break;
     case DrawableKind::mesh:    removed = m_drawablesManager->remove_mesh_drawable(handle.id); break;
+    case DrawableKind::sphere:  removed = m_drawablesManager->remove_sphere_drawable(handle.id); break;
     case DrawableKind::invalid: return false;
     }
     if (removed) {
@@ -687,6 +708,7 @@ bool Renderer::set_drawable_transform(DrawableHandle handle, const linal::hmatf&
         break;
     case DrawableKind::line:    transformed = m_drawablesManager->set_line_drawable_transform(handle.id, transform); break;
     case DrawableKind::mesh:    transformed = m_drawablesManager->set_mesh_drawable_transform(handle.id, transform); break;
+    case DrawableKind::sphere:  transformed = m_drawablesManager->set_sphere_drawable_transform(handle.id, transform); break;
     case DrawableKind::invalid: return false;
     }
     if (transformed) {
@@ -704,6 +726,7 @@ std::optional<linal::hmatf> Renderer::get_drawable_transform(DrawableHandle hand
     case DrawableKind::point:   return m_drawablesManager->get_point_drawable_transform(handle.id);
     case DrawableKind::line:    return m_drawablesManager->get_line_drawable_transform(handle.id);
     case DrawableKind::mesh:    return m_drawablesManager->get_mesh_drawable_transform(handle.id);
+    case DrawableKind::sphere:  return m_drawablesManager->get_sphere_drawable_transform(handle.id);
     case DrawableKind::invalid: return std::nullopt;
     }
 
@@ -808,6 +831,11 @@ void Renderer::clear_mesh_drawables() {
         request_auto_fit();
     }
 }
+void Renderer::clear_sphere_point_drawables() {
+    if (m_drawablesManager->clear_sphere_drawables()) {
+        request_auto_fit();
+    }
+}
 void Renderer::clear_drawables() {
     if (m_drawablesManager->clear_drawables()) {
         request_auto_fit();
@@ -822,6 +850,9 @@ bool Renderer::has_line_drawables() const {
 }
 bool Renderer::has_mesh_drawables() const {
     return m_drawablesManager->has_mesh_drawables();
+}
+bool Renderer::has_sphere_point_drawables() const {
+    return m_drawablesManager->has_sphere_drawables();
 }
 
 Renderer::PickRay Renderer::compute_pick_ray(double xpos, double ypos) const {
@@ -890,7 +921,9 @@ std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double y
         m_drawablesManager->draw_pick_pass(m_camera->get_current_MVP(),
                                            m_camera->get_view_matrix(),
                                            m_camera->get_projection_matrix(),
-                                           pickViewportSize);
+                                           m_camera->get_inverse_projection_matrix(),
+                                           pickViewportSize,
+                                           m_reversedDepth);
 
     // Read back the axis-aligned pixel box that bounds the circular pick region, clamped to the
     // target. Coordinates flip on Y because glReadPixels uses a bottom-left origin.
@@ -939,9 +972,10 @@ std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double y
                 const opengl::DrawablesManager::PickEntry& entry = entries[index - 1U];
                 DrawableKind kind = DrawableKind::invalid;
                 switch (entry.kind) {
-                case opengl::PickDrawableKind::point: kind = DrawableKind::point; break;
-                case opengl::PickDrawableKind::line:  kind = DrawableKind::line; break;
-                case opengl::PickDrawableKind::mesh:  kind = DrawableKind::mesh; break;
+                case opengl::PickDrawableKind::point:  kind = DrawableKind::point; break;
+                case opengl::PickDrawableKind::line:   kind = DrawableKind::line; break;
+                case opengl::PickDrawableKind::mesh:   kind = DrawableKind::mesh; break;
+                case opengl::PickDrawableKind::sphere: kind = DrawableKind::sphere; break;
                 }
                 results.push_back(PickResult{DrawableHandle{kind, entry.id, m_rendererInstance}, pickRay});
             }
@@ -1035,17 +1069,27 @@ void Renderer::draw(const renderer::LightingConfig& lighting) {
                                           static_cast<float>(m_sceneViewport.framebuffer.height)};
     m_drawablesManager->draw_lines_and_points(m_camera->get_current_MVP(), sceneViewportSize, m_camera->get_position());
 
-    if (m_drawablesManager->has_mesh_drawables()) {
-        const linal::float3 viewPosF{static_cast<float>(m_camera->get_position()[0]),
-                                     static_cast<float>(m_camera->get_position()[1]),
-                                     static_cast<float>(m_camera->get_position()[2])};
+    const linal::float3 viewPosF{static_cast<float>(m_camera->get_position()[0]),
+                                 static_cast<float>(m_camera->get_position()[1]),
+                                 static_cast<float>(m_camera->get_position()[2])};
+    renderer::LightingConfig effectiveLighting = lighting;
+    effectiveLighting.lightPosition = viewPosF;
 
-        renderer::LightingConfig effectiveLighting = lighting;
-        effectiveLighting.lightPosition = viewPosF;
+    if (m_drawablesManager->has_mesh_drawables()) {
         m_drawablesManager->draw_meshes(m_camera->get_view_matrix(),
                                         m_camera->get_projection_matrix(),
                                         viewPosF,
                                         effectiveLighting);
+    }
+
+    if (m_drawablesManager->has_sphere_drawables()) {
+        m_drawablesManager->draw_spheres(m_camera->get_view_matrix(),
+                                         m_camera->get_projection_matrix(),
+                                         m_camera->get_inverse_projection_matrix(),
+                                         sceneViewportSize,
+                                         m_reversedDepth,
+                                         m_camera->get_position(),
+                                         effectiveLighting);
     }
 }
 
@@ -1124,8 +1168,7 @@ void Renderer::present_scene() {
         depthTex = m_sceneFramebuffer->get_depth_texture();
     }
 
-    const linal::hmatf projMat = m_camera->get_projection_matrix();
-    const linal::hmatf invProjMat = linal::hmatf::inverse(projMat);
+    const linal::hmatf invProjMat = m_camera->get_inverse_projection_matrix();
     m_postProcessingPass->set_inv_projection(invProjMat.data());
     m_postProcessingPass->set_reversed_depth(m_reversedDepth);
 

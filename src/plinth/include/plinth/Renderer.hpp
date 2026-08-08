@@ -43,6 +43,7 @@ enum class DrawableKind {
     point,
     line,
     mesh,
+    sphere,
 };
 
 struct DrawableHandle {
@@ -241,11 +242,28 @@ class Renderer {
                                    std::span<const std::uint32_t> indices,
                                    BufferAccessPattern accessPattern);
 
+    /// Sphere-impostor point rendering: visualises each input point as a lit, screen-aligned
+    /// billboard with ray-sphere intersection in the fragment shader, giving a 3-D appearance
+    /// and correct per-point radii. centers contains flat xyz triples (N*3 floats), radii
+    /// contains one radius per sphere (N floats), colors contains flat RGBA values (N*4 floats)
+    /// or a single uniform color. Prefer add_point_drawable for large point clouds where raw
+    /// GL_POINTS performance matters.
+    DrawableHandle add_sphere_point_drawable(std::span<const float> centers,
+                                             std::span<const float> radii,
+                                             std::array<float, 4> color,
+                                             BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
+    DrawableHandle add_sphere_point_drawable(std::span<const float> centers,
+                                             std::span<const float> radii,
+                                             std::span<const float> colors,
+                                             BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
     /// Removes all drawables of the given kind. Handles previously returned for
     /// those drawables become invalid and are rejected by subsequent operations.
     void clear_point_drawables();
     void clear_line_drawables();
     void clear_mesh_drawables();
+    void clear_sphere_point_drawables();
     /// Removes all drawables regardless of kind. All previously-returned handles
     /// become invalid.
     void clear_drawables();
@@ -253,6 +271,7 @@ class Renderer {
     [[nodiscard]] bool has_point_drawables() const;
     [[nodiscard]] bool has_line_drawables() const;
     [[nodiscard]] bool has_mesh_drawables() const;
+    [[nodiscard]] bool has_sphere_point_drawables() const;
 
     struct PickRay {
         linal::float3 origin;

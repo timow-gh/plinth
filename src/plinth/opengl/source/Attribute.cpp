@@ -8,7 +8,7 @@
 
 namespace opengl {
 
-constexpr Attribute::Attribute(std::string_view name, Location location) noexcept
+Attribute::Attribute(std::string_view name, Location location) noexcept
     : m_name{name}
     , m_location{location} {
     RENDERER_ASSERT(!name.empty());

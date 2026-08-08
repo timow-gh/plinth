@@ -49,6 +49,25 @@ TEST(CameraInteractorTest, AppliesProjectionAndClippingSettings) {
     (void)interactor.get_normal_matrix();
 }
 
+TEST(CameraInteractorTest, InverseProjectionRoundTripsPerspectiveAndOrthographicMatrices) {
+    renderer::InputState inputState;
+    renderer::CameraInteractor interactor = make_interactor(inputState);
+
+    for (const renderer::CameraProjectionType projectionType:
+         {renderer::CameraProjectionType::PERSPECTIVE, renderer::CameraProjectionType::ORTHOGRAPHIC}) {
+        interactor.set_projection_type(projectionType);
+        const linal::hmatf product =
+            interactor.get_projection_matrix() * interactor.get_inverse_projection_matrix();
+
+        for (int row = 0; row < 4; ++row) {
+            for (int column = 0; column < 4; ++column) {
+                const float expected = row == column ? 1.0F : 0.0F;
+                EXPECT_NEAR(expected, product(row, column), 1.0e-4F);
+            }
+        }
+    }
+}
+
 TEST(CameraInteractorTest, MoveTransfersInteractiveState) {
     renderer::InputState inputState;
     renderer::CameraInteractor interactor = make_interactor(inputState);

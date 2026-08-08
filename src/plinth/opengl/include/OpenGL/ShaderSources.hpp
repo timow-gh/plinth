@@ -14,6 +14,9 @@ std::string point_color_fragment_shader_source();
 std::string mesh_vertex_shader_source();
 std::string mesh_fragment_shader_source();
 
+std::string sphere_impostor_vertex_shader_source();
+std::string sphere_impostor_fragment_shader_source();
+
 std::string post_processing_vertex_shader_source();
 std::string post_processing_fragment_shader_source();
 std::string fxaa_vertex_shader_source();

@@ -30,13 +30,14 @@ int main() {
     renderer->set_overlay(std::move(overlay));
 
     const std::array<float, 4> colorGrey{0.5F, 0.5F, 0.5F, 1.0F};
-    const std::array<float, 4> colorBlack{0.0F, 0.0F, 0.0F, 1.0F};
+    const std::array<float, 4> colorRed{0.8F, 0.1F, 0.1F, 1.0F};
     const std::array<float, kVertexCount * 3>
         vertices{-1.0F, -1.0F, 0.0F, 1.0F, -1.0F, 0.0F, 1.0F, 1.0F, 0.0F, -1.0F, 1.0F, 0.0F};
+    const float vertexRadius = 0.3F;
+    const std::array<float, kVertexCount> vertexRadii{vertexRadius, vertexRadius, vertexRadius, vertexRadius};
     const std::array<std::uint32_t, 6> indices{0, 1, 2, 0, 2, 3};
     renderer->add_mesh_drawable(vertices, indices, colorGrey);
-    const float pointSize = 5.0F;
-    renderer->add_point_drawable(vertices, colorBlack, pointSize);
+    renderer->add_sphere_point_drawable(vertices, vertexRadii, colorRed);
 
     renderer::LightingConfig lighting;
 

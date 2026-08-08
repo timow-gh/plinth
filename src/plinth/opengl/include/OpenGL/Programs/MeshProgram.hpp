@@ -41,7 +41,7 @@ struct OPENGL_EXPORT MeshProgramInput {
     Uniform m_pickColor;
 };
 
-constexpr void assert_mesh_program_input([[maybe_unused]] const MeshProgramInput& input) noexcept {
+inline void assert_mesh_program_input([[maybe_unused]] const MeshProgramInput& input) noexcept {
     RENDERER_ASSERT(input.m_modelMatrix.get_location().get_value() != -1);
     RENDERER_ASSERT(input.m_viewMatrix.get_location().get_value() != -1);
     RENDERER_ASSERT(input.m_projectionMatrix.get_location().get_value() != -1);

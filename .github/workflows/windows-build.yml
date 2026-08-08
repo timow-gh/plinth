@@ -34,7 +34,7 @@ jobs:
 
       - name: Build
         run: |
-          cmake --build --preset build-msvc-${{ matrix.build_type }}
+          cmake --build --preset build-msvc-${{ matrix.build_type }} --parallel 1
         shell: pwsh
 
       - name: Test

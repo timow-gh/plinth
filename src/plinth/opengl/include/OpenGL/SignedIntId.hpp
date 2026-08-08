@@ -12,7 +12,7 @@ class OPENGL_EXPORT SignedIntId {
 
   public:
     constexpr SignedIntId() = default;
-    constexpr explicit SignedIntId(GLint id) noexcept
+    explicit SignedIntId(GLint id) noexcept
         : m_id{id} {
         RENDERER_ASSERT(id != -1);
     }

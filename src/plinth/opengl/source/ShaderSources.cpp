@@ -351,6 +351,228 @@ std::string mesh_fragment_shader_source() {
     })";
 }
 
+std::string sphere_impostor_vertex_shader_source() {
+    // Sphere impostors intentionally have no static vertex buffer: six gl_VertexID values produce
+    // a conservative proxy per instance. The fragment shader, not this proxy, defines the surface.
+    return
+        R"(#version 330 core
+
+// Per-instance data (divisor 1)
+in vec4 a_sphere; // (center.xyz, radius)
+in vec4 a_color;  // (r, g, b, a)
+
+uniform mat4 u_model;
+uniform mat4 u_view;
+uniform mat4 u_projection;
+uniform vec2 u_viewportSize;
+
+out vec4  v_color;
+out vec3  v_sphereCenterLocal;
+out float v_radius;
+
+// Unit quad corners: two counter-clockwise triangles
+const vec2 quadOffsets[6] = vec2[6](
+    vec2(-1.0, -1.0),
+    vec2( 1.0, -1.0),
+    vec2( 1.0,  1.0),
+    vec2(-1.0, -1.0),
+    vec2( 1.0,  1.0),
+    vec2(-1.0,  1.0)
+);
+
+void main() {
+    vec3 centerWorld      = vec3(u_model * vec4(a_sphere.xyz, 1.0));
+    float radius          = a_sphere.w;
+    vec4  centerView      = u_view * vec4(centerWorld, 1.0);
+    vec4  centerClip      = u_projection * centerView;
+
+    // Intersections happen in local space, so affine model transforms are exact there. Use a
+    // conservative upper bound on the model-view scale for the screen-space proxy. This is exact
+    // for axis-aligned scale and may only add harmless overdraw for rotations and shears.
+    mat3 modelViewLinear = mat3(u_view * u_model);
+    mat3 absoluteLinear  = mat3(abs(modelViewLinear[0]),
+                                abs(modelViewLinear[1]),
+                                abs(modelViewLinear[2]));
+    float oneNorm = max(dot(absoluteLinear[0], vec3(1.0)),
+                        max(dot(absoluteLinear[1], vec3(1.0)),
+                            dot(absoluteLinear[2], vec3(1.0))));
+    float infinityNorm = max(absoluteLinear[0].x + absoluteLinear[1].x + absoluteLinear[2].x,
+                             max(absoluteLinear[0].y + absoluteLinear[1].y + absoluteLinear[2].y,
+                                 absoluteLinear[0].z + absoluteLinear[1].z + absoluteLinear[2].z));
+    float viewRadius = abs(radius) * sqrt(oneNorm * infinityNorm);
+
+    // Compute a conservative axis-aligned screen-space bound for the projected sphere.
+    // Projecting center +/- radius at the center depth under-bounds a perspective sphere:
+    // its silhouette is defined by tangent rays, not by points on that depth plane.
+    vec2 boundsMin;
+    vec2 boundsMax;
+    bool orthographic = abs(u_projection[3][3]) > 0.5;
+    if (orthographic) {
+        vec2 centerNdc = centerClip.xy / centerClip.w;
+        vec2 halfExtent = vec2(abs(u_projection[0][0]), abs(u_projection[1][1])) * viewRadius;
+        boundsMin = centerNdc - halfExtent;
+        boundsMax = centerNdc + halfExtent;
+    } else {
+        float z = centerView.z;
+        float denominator = z * z - viewRadius * viewRadius;
+        if (denominator <= 0.0) {
+            // The sphere reaches the camera plane. A full-screen proxy is conservative and
+            // lets the fragment intersection determine which rays really hit it.
+            boundsMin = vec2(-1.0);
+            boundsMax = vec2( 1.0);
+        } else {
+            float xRoot = sqrt(max(centerView.x * centerView.x + denominator, 0.0));
+            float yRoot = sqrt(max(centerView.y * centerView.y + denominator, 0.0));
+            vec2 lowerSlope = vec2(-centerView.x * z - viewRadius * xRoot,
+                                   -centerView.y * z - viewRadius * yRoot) / denominator;
+            vec2 upperSlope = vec2(-centerView.x * z + viewRadius * xRoot,
+                                   -centerView.y * z + viewRadius * yRoot) / denominator;
+            vec2 projectionScale = vec2(u_projection[0][0], u_projection[1][1]);
+            vec2 projected0 = projectionScale * lowerSlope;
+            vec2 projected1 = projectionScale * upperSlope;
+            boundsMin = min(projected0, projected1);
+            boundsMax = max(projected0, projected1);
+        }
+    }
+
+    // Cover edge pixels despite floating-point/rasterization rounding.
+    vec2 pixelMargin = 2.0 / u_viewportSize;
+    boundsMin -= pixelMargin;
+    boundsMax += pixelMargin;
+
+    vec2 corner01 = quadOffsets[gl_VertexID % 6] * 0.5 + 0.5;
+    vec2 cornerNdc = mix(boundsMin, boundsMax, corner01);
+    // The proxy depth only needs to survive clipping; the fragment shader writes the sphere's
+    // actual surface depth. Using z=0 also keeps spheres crossing the near plane rasterizable.
+    gl_Position = vec4(cornerNdc, 0.0, 1.0);
+
+    v_sphereCenterLocal = a_sphere.xyz;
+    v_radius            = abs(radius);
+    v_color             = a_color;
+})";
+}
+
+std::string sphere_impostor_fragment_shader_source() {
+    // Keep visible and picking geometry in this one shader. Both modes must run identical ray
+    // intersection and depth code; only the final color is allowed to differ.
+    return
+        R"(#version 330 core
+
+in vec4  v_color;
+in vec3  v_sphereCenterLocal;
+in float v_radius;
+
+uniform mat4  u_model;
+uniform mat4  u_view;
+uniform mat4  u_projection;
+uniform mat4  u_inverseModelView;
+uniform mat4  u_normalMatrix;
+uniform mat4  u_invProjection;
+uniform vec2  u_viewportSize;
+uniform bool  u_zeroToOneDepth;
+
+uniform vec3  u_lightPos;
+uniform vec3  u_lightColor;
+uniform vec3  u_fillLightDirection;
+uniform vec3  u_fillLightColor;
+uniform vec3  u_ambientColor;
+uniform float u_shininess;
+uniform vec3  u_lightAttenuation;
+uniform vec3  u_materialAmbient;
+uniform vec3  u_materialDiffuse;
+uniform vec3  u_materialSpecular;
+
+uniform bool u_pickMode;
+uniform vec3 u_pickColor;
+
+out vec4 FragColor;
+
+void main() {
+    // Unproject two points on the fragment's view-space ray. In this renderer the
+    // zero-to-one convention is paired with reversed Z; the legacy convention uses
+    // OpenGL's usual negative-one-to-one clip depths.
+    vec2  ndcXY     = (gl_FragCoord.xy / u_viewportSize) * 2.0 - 1.0;
+    float nearDepth = u_zeroToOneDepth ? 1.0 : -1.0;
+    float farDepth  = u_zeroToOneDepth ? 0.0 :  1.0;
+    vec4  nearViewH = u_invProjection * vec4(ndcXY, nearDepth, 1.0);
+    vec4  farViewH  = u_invProjection * vec4(ndcXY, farDepth, 1.0);
+    vec3  rayOrigin = nearViewH.xyz / nearViewH.w;
+    vec3  rayDir    = normalize(farViewH.xyz / farViewH.w - rayOrigin);
+
+    // Transform the view ray into local space. Intersecting there applies the complete model
+    // transform, including uniform/non-uniform scale and shear.
+    vec3 sphereCenterView = vec3(u_view * u_model * vec4(v_sphereCenterLocal, 1.0));
+    vec3 oc               = mat3(u_inverseModelView) * (rayOrigin - sphereCenterView);
+    vec3 rayDirLocal      = mat3(u_inverseModelView) * rayDir;
+    float a             = dot(rayDirLocal, rayDirLocal);
+    float b             = 2.0 * dot(rayDirLocal, oc);
+    float c  = dot(oc, oc) - v_radius * v_radius;
+    float discriminant = b * b - 4.0 * a * c;
+    if (discriminant < 0.0) {
+        discard;
+    }
+
+    float sqrtDiscriminant = sqrt(discriminant);
+    float tNear = (-b - sqrtDiscriminant) / (2.0 * a);
+    float tFar  = (-b + sqrtDiscriminant) / (2.0 * a);
+    float t     = tNear >= 0.0 ? tNear : tFar;
+    if (t < 0.0) {
+        discard;
+    }
+    vec3 hitLocal = v_sphereCenterLocal + oc + t * rayDirLocal;
+    vec3 hitWorld = vec3(u_model * vec4(hitLocal, 1.0));
+    vec3 hitView  = vec3(u_view * vec4(hitWorld, 1.0));
+
+    // Write corrected depth so the sphere occludes geometry properly.
+    // u_projection encodes the depth direction. Only the legacy [-1,1] clip-depth
+    // convention needs the NDC-to-window remap; GL_ZERO_TO_ONE is already window depth.
+    vec4  hitClip  = u_projection * vec4(hitView, 1.0);
+    float hitDepth = hitClip.z / hitClip.w;
+    gl_FragDepth   = u_zeroToOneDepth ? hitDepth : hitDepth * 0.5 + 0.5;
+
+    if (u_pickMode) {
+        FragColor = vec4(u_pickColor, 1.0);
+        return;
+    }
+
+    // Perform lighting in view space. The inverse-transpose model-view matrix keeps normals
+    // correct under non-uniform scaling, and the CPU uploads both lights in this same space.
+    vec3 normal   = normalize(mat3(u_normalMatrix) * (hitLocal - v_sphereCenterLocal));
+    vec3 viewDir  = normalize(-hitView); // direction toward camera from hit point
+
+    vec3 albedo = v_color.rgb;
+    vec3 lightDir = normalize(u_lightPos - hitView);
+
+    // Point light attenuation based on the exact surface hit.
+    float lightDist    = length(u_lightPos - hitView);
+    float attenuation  = 1.0 / (u_lightAttenuation.x +
+                                u_lightAttenuation.y * lightDist +
+                                u_lightAttenuation.z * lightDist * lightDist);
+
+    // Ambient
+    vec3 ambient = u_materialAmbient * u_ambientColor * albedo;
+
+    // Diffuse (point light)
+    float diff   = max(dot(normal, lightDir), 0.0);
+    vec3 diffuse = u_materialDiffuse * u_lightColor * diff * albedo * attenuation;
+
+    // Fill light (directional)
+    float fillDirLength = length(u_fillLightDirection);
+    vec3  fillDir       = fillDirLength > 0.0 ? u_fillLightDirection / fillDirLength : vec3(0.0);
+    float fillDiff      = max(dot(normal, fillDir), 0.0);
+    vec3  fillDiffuse   = u_fillLightColor * fillDiff * albedo;
+
+    // Specular (Blinn-Phong)
+    vec3  halfwayDir = normalize(lightDir + viewDir);
+    float spec       = pow(max(dot(normal, halfwayDir), 0.0), u_shininess);
+    float specNorm   = (u_shininess + 8.0) / 8.0;
+    vec3  specular   = u_materialSpecular * u_lightColor * spec * specNorm * diff * attenuation;
+
+    vec3 result = ambient + diffuse + fillDiffuse + specular;
+    FragColor   = vec4(result, v_color.a);
+})";
+}
+
 std::string post_processing_vertex_shader_source() {
     return
         R"(#version 330
@@ -374,15 +596,7 @@ in vec2 v_uv;
 uniform sampler2D u_sceneColor;
 uniform sampler2D u_sceneDepth;
 
-uniform mat4 u_invProjection;
 uniform bool u_reversedDepth;
-
-uniform bool   u_fogEnabled;
-uniform int    u_fogMode;
-uniform float  u_fogStart;
-uniform float  u_fogEnd;
-uniform float  u_fogDensity;
-uniform vec3   u_fogColor;
 
 uniform float  u_exposureStops;
 
@@ -404,22 +618,6 @@ vec3 srgbEncode(vec3 linear) {
 void main() {
     vec3 hdr = texture(u_sceneColor, v_uv).rgb;
     float depth = texture(u_sceneDepth, v_uv).r;
-
-    bool hasGeometry = u_reversedDepth ? depth > 0.0 : depth < 1.0;
-    if (u_fogEnabled && hasGeometry) {
-        float clipDepth = u_reversedDepth ? depth : depth * 2.0 - 1.0;
-        vec4 clip = vec4(v_uv * 2.0 - 1.0, clipDepth, 1.0);
-        vec4 view = u_invProjection * clip;
-        vec3 viewPos = view.xyz / view.w;
-        float dist = length(viewPos);
-        float fogAmount;
-        if (u_fogMode == 0) {
-            fogAmount = smoothstep(u_fogStart, u_fogEnd, dist);
-        } else {
-            fogAmount = 1.0 - exp(-u_fogDensity * dist);
-        }
-        hdr = mix(hdr, u_fogColor, fogAmount);
-    }
 
     hdr = max(hdr, vec3(0.0));
 

@@ -7,10 +7,6 @@ enum class ToneMapMode {
     None = 0,
     Reinhard = 1
 };
-enum class FogMode {
-    Linear = 0,
-    Exponential = 1
-};
 enum class VisualizationMode {
     Final = 0,
     RawHdr = 1,

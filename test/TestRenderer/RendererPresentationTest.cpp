@@ -15,6 +15,7 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -460,12 +461,6 @@ TEST_F(RendererPresentationTest, InvalidPublicPostProcessingValuesPreservePresen
     instance->set_fxaa_enabled(false);
     instance->set_exposure_stops(0.0F);
     instance->set_tone_map_mode(renderer::ToneMapMode::None);
-    instance->set_fog_enabled(false);
-    instance->set_fog_mode(renderer::FogMode::Linear);
-    instance->set_fog_start(5.0F);
-    instance->set_fog_end(50.0F);
-    instance->set_fog_density(0.05F);
-    instance->set_fog_color(0.05F, 0.05F, 0.08F);
     instance->set_visualization_mode(renderer::VisualizationMode::Final);
     instance->set_hdr_display_max(10.0F);
     instance->set_fxaa_edge_threshold(0.166F);
@@ -485,14 +480,6 @@ TEST_F(RendererPresentationTest, InvalidPublicPostProcessingValuesPreservePresen
     const float nan = std::numeric_limits<float>::quiet_NaN();
     instance->set_exposure_stops(nan);
     instance->set_tone_map_mode(static_cast<renderer::ToneMapMode>(-1));
-    instance->set_fog_mode(static_cast<renderer::FogMode>(-1));
-    instance->set_fog_start(nan);
-    instance->set_fog_start(50.0F);
-    instance->set_fog_end(nan);
-    instance->set_fog_end(5.0F);
-    instance->set_fog_density(nan);
-    instance->set_fog_density(-0.01F);
-    instance->set_fog_color(nan, 0.05F, 0.08F);
     instance->set_visualization_mode(static_cast<renderer::VisualizationMode>(-1));
     instance->set_hdr_display_max(nan);
     instance->set_hdr_display_max(0.0F);
@@ -570,6 +557,107 @@ TEST_F(RendererPresentationTest, ResolvesMultisampledPointThroughPublicFrameLife
 
     const auto [x, y] = scene_interior_coordinate(*instance);
     expect_pixel_near(read_front_pixel(x, y), {255, 0, 0, 255});
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(RendererPresentationTest, RuntimeMsaaChangesApplyOnNextBeginFrame) {
+    auto instance = create_renderer(1);
+    ASSERT_NE(nullptr, instance);
+    ASSERT_GE(instance->get_max_msaa_samples(), 1);
+    EXPECT_EQ(1, instance->get_msaa_samples());
+
+    if (instance->get_max_msaa_samples() < 2) {
+        GTEST_SKIP() << "OpenGL context does not support multisampling";
+    }
+
+    constexpr int requestedSamples = 4;
+    const int expectedSamples = std::min(requestedSamples, instance->get_max_msaa_samples());
+    instance->set_msaa_samples(requestedSamples);
+    EXPECT_EQ(expectedSamples, instance->get_msaa_samples());
+
+    instance->begin_frame();
+    GLint sampleBuffers = 0;
+    GLint activeSamples = 0;
+    glGetIntegerv(GL_SAMPLE_BUFFERS, &sampleBuffers);
+    glGetIntegerv(GL_SAMPLES, &activeSamples);
+    EXPECT_GE(sampleBuffers, 1);
+    EXPECT_EQ(expectedSamples, activeSamples);
+    instance->draw();
+    instance->end_frame();
+
+    instance->set_msaa_samples(1);
+    EXPECT_EQ(1, instance->get_msaa_samples());
+    instance->begin_frame();
+    glGetIntegerv(GL_SAMPLE_BUFFERS, &sampleBuffers);
+    glGetIntegerv(GL_SAMPLES, &activeSamples);
+    EXPECT_EQ(0, sampleBuffers);
+    EXPECT_EQ(0, activeSamples);
+    instance->draw();
+    instance->end_frame();
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(RendererPresentationTest, RuntimeMsaaValidationAndClampingPreserveValidState) {
+    auto instance = create_renderer(1);
+    ASSERT_NE(nullptr, instance);
+
+    instance->set_msaa_samples(0);
+    EXPECT_EQ(1, instance->get_msaa_samples());
+    instance->set_msaa_samples(-1);
+    EXPECT_EQ(1, instance->get_msaa_samples());
+
+    instance->set_msaa_samples(instance->get_max_msaa_samples() + 100);
+    EXPECT_EQ(instance->get_max_msaa_samples(), instance->get_msaa_samples());
+}
+
+TEST_F(RendererPresentationTest, MultisamplingSmoothsShaderDiscardedDashEdge) {
+    auto instance = create_renderer(1, 512, 256);
+    ASSERT_NE(nullptr, instance);
+    instance->set_fxaa_enabled(false);
+    if (instance->get_max_msaa_samples() < 2) {
+        GTEST_SKIP() << "OpenGL context does not support multisampling";
+    }
+
+    const std::array<float, 6> vertices{-1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F};
+    const std::array<float, 4> red{1.0F, 0.0F, 0.0F, 1.0F};
+    renderer::StrokeStyle style;
+    style.lineWidth = 16.0F;
+    style.dashPattern = {30.25F, 1000.0F};
+    style.dashSpace = renderer::DashSpace::Screen;
+    ASSERT_TRUE(instance->add_line_drawable(vertices, red, renderer::LineType::lines(), style).is_valid());
+
+    const auto countPartialRedPixels = [&] {
+        instance->begin_frame({0.0F, 0.0F, 0.0F, 1.0F});
+        instance->draw();
+        instance->end_frame();
+        glFinish();
+
+        const auto viewport = instance->scene_viewport();
+        std::vector<std::uint8_t> row(static_cast<std::size_t>(viewport.framebuffer.width) * 4U);
+        glReadBuffer(GL_FRONT);
+        glReadPixels(viewport.framebuffer.x,
+                     viewport.framebuffer.y + viewport.framebuffer.height / 2,
+                     viewport.framebuffer.width,
+                     1,
+                     GL_RGBA,
+                     GL_UNSIGNED_BYTE,
+                     row.data());
+        std::size_t partial = 0;
+        for (std::size_t pixel = 0; pixel < row.size() / 4U; ++pixel) {
+            const std::uint8_t r = row[pixel * 4U];
+            const std::uint8_t g = row[(pixel * 4U) + 1U];
+            const std::uint8_t b = row[(pixel * 4U) + 2U];
+            partial += r > 5U && r < 250U && g < 5U && b < 5U ? 1U : 0U;
+        }
+        return partial;
+    };
+
+    const std::size_t singleSamplePartial = countPartialRedPixels();
+    instance->set_msaa_samples(std::min(4, instance->get_max_msaa_samples()));
+    const std::size_t multisamplePartial = countPartialRedPixels();
+
+    EXPECT_EQ(0U, singleSamplePartial);
+    EXPECT_GT(multisamplePartial, singleSamplePartial);
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 

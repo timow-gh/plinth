@@ -4,6 +4,7 @@
 #include "OpenGL/Drawable/LineDrawable.hpp"
 #include "OpenGL/Drawable/MeshDrawable.hpp"
 #include "OpenGL/Drawable/PointDrawable.hpp"
+#include "OpenGL/Drawable/SphereImpostorDrawable.hpp"
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/PickId.hpp"
 #include "OpenGL/Programs/ProgramManager.hpp"
@@ -37,6 +38,7 @@ enum class PickDrawableKind {
     point,
     line,
     mesh,
+    sphere,
 };
 
 class DrawablesManager {
@@ -94,6 +96,7 @@ class DrawablesManager {
     std::vector<DrawableEntry<opengl::PointDrawable>> m_pointDrawables;
     std::vector<DrawableEntry<opengl::LineDrawable>> m_lineDrawables;
     std::vector<DrawableEntry<opengl::MeshDrawable>> m_meshDrawables;
+    std::vector<DrawableEntry<opengl::SphereImpostorDrawable>> m_sphereDrawables;
 
     std::unordered_map<DrawableId, MeshCullFaceMode> m_meshCullModes;
 
@@ -116,12 +119,14 @@ class DrawablesManager {
     }
 
     [[nodiscard]] bool has_drawables() const {
-        return !m_pointDrawables.empty() || !m_lineDrawables.empty() || !m_meshDrawables.empty();
+        return !m_pointDrawables.empty() || !m_lineDrawables.empty() || !m_meshDrawables.empty() ||
+               !m_sphereDrawables.empty();
     }
 
     [[nodiscard]] bool has_point_drawables() const { return !m_pointDrawables.empty(); }
     [[nodiscard]] bool has_line_drawables() const { return !m_lineDrawables.empty(); }
     [[nodiscard]] bool has_mesh_drawables() const { return !m_meshDrawables.empty(); }
+    [[nodiscard]] bool has_sphere_drawables() const { return !m_sphereDrawables.empty(); }
 
     // Collects a position buffer (world-space xyz triplets, transformed by each drawable's
     // current transform) for every currently-added drawable, for use with
@@ -130,7 +135,8 @@ class DrawablesManager {
     // not a view into existing memory.
     [[nodiscard]] std::vector<std::vector<float>> collect_vertex_position_buffers() const {
         std::vector<std::vector<float>> buffers;
-        buffers.reserve(m_pointDrawables.size() + m_lineDrawables.size() + m_meshDrawables.size());
+        buffers.reserve(m_pointDrawables.size() + m_lineDrawables.size() + m_meshDrawables.size() +
+                        m_sphereDrawables.size());
         const auto collect = [&buffers](const auto& drawables) {
             for (const auto& entry: drawables) {
                 const auto span = entry.drawable.get_vertex_positions();
@@ -152,6 +158,7 @@ class DrawablesManager {
         collect(m_pointDrawables);
         collect(m_lineDrawables);
         collect(m_meshDrawables);
+        collect(m_sphereDrawables);
         return buffers;
     }
 
@@ -291,6 +298,23 @@ class DrawablesManager {
         return id;
     }
 
+    std::optional<DrawableId> add_sphere_drawable(std::span<const float> centers,
+                                                  std::span<const float> radii,
+                                                  std::span<const float> colors,
+                                                  opengl::BufferAccessPattern accessPattern) {
+        auto drawable = opengl::make_sphere_impostor_drawable(get_sphere_impostor_program(),
+                                                              centers,
+                                                              radii,
+                                                              colors,
+                                                              accessPattern);
+        if (!drawable.has_value()) {
+            return std::nullopt;
+        }
+        const DrawableId id = next_drawable_id();
+        m_sphereDrawables.emplace_back(DrawableEntry<opengl::SphereImpostorDrawable>{id, std::move(drawable.value())});
+        return id;
+    }
+
     bool remove_point_drawable(DrawableId id) { return remove_drawable_by_id(m_pointDrawables, id); }
 
     bool remove_line_drawable(DrawableId id) { return remove_drawable_by_id(m_lineDrawables, id); }
@@ -299,6 +323,8 @@ class DrawablesManager {
         m_meshCullModes.erase(id);
         return remove_drawable_by_id(m_meshDrawables, id);
     }
+
+    bool remove_sphere_drawable(DrawableId id) { return remove_drawable_by_id(m_sphereDrawables, id); }
 
     void set_mesh_drawable_cull_mode(DrawableId id, MeshCullFaceMode mode) {
         if (mode == MeshCullFaceMode::BACK)
@@ -354,6 +380,13 @@ class DrawablesManager {
         return get_drawable_transform_by_id(m_meshDrawables, id);
     }
 
+    bool set_sphere_drawable_transform(DrawableId id, const linal::hmatf& transform) {
+        return set_drawable_transform_by_id(m_sphereDrawables, id, transform);
+    }
+    [[nodiscard]] std::optional<linal::hmatf> get_sphere_drawable_transform(DrawableId id) const {
+        return get_drawable_transform_by_id(m_sphereDrawables, id);
+    }
+
     bool update_last_point_drawable(std::span<const float> vertices,
                                     std::span<const float> colors,
                                     std::span<const std::uint32_t> indices,
@@ -399,11 +432,18 @@ class DrawablesManager {
         return changed;
     }
 
+    bool clear_sphere_drawables() {
+        const bool changed = !m_sphereDrawables.empty();
+        m_sphereDrawables.clear();
+        return changed;
+    }
+
     bool clear_drawables() {
         const bool pointsChanged = clear_point_drawables();
         const bool linesChanged = clear_line_drawables();
         const bool meshesChanged = clear_mesh_drawables();
-        return pointsChanged || linesChanged || meshesChanged;
+        const bool spheresChanged = clear_sphere_drawables();
+        return pointsChanged || linesChanged || meshesChanged || spheresChanged;
     }
 
     void draw_points(const linal::hmatf& mvp) const {
@@ -609,6 +649,62 @@ class DrawablesManager {
         }
     }
 
+    void draw_spheres(const linal::hmatf& viewMatrix,
+                      const linal::hmatf& projectionMatrix,
+                      const linal::hmatf& inverseProjectionMatrix,
+                      const linal::float2& viewportSize,
+                      bool zeroToOneDepth,
+                      const linal::double3& viewPositionDouble,
+                      const LightingConfig& lighting) {
+        struct TransparentSphere {
+            std::size_t index{};
+            double distanceSquared{};
+        };
+
+        std::vector<TransparentSphere> transparentSpheres;
+        transparentSpheres.reserve(m_sphereDrawables.size());
+
+        for (std::size_t i = 0; i < m_sphereDrawables.size(); ++i) {
+            const DrawableEntry<opengl::SphereImpostorDrawable>& entry = m_sphereDrawables[i];
+            if (entry.drawable.has_opaque_primitives()) {
+                entry.drawable.draw_opaque(viewMatrix,
+                                           projectionMatrix,
+                                           inverseProjectionMatrix,
+                                           entry.transform,
+                                           viewportSize,
+                                           zeroToOneDepth,
+                                           lighting);
+            }
+            if (entry.drawable.has_translucent_primitives()) {
+                transparentSpheres.push_back(
+                    {i, entry.drawable.distance_squared_to(viewPositionDouble, entry.transform)});
+            }
+        }
+
+        std::sort(transparentSpheres.begin(),
+                  transparentSpheres.end(),
+                  [](const TransparentSphere& lhs, const TransparentSphere& rhs) {
+                      return lhs.distanceSquared > rhs.distanceSquared;
+                  });
+
+        if (transparentSpheres.empty()) {
+            return;
+        }
+
+        const ScopedDepthMask depthMask(GL_FALSE);
+        for (const auto& ts: transparentSpheres) {
+            DrawableEntry<opengl::SphereImpostorDrawable>& entry = m_sphereDrawables[ts.index];
+            entry.drawable.draw_translucent(viewMatrix,
+                                            projectionMatrix,
+                                            inverseProjectionMatrix,
+                                            entry.transform,
+                                            viewportSize,
+                                            zeroToOneDepth,
+                                            lighting,
+                                            viewPositionDouble);
+        }
+    }
+
     // Renders every drawable into the currently-bound framebuffer using a flat color that encodes a
     // per-pass sequential index (see PickId.hpp). Returns the index -> drawable mapping so a pixel
     // read back from the framebuffer can be resolved to a drawable. Depth testing (which the caller
@@ -617,9 +713,12 @@ class DrawablesManager {
     [[nodiscard]] std::vector<PickEntry> draw_pick_pass(const linal::hmatf& mvp,
                                                         const linal::hmatf& viewMatrix,
                                                         const linal::hmatf& projectionMatrix,
-                                                        const linal::float2& viewportSize) const {
+                                                        const linal::hmatf& inverseProjectionMatrix,
+                                                        const linal::float2& viewportSize,
+                                                        bool zeroToOneDepth) const {
         std::vector<PickEntry> entries;
-        entries.reserve(m_pointDrawables.size() + m_lineDrawables.size() + m_meshDrawables.size());
+        entries.reserve(m_pointDrawables.size() + m_lineDrawables.size() + m_meshDrawables.size() +
+                        m_sphereDrawables.size());
 
         const auto next_color = [&entries](PickDrawableKind kind, DrawableId id) {
             entries.push_back({kind, id});
@@ -639,6 +738,16 @@ class DrawablesManager {
             const std::array<float, 3> color = next_color(PickDrawableKind::point, entry.id);
             entry.drawable.draw_pick(mvp, entry.transform, color);
         }
+        for (const auto& entry: m_sphereDrawables) {
+            const std::array<float, 3> color = next_color(PickDrawableKind::sphere, entry.id);
+            entry.drawable.draw_pick(viewMatrix,
+                                     projectionMatrix,
+                                     inverseProjectionMatrix,
+                                     entry.transform,
+                                     viewportSize,
+                                     zeroToOneDepth,
+                                     color);
+        }
 
         return entries;
     }
@@ -650,6 +759,7 @@ class DrawablesManager {
     LineProgram& get_line_program() { return programManager.get_line_program(); }
     PointProgram& get_point_program() { return programManager.get_point_program(); }
     MeshProgram& get_mesh_program() { return programManager.get_mesh_program(); }
+    SphereImpostorProgram& get_sphere_impostor_program() { return programManager.get_sphere_impostor_program(); }
 
     DrawableId next_drawable_id() { return m_nextDrawableId++; }
 

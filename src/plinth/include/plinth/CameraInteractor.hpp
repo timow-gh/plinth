@@ -653,6 +653,18 @@ class CameraInteractor : private CameraSettings {
     [[nodiscard]] linal::hmatf get_model_matrix() const { return to_hmatf(m_camera.get_model_matrix()); }
     [[nodiscard]] linal::hmatf get_view_matrix() const { return to_hmatf(m_camera.get_view_matrix()); }
     [[nodiscard]] linal::hmatf get_projection_matrix() const { return get_projection_matrix_impl(); }
+    [[nodiscard]] linal::hmatf get_inverse_projection_matrix() const {
+        switch (m_projectionType) {
+        case CameraProjectionType::PERSPECTIVE:
+            return to_hmatf(glm::inverse(m_camera.get_perspective_matrix()));
+        case CameraProjectionType::ORTHOGRAPHIC:
+            return to_hmatf(glm::inverse(m_camera.get_ortho_projection_matrix()));
+        default: {
+            RENDERER_ASSERT(false);
+            return {};
+        }
+        }
+    }
     [[nodiscard]] linal::hmatf get_current_MVP() const { return to_hmatf(m_currentMVP); }
     [[nodiscard]] linal::hmatf get_normal_matrix() const { return to_hmatf(m_camera.get_normal_matrix()); }
 

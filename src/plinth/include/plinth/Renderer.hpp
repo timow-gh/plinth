@@ -43,6 +43,7 @@ enum class DrawableKind {
     point,
     line,
     mesh,
+    sphere,
 };
 
 struct DrawableHandle {
@@ -241,11 +242,30 @@ class Renderer {
                                    std::span<const std::uint32_t> indices,
                                    BufferAccessPattern accessPattern);
 
+    /// Sphere-impostor point rendering: visualises each input point as a lit sphere without
+    /// tessellating sphere meshes. centers contains local-space xyz triples (N*3 floats), radii
+    /// contains local-space radii (N floats), and colors contains flat RGBA values (N*4 floats)
+    /// or a single uniform color. The drawable's model transform therefore also transforms the
+    /// sphere shape; non-uniform scale produces an ellipsoid. Picking identifies the returned
+    /// drawable as a whole, not an individual sphere. Prefer add_point_drawable for large point
+    /// clouds where raw GL_POINTS performance matters. See docs/sphere-point-rendering.md for the
+    /// rendering contract and extension checklist.
+    DrawableHandle add_sphere_point_drawable(std::span<const float> centers,
+                                             std::span<const float> radii,
+                                             std::array<float, 4> color,
+                                             BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
+    DrawableHandle add_sphere_point_drawable(std::span<const float> centers,
+                                             std::span<const float> radii,
+                                             std::span<const float> colors,
+                                             BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
     /// Removes all drawables of the given kind. Handles previously returned for
     /// those drawables become invalid and are rejected by subsequent operations.
     void clear_point_drawables();
     void clear_line_drawables();
     void clear_mesh_drawables();
+    void clear_sphere_point_drawables();
     /// Removes all drawables regardless of kind. All previously-returned handles
     /// become invalid.
     void clear_drawables();
@@ -253,6 +273,7 @@ class Renderer {
     [[nodiscard]] bool has_point_drawables() const;
     [[nodiscard]] bool has_line_drawables() const;
     [[nodiscard]] bool has_mesh_drawables() const;
+    [[nodiscard]] bool has_sphere_point_drawables() const;
 
     struct PickRay {
         linal::float3 origin;
@@ -268,18 +289,11 @@ class Renderer {
     [[nodiscard]] PickRay compute_pick_ray(double xpos, double ypos) const;
 
     /// Post-processing controls require finite numeric values. HDR display max
-    /// must be positive, fog density must be non-negative, and linear fog needs
-    /// end > start. FXAA edge threshold, minimum edge contrast, and subpixel
+    /// must be positive. FXAA edge threshold, minimum edge contrast, and subpixel
     /// amount are constrained to [0, 0.5], [0, 0.25], and [0, 1]. Invalid input
     /// is rejected without changing state and reported through the error sink.
     void set_exposure_stops(float stops);
     void set_tone_map_mode(renderer::ToneMapMode mode);
-    void set_fog_enabled(bool enabled);
-    void set_fog_mode(renderer::FogMode mode);
-    void set_fog_start(float start);
-    void set_fog_end(float end);
-    void set_fog_density(float density);
-    void set_fog_color(float r, float g, float b);
     void set_visualization_mode(renderer::VisualizationMode mode);
     void set_hdr_display_max(float maxVal);
     void set_grayscale(bool enabled);
@@ -288,16 +302,15 @@ class Renderer {
     void set_fxaa_edge_threshold_min(float threshold);
     void set_fxaa_subpixel_amount(float amount);
 
+    /// Selects the scene framebuffer's multisample count. The positive request is
+    /// clamped to the context's supported range and applied atomically on the next
+    /// begin_frame(). A value of one disables MSAA.
+    void set_msaa_samples(int samples);
+
     /// Current post-processing state. These mirror the values applied by the
     /// pipeline and are used by the ImGui overlay to render its controls.
     [[nodiscard]] float get_exposure_stops() const { return m_exposureStops; }
     [[nodiscard]] renderer::ToneMapMode get_tone_map_mode() const { return m_toneMapMode; }
-    [[nodiscard]] bool get_fog_enabled() const { return m_fogEnabled; }
-    [[nodiscard]] renderer::FogMode get_fog_mode() const { return m_fogMode; }
-    [[nodiscard]] float get_fog_start() const { return m_fogStart; }
-    [[nodiscard]] float get_fog_end() const { return m_fogEnd; }
-    [[nodiscard]] float get_fog_density() const { return m_fogDensity; }
-    [[nodiscard]] std::array<float, 3> get_fog_color() const { return {m_fogColorR, m_fogColorG, m_fogColorB}; }
     [[nodiscard]] renderer::VisualizationMode get_visualization_mode() const { return m_visualizationMode; }
     [[nodiscard]] float get_hdr_display_max() const { return m_hdrDisplayMax; }
     [[nodiscard]] bool get_grayscale() const { return m_grayscale; }
@@ -305,6 +318,8 @@ class Renderer {
     [[nodiscard]] float get_fxaa_edge_threshold() const { return m_fxaaEdgeThreshold; }
     [[nodiscard]] float get_fxaa_edge_threshold_min() const { return m_fxaaEdgeThresholdMin; }
     [[nodiscard]] float get_fxaa_subpixel_amount() const { return m_fxaaSubpixelAmount; }
+    [[nodiscard]] int get_msaa_samples() const { return m_requestedSceneSamples; }
+    [[nodiscard]] int get_max_msaa_samples() const { return m_maxSceneSamples; }
 
     /// Replaces the active overlay. Passing nullptr removes any overlay (the frame loop and
     /// input routing then run with no UI). The caller may retain a co-owning handle to the
@@ -397,6 +412,7 @@ class Renderer {
              std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
              std::unique_ptr<opengl::FXAAPass> fxaaPass,
              int sceneSamples,
+             int maxSceneSamples,
              int maxTextureSize,
              int maxAnisotropy,
              bool reversedDepth,
@@ -404,6 +420,7 @@ class Renderer {
 
     void wire_callbacks();
     void update_scene_viewport();
+    [[nodiscard]] bool rebuild_scene_targets(int width, int height, int samples, bool resizeLdrTarget);
     void present_scene();
     void on_cursor_pos(double xpos, double ypos);
     void on_scroll(double xoff, double yoff);
@@ -450,6 +467,8 @@ class Renderer {
     std::unique_ptr<opengl::PostProcessingPass> m_postProcessingPass;
     std::unique_ptr<opengl::FXAAPass> m_fxaaPass;
     int m_sceneSamples{1};
+    int m_requestedSceneSamples{1};
+    int m_maxSceneSamples{1};
     SceneViewport m_sceneViewport;
     /// Application-requested scene viewport in logical coordinates, set via
     /// set_scene_viewport(). std::nullopt means the app has not requested one; the scene
@@ -479,14 +498,6 @@ class Renderer {
 
     float m_exposureStops{0.0f};
     renderer::ToneMapMode m_toneMapMode{renderer::ToneMapMode::None};
-    bool m_fogEnabled{false};
-    renderer::FogMode m_fogMode{renderer::FogMode::Linear};
-    float m_fogStart{5.0f};
-    float m_fogEnd{50.0f};
-    float m_fogDensity{0.05f};
-    float m_fogColorR{0.05f};
-    float m_fogColorG{0.05f};
-    float m_fogColorB{0.08f};
     renderer::VisualizationMode m_visualizationMode{renderer::VisualizationMode::Final};
     float m_hdrDisplayMax{10.0f};
     bool m_grayscale{false};

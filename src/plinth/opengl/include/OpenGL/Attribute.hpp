@@ -19,7 +19,7 @@ class OPENGL_EXPORT Attribute {
 
   public:
     constexpr Attribute() noexcept = default;
-    constexpr explicit Attribute(std::string_view name, Location location) noexcept;
+    explicit Attribute(std::string_view name, Location location) noexcept;
 
     [[nodiscard]] constexpr Location get_location() const noexcept { return m_location; }
     [[nodiscard]] constexpr std::string_view get_name() const noexcept { return m_name; }

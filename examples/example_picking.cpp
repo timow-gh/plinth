@@ -1,8 +1,8 @@
 // Picking example: a scene combining every pickable drawable kind - cubes (meshes),
-// colored axis lines, and point markers - wired up so a left-click selects whatever is
-// under the cursor. The picked drawable is recolored to a bright highlight (only one at a
-// time) and its label is printed to stdout, so the selection is visible both in the window
-// and in the console.
+// colored axis lines, point markers, and sphere-point markers - wired up so a left-click
+// selects whatever is under the cursor. The picked drawable is recolored to a bright
+// highlight (only one at a time) and its label is printed to stdout, so the selection is
+// visible both in the window and in the console.
 //
 // Picking uses Renderer::pick_drawables, which consumes scene-framebuffer coordinates. The
 // cursor callback already reports coordinates in that space, so the latest cursor position
@@ -27,6 +27,7 @@ namespace {
 
 constexpr float cubeHalfExtent = 0.4F;
 constexpr float markerPointSize = 14.0F;
+constexpr float markerRadius = 0.08F;
 constexpr float axisLineWidth = 4.0F;
 constexpr double pickRadius = 4.0;
 constexpr int mouseButtonLeft = 0; // GLFW_MOUSE_BUTTON_LEFT
@@ -193,7 +194,9 @@ int main() {
         scene.push_back({handle, label, color, std::move(rebuild)});
     }
 
-    // --- Points: yellow markers at the axis tips -----------------------------------------
+    // Keep raw points and sphere points in separate groups: the example is also a manual check
+    // that the two drawable kinds retain independent picking IDs and recolor through one API.
+    // --- Points: yellow markers at the positive axis tips --------------------------------
     const std::array<std::pair<std::array<float, 3>, std::string>, 3> pointSpecs{{
         {{1.5F, 0.0F, 0.0F}, "point marker +X"},
         {{0.0F, 1.5F, 0.0F}, "point marker +Y"},
@@ -208,6 +211,24 @@ int main() {
         };
         const renderer::DrawableHandle handle = rebuild(pointColor);
         scene.push_back({handle, label, pointColor, std::move(rebuild)});
+    }
+
+    // --- Sphere points: cyan markers at the negative axis tips ---------------------------
+    const std::array<std::pair<std::array<float, 3>, std::string>, 3> spherePointSpecs{{
+        {{-1.5F, 0.0F, 0.0F}, "sphere-point marker -X"},
+        {{0.0F, -1.5F, 0.0F}, "sphere-point marker -Y"},
+        {{0.0F, 0.0F, -1.5F}, "sphere-point marker -Z"},
+    }};
+    const Color spherePointColor{0.10F, 0.85F, 0.95F, 1.0F};
+    for (const auto& [position, label]: spherePointSpecs) {
+        auto rebuild = [&renderer, position](const Color& c) {
+            // NOLINTNEXTLINE(clang-analyzer-core.CallAndMessage)
+            const std::array<float, 3> center{position[0], position[1], position[2]};
+            const std::array<float, 1> radius{markerRadius};
+            return renderer->add_sphere_point_drawable(center, radius, c);
+        };
+        const renderer::DrawableHandle handle = rebuild(spherePointColor);
+        scene.push_back({handle, label, spherePointColor, std::move(rebuild)});
     }
 
     // --- Picking: track the cursor, pick on left-click -----------------------------------
@@ -241,7 +262,7 @@ int main() {
             highlighted = picked;
         });
 
-    std::cout << "Left-click a cube, axis line, or point marker to pick it. Esc quits.\n";
+    std::cout << "Left-click a cube, axis line, point marker, or sphere-point marker to pick it. Esc quits.\n";
 
     while (!renderer->should_close()) {
         renderer::Renderer::poll_events();

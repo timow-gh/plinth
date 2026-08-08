@@ -12,7 +12,7 @@ class OPENGL_EXPORT UnsignedIntId {
 
   public:
     constexpr UnsignedIntId() noexcept = default;
-    constexpr explicit UnsignedIntId(GLuint id) noexcept
+    explicit UnsignedIntId(GLuint id) noexcept
         : m_id{id} {
         RENDERER_ASSERT(id != 0);
     }

@@ -78,6 +78,27 @@ TEST_F(RendererPickingTest, PicksMeshDrawableUnderCursorCenter) {
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
+TEST_F(RendererPickingTest, ZeroRadiusPickUsesPixelContainingFractionalCursor) {
+    auto instance = create_renderer();
+    ASSERT_NE(nullptr, instance);
+
+    constexpr std::array<float, 12>
+        vertices{-1.0F, -1.0F, 0.0F, 1.0F, -1.0F, 0.0F, 1.0F, 1.0F, 0.0F, -1.0F, 1.0F, 0.0F};
+    constexpr std::array<std::uint32_t, 6> indices{0U, 1U, 2U, 0U, 2U, 3U};
+    constexpr std::array<float, 4> color{1.0F, 0.5F, 0.25F, 1.0F};
+    const auto handle = instance->add_mesh_drawable(vertices, indices, color, renderer::MeshCullFaceMode::NONE);
+    ASSERT_TRUE(handle.is_valid());
+    render_one_frame(*instance);
+
+    const auto [cx, cy] = scene_center(*instance);
+    const auto results = instance->pick_drawables(static_cast<double>(cx) + 0.25,
+                                                  static_cast<double>(cy) + 0.25,
+                                                  0.0);
+    ASSERT_EQ(1U, results.size());
+    EXPECT_EQ(handle.id, results.front().handle.id);
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
 TEST_F(RendererPickingTest, ComputesRayForActiveProjection) {
     auto instance = create_renderer();
     ASSERT_NE(nullptr, instance);

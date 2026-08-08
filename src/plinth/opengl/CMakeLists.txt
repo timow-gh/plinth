@@ -5,9 +5,12 @@ set(opengl_HEADER_FILES
         include/OpenGL/Programs/ProgramId.hpp
         include/OpenGL/Programs/ProgramManager.hpp
         include/OpenGL/Programs/PointProgram.hpp
+        include/OpenGL/Programs/SphereImpostorProgram.hpp
         include/OpenGL/Drawable/LineDrawable.hpp
         include/OpenGL/Drawable/MeshDrawable.hpp
         include/OpenGL/Drawable/PointDrawable.hpp
+        include/OpenGL/Drawable/SphereImpostorDrawable.hpp
+        include/OpenGL/Drawable/SphereInstanceData.hpp
         include/OpenGL/Drawable/DrawablesManager.hpp
         include/OpenGL/Drawable/DrawableTransparencyInfo.hpp
         include/OpenGL/Drawable/LineInstanceData.hpp
@@ -49,6 +52,7 @@ set(opengl_SOURCE_FILES
         source/Programs/LineProgram.cpp
         source/Programs/MeshProgram.cpp
         source/Programs/PointProgram.cpp
+        source/Programs/SphereImpostorProgram.cpp
         source/Programs/ProgramId.cpp
         source/Programs/ProgramOpenGL.hpp
         source/Programs/ProgramManager.cpp
@@ -58,6 +62,7 @@ set(opengl_SOURCE_FILES
         source/Drawable/LineDrawable.cpp
         source/Drawable/MeshDrawable.cpp
         source/Drawable/PointDrawable.cpp
+        source/Drawable/SphereImpostorDrawable.cpp
         source/Attribute.cpp
         source/ShaderSources.cpp
         source/Uniform.cpp

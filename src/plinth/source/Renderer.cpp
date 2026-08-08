@@ -83,6 +83,40 @@ constexpr double maxFrameDeltaSeconds = 0.1;
 constexpr float maxFxaaEdgeThreshold = 0.5F;
 constexpr float maxFxaaEdgeThresholdMin = 0.25F;
 
+class ScopedFullSampleShading {
+  public:
+    explicit ScopedFullSampleShading(bool enabled)
+        : m_active(enabled) {
+        if (!m_active) {
+            return;
+        }
+        m_wasEnabled = glIsEnabled(GL_SAMPLE_SHADING);
+        glGetFloatv(GL_MIN_SAMPLE_SHADING_VALUE, &m_previousMinimum);
+        glEnable(GL_SAMPLE_SHADING);
+        glMinSampleShading(1.0F);
+    }
+
+    ScopedFullSampleShading(const ScopedFullSampleShading&) = delete;
+    ScopedFullSampleShading& operator=(const ScopedFullSampleShading&) = delete;
+    ScopedFullSampleShading(ScopedFullSampleShading&&) = delete;
+    ScopedFullSampleShading& operator=(ScopedFullSampleShading&&) = delete;
+
+    ~ScopedFullSampleShading() {
+        if (!m_active) {
+            return;
+        }
+        glMinSampleShading(m_previousMinimum);
+        if (m_wasEnabled == GL_FALSE) {
+            glDisable(GL_SAMPLE_SHADING);
+        }
+    }
+
+  private:
+    bool m_active{false};
+    GLboolean m_wasEnabled{GL_FALSE};
+    GLfloat m_previousMinimum{0.0F};
+};
+
 std::optional<std::uint64_t> next_renderer_instance() {
     static std::atomic<std::uint64_t> next{1U};
     std::uint64_t current = next.load(std::memory_order_relaxed);
@@ -100,10 +134,6 @@ bool is_finite(float value) {
 
 bool is_valid_tone_map_mode(ToneMapMode mode) {
     return mode == ToneMapMode::None || mode == ToneMapMode::Reinhard;
-}
-
-bool is_valid_fog_mode(FogMode mode) {
-    return mode == FogMode::Linear || mode == FogMode::Exponential;
 }
 
 bool is_valid_visualization_mode(VisualizationMode mode) {
@@ -270,7 +300,12 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
     }
 
     GLint maxSamples{0};
+    GLint maxColorSamples{0};
+    GLint maxDepthSamples{0};
     glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+    glGetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &maxColorSamples);
+    glGetIntegerv(GL_MAX_DEPTH_TEXTURE_SAMPLES, &maxDepthSamples);
+    maxSamples = std::min({maxSamples, maxColorSamples, maxDepthSamples});
     if (maxSamples < 1) {
         opengl::report_error("Error: Renderer::create failed - GL_MAX_SAMPLES is less than one");
         return nullptr;
@@ -332,6 +367,7 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
                      std::make_unique<opengl::PostProcessingPass>(std::move(*postProcess)),
                      std::make_unique<opengl::FXAAPass>(std::move(*fxaa)),
                      sceneSamples,
+                     maxSamples,
                      capabilities.maxTextureSize,
                      capabilities.maxAnisotropy,
                      reversedDepth,
@@ -353,6 +389,7 @@ Renderer::Renderer(GlfwWindow window,
                    std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
                    std::unique_ptr<opengl::FXAAPass> fxaaPass,
                    int sceneSamples,
+                   int maxSceneSamples,
                    int maxTextureSize,
                    int maxAnisotropy,
                    bool reversedDepth,
@@ -367,6 +404,8 @@ Renderer::Renderer(GlfwWindow window,
     , m_postProcessingPass(std::move(postProcessingPass))
     , m_fxaaPass(std::move(fxaaPass))
     , m_sceneSamples(sceneSamples)
+    , m_requestedSceneSamples(sceneSamples)
+    , m_maxSceneSamples(maxSceneSamples)
     , m_lastFrameTime(std::chrono::steady_clock::now())
     , m_maxTextureSize(maxTextureSize)
     , m_maxAnisotropy(maxAnisotropy)
@@ -657,6 +696,26 @@ void Renderer::set_mesh_drawable_cull_mode(DrawableHandle handle, renderer::Mesh
     }
 }
 
+DrawableHandle Renderer::add_sphere_point_drawable(std::span<const float> centers,
+                                                   std::span<const float> radii,
+                                                   std::array<float, 4> color,
+                                                   renderer::BufferAccessPattern accessPattern) {
+    const std::vector<float> colors = expand_color(centers, color);
+    return add_sphere_point_drawable(centers, radii, colors, accessPattern);
+}
+
+DrawableHandle Renderer::add_sphere_point_drawable(std::span<const float> centers,
+                                                   std::span<const float> radii,
+                                                   std::span<const float> colors,
+                                                   renderer::BufferAccessPattern accessPattern) {
+    const auto id = m_drawablesManager->add_sphere_drawable(centers, radii, colors, accessPattern);
+    if (!id.has_value()) {
+        return DrawableHandle{};
+    }
+    request_auto_fit();
+    return DrawableHandle{DrawableKind::sphere, *id, m_rendererInstance};
+}
+
 bool Renderer::remove_drawable(DrawableHandle handle) {
     if (!handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
         return false;
@@ -667,6 +726,7 @@ bool Renderer::remove_drawable(DrawableHandle handle) {
     case DrawableKind::point:   removed = m_drawablesManager->remove_point_drawable(handle.id); break;
     case DrawableKind::line:    removed = m_drawablesManager->remove_line_drawable(handle.id); break;
     case DrawableKind::mesh:    removed = m_drawablesManager->remove_mesh_drawable(handle.id); break;
+    case DrawableKind::sphere:  removed = m_drawablesManager->remove_sphere_drawable(handle.id); break;
     case DrawableKind::invalid: return false;
     }
     if (removed) {
@@ -687,6 +747,7 @@ bool Renderer::set_drawable_transform(DrawableHandle handle, const linal::hmatf&
         break;
     case DrawableKind::line:    transformed = m_drawablesManager->set_line_drawable_transform(handle.id, transform); break;
     case DrawableKind::mesh:    transformed = m_drawablesManager->set_mesh_drawable_transform(handle.id, transform); break;
+    case DrawableKind::sphere:  transformed = m_drawablesManager->set_sphere_drawable_transform(handle.id, transform); break;
     case DrawableKind::invalid: return false;
     }
     if (transformed) {
@@ -704,6 +765,7 @@ std::optional<linal::hmatf> Renderer::get_drawable_transform(DrawableHandle hand
     case DrawableKind::point:   return m_drawablesManager->get_point_drawable_transform(handle.id);
     case DrawableKind::line:    return m_drawablesManager->get_line_drawable_transform(handle.id);
     case DrawableKind::mesh:    return m_drawablesManager->get_mesh_drawable_transform(handle.id);
+    case DrawableKind::sphere:  return m_drawablesManager->get_sphere_drawable_transform(handle.id);
     case DrawableKind::invalid: return std::nullopt;
     }
 
@@ -808,6 +870,11 @@ void Renderer::clear_mesh_drawables() {
         request_auto_fit();
     }
 }
+void Renderer::clear_sphere_point_drawables() {
+    if (m_drawablesManager->clear_sphere_drawables()) {
+        request_auto_fit();
+    }
+}
 void Renderer::clear_drawables() {
     if (m_drawablesManager->clear_drawables()) {
         request_auto_fit();
@@ -822,6 +889,9 @@ bool Renderer::has_line_drawables() const {
 }
 bool Renderer::has_mesh_drawables() const {
     return m_drawablesManager->has_mesh_drawables();
+}
+bool Renderer::has_sphere_point_drawables() const {
+    return m_drawablesManager->has_sphere_drawables();
 }
 
 Renderer::PickRay Renderer::compute_pick_ray(double xpos, double ypos) const {
@@ -890,20 +960,29 @@ std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double y
         m_drawablesManager->draw_pick_pass(m_camera->get_current_MVP(),
                                            m_camera->get_view_matrix(),
                                            m_camera->get_projection_matrix(),
-                                           pickViewportSize);
+                                           m_camera->get_inverse_projection_matrix(),
+                                           pickViewportSize,
+                                           m_reversedDepth);
 
     // Read back the axis-aligned pixel box that bounds the circular pick region, clamped to the
     // target. Coordinates flip on Y because glReadPixels uses a bottom-left origin.
     const double centerX = xpos;
     const double centerYTop = ypos;
     const double pickRadius = std::max(0.0, radius);
+    const bool exactPixelPick = pickRadius == 0.0;
 
     const int minX = std::max(0, static_cast<int>(std::floor(centerX - pickRadius)));
-    const int maxX = std::min(width - 1, static_cast<int>(std::ceil(centerX + pickRadius)));
+    const int maxX = exactPixelPick
+        ? std::min(width - 1, minX)
+        : std::min(width - 1, static_cast<int>(std::ceil(centerX + pickRadius)));
     const int minYTop = std::max(0, static_cast<int>(std::floor(centerYTop - pickRadius)));
-    const int maxYTop = std::min(height - 1, static_cast<int>(std::ceil(centerYTop + pickRadius)));
+    const int maxYTop = exactPixelPick
+        ? std::min(height - 1, minYTop)
+        : std::min(height - 1, static_cast<int>(std::ceil(centerYTop + pickRadius)));
 
-    if (minX <= maxX && minYTop <= maxYTop) {
+    const bool exactPixelInBounds = centerX >= 0.0 && centerX < static_cast<double>(width) &&
+                                    centerYTop >= 0.0 && centerYTop < static_cast<double>(height);
+    if (minX <= maxX && minYTop <= maxYTop && (!exactPixelPick || exactPixelInBounds)) {
         const int boxWidth = maxX - minX + 1;
         const int boxHeight = maxYTop - minYTop + 1;
         const int glReadY = height - 1 - maxYTop; // bottom-left origin of the box
@@ -922,7 +1001,7 @@ std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double y
                 const int px = minX + col;
                 const double dx = static_cast<double>(px) - centerX;
                 const double dy = static_cast<double>(topY) - centerYTop;
-                if (dx * dx + dy * dy > radiusSquared) {
+                if (!exactPixelPick && dx * dx + dy * dy > radiusSquared) {
                     continue;
                 }
                 const std::size_t base = (static_cast<std::size_t>(row) * static_cast<std::size_t>(boxWidth) +
@@ -939,9 +1018,10 @@ std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double y
                 const opengl::DrawablesManager::PickEntry& entry = entries[index - 1U];
                 DrawableKind kind = DrawableKind::invalid;
                 switch (entry.kind) {
-                case opengl::PickDrawableKind::point: kind = DrawableKind::point; break;
-                case opengl::PickDrawableKind::line:  kind = DrawableKind::line; break;
-                case opengl::PickDrawableKind::mesh:  kind = DrawableKind::mesh; break;
+                case opengl::PickDrawableKind::point:  kind = DrawableKind::point; break;
+                case opengl::PickDrawableKind::line:   kind = DrawableKind::line; break;
+                case opengl::PickDrawableKind::mesh:   kind = DrawableKind::mesh; break;
+                case opengl::PickDrawableKind::sphere: kind = DrawableKind::sphere; break;
                 }
                 results.push_back(PickResult{DrawableHandle{kind, entry.id, m_rendererInstance}, pickRay});
             }
@@ -986,27 +1066,16 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
     // presented at the viewport's window offset, so the reserved UI band is never touched.
     const int sceneWidth = static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.width));
     const int sceneHeight = static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.height));
-    if (m_sceneFramebuffer->get_width() != sceneWidth || m_sceneFramebuffer->get_height() != sceneHeight) {
-        opengl::Framebuffer::HdrConfig hdrConfig{sceneWidth, sceneHeight, m_sceneSamples, true, m_reversedDepth};
-        auto scene = opengl::Framebuffer::create_hdr(hdrConfig);
-        std::optional<opengl::Framebuffer> resolve;
-        std::optional<opengl::Framebuffer> ldr;
-        if (scene.has_value()) {
-            if (m_sceneSamples > 1) {
-                opengl::Framebuffer::HdrConfig resolveConfig{sceneWidth, sceneHeight, 1, true, m_reversedDepth};
-                resolve = opengl::Framebuffer::create_hdr(resolveConfig);
-            }
-            ldr = opengl::Framebuffer::create_ldr_intermediate(sceneWidth, sceneHeight);
+    const bool dimensionsChanged = m_sceneFramebuffer->get_width() != sceneWidth ||
+                                   m_sceneFramebuffer->get_height() != sceneHeight;
+    const bool samplesChanged = m_sceneSamples != m_requestedSceneSamples;
+    if ((dimensionsChanged || samplesChanged) &&
+        !rebuild_scene_targets(sceneWidth, sceneHeight, m_requestedSceneSamples, dimensionsChanged)) {
+        if (samplesChanged) {
+            m_requestedSceneSamples = m_sceneSamples;
         }
-        if (!scene.has_value() || (m_sceneSamples > 1 && !resolve.has_value()) || !ldr.has_value()) {
-            opengl::report_error("Error: Renderer::begin_frame failed to resize framebuffer targets");
-            return;
-        }
-        m_sceneFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*scene));
-        if (m_sceneSamples > 1) {
-            m_hdrResolveFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*resolve));
-        }
-        m_ldrIntermediate = std::make_unique<opengl::Framebuffer>(std::move(*ldr));
+        opengl::report_error("Error: Renderer::begin_frame failed to rebuild framebuffer targets");
+        return;
     }
 
     if (m_sceneFramebuffer->get_width() != sceneWidth || m_sceneFramebuffer->get_height() != sceneHeight) {
@@ -1033,19 +1102,34 @@ void Renderer::draw(const renderer::LightingConfig& lighting) {
 
     const linal::float2 sceneViewportSize{static_cast<float>(m_sceneViewport.framebuffer.width),
                                           static_cast<float>(m_sceneViewport.framebuffer.height)};
-    m_drawablesManager->draw_lines_and_points(m_camera->get_current_MVP(), sceneViewportSize, m_camera->get_position());
+    {
+        const ScopedFullSampleShading sampleShading{m_sceneSamples > 1};
+        m_drawablesManager->draw_lines_and_points(
+            m_camera->get_current_MVP(), sceneViewportSize, m_camera->get_position());
+    }
+
+    const linal::float3 viewPosF{static_cast<float>(m_camera->get_position()[0]),
+                                 static_cast<float>(m_camera->get_position()[1]),
+                                 static_cast<float>(m_camera->get_position()[2])};
+    renderer::LightingConfig effectiveLighting = lighting;
+    effectiveLighting.lightPosition = viewPosF;
 
     if (m_drawablesManager->has_mesh_drawables()) {
-        const linal::float3 viewPosF{static_cast<float>(m_camera->get_position()[0]),
-                                     static_cast<float>(m_camera->get_position()[1]),
-                                     static_cast<float>(m_camera->get_position()[2])};
-
-        renderer::LightingConfig effectiveLighting = lighting;
-        effectiveLighting.lightPosition = viewPosF;
         m_drawablesManager->draw_meshes(m_camera->get_view_matrix(),
                                         m_camera->get_projection_matrix(),
                                         viewPosF,
                                         effectiveLighting);
+    }
+
+    if (m_drawablesManager->has_sphere_drawables()) {
+        const ScopedFullSampleShading sampleShading{m_sceneSamples > 1};
+        m_drawablesManager->draw_spheres(m_camera->get_view_matrix(),
+                                         m_camera->get_projection_matrix(),
+                                         m_camera->get_inverse_projection_matrix(),
+                                         sceneViewportSize,
+                                         m_reversedDepth,
+                                         m_camera->get_position(),
+                                         effectiveLighting);
     }
 }
 
@@ -1109,6 +1193,41 @@ void Renderer::make_context_current() const {
     m_window.make_context_current();
 }
 
+bool Renderer::rebuild_scene_targets(int width, int height, int samples, bool resizeLdrTarget) {
+    const opengl::Framebuffer::HdrConfig sceneConfig{width, height, samples, true, m_reversedDepth};
+    auto scene = opengl::Framebuffer::create_hdr(sceneConfig);
+    if (!scene.has_value()) {
+        return false;
+    }
+
+    std::optional<opengl::Framebuffer> resolve;
+    if (samples > 1) {
+        const opengl::Framebuffer::HdrConfig resolveConfig{width, height, 1, true, m_reversedDepth};
+        resolve = opengl::Framebuffer::create_hdr(resolveConfig);
+        if (!resolve.has_value()) {
+            return false;
+        }
+    }
+
+    std::optional<opengl::Framebuffer> ldr;
+    if (resizeLdrTarget) {
+        ldr = opengl::Framebuffer::create_ldr_intermediate(width, height);
+        if (!ldr.has_value()) {
+            return false;
+        }
+    }
+
+    m_sceneFramebuffer = std::make_unique<opengl::Framebuffer>(std::move(*scene));
+    m_hdrResolveFramebuffer = samples > 1
+        ? std::make_unique<opengl::Framebuffer>(std::move(*resolve))
+        : nullptr;
+    if (ldr.has_value()) {
+        m_ldrIntermediate = std::make_unique<opengl::Framebuffer>(std::move(*ldr));
+    }
+    m_sceneSamples = samples;
+    return true;
+}
+
 void Renderer::present_scene() {
     GLuint hdrColorTex{0};
     GLuint depthTex{0};
@@ -1124,17 +1243,7 @@ void Renderer::present_scene() {
         depthTex = m_sceneFramebuffer->get_depth_texture();
     }
 
-    const linal::hmatf projMat = m_camera->get_projection_matrix();
-    const linal::hmatf invProjMat = linal::hmatf::inverse(projMat);
-    m_postProcessingPass->set_inv_projection(invProjMat.data());
     m_postProcessingPass->set_reversed_depth(m_reversedDepth);
-
-    m_postProcessingPass->set_fog_enabled(m_fogEnabled);
-    m_postProcessingPass->set_fog_mode(static_cast<int>(m_fogMode));
-    m_postProcessingPass->set_fog_start(m_fogStart);
-    m_postProcessingPass->set_fog_end(m_fogEnd);
-    m_postProcessingPass->set_fog_density(m_fogDensity);
-    m_postProcessingPass->set_fog_color(m_fogColorR, m_fogColorG, m_fogColorB);
     m_postProcessingPass->set_exposure_stops(m_exposureStops);
     m_postProcessingPass->set_tone_map_mode(static_cast<int>(m_toneMapMode));
     m_postProcessingPass->set_visualization_mode(static_cast<int>(m_visualizationMode));
@@ -1194,52 +1303,6 @@ void Renderer::set_tone_map_mode(renderer::ToneMapMode mode) {
     m_toneMapMode = mode;
 }
 
-void Renderer::set_fog_enabled(bool enabled) {
-    m_fogEnabled = enabled;
-}
-
-void Renderer::set_fog_mode(renderer::FogMode mode) {
-    if (!is_valid_fog_mode(mode)) {
-        report_invalid_argument("set_fog_mode");
-        return;
-    }
-    m_fogMode = mode;
-}
-
-void Renderer::set_fog_start(float start) {
-    if (!is_finite(start) || start >= m_fogEnd) {
-        report_invalid_argument("set_fog_start");
-        return;
-    }
-    m_fogStart = start;
-}
-
-void Renderer::set_fog_end(float end) {
-    if (!is_finite(end) || end <= m_fogStart) {
-        report_invalid_argument("set_fog_end");
-        return;
-    }
-    m_fogEnd = end;
-}
-
-void Renderer::set_fog_density(float density) {
-    if (!is_finite(density) || density < 0.0F) {
-        report_invalid_argument("set_fog_density");
-        return;
-    }
-    m_fogDensity = density;
-}
-
-void Renderer::set_fog_color(float r, float g, float b) {
-    if (!is_finite(r) || !is_finite(g) || !is_finite(b)) {
-        report_invalid_argument("set_fog_color");
-        return;
-    }
-    m_fogColorR = r;
-    m_fogColorG = g;
-    m_fogColorB = b;
-}
-
 void Renderer::set_visualization_mode(renderer::VisualizationMode mode) {
     if (!is_valid_visualization_mode(mode)) {
         report_invalid_argument("set_visualization_mode");
@@ -1286,6 +1349,14 @@ void Renderer::set_fxaa_subpixel_amount(float amount) {
         return;
     }
     m_fxaaSubpixelAmount = amount;
+}
+
+void Renderer::set_msaa_samples(int samples) {
+    if (samples <= 0) {
+        report_invalid_argument("set_msaa_samples");
+        return;
+    }
+    m_requestedSceneSamples = std::clamp(samples, 1, m_maxSceneSamples);
 }
 
 void Renderer::set_overlay(std::shared_ptr<IOverlay> overlay) {

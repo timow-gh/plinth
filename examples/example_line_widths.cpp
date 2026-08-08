@@ -84,7 +84,7 @@ int main() {
     // ── Row 0: Varying widths, butt cap (baseline) ──────────────────────────────
     constexpr std::array<float, 5> widths{1.0F, 2.0F, 4.0F, 8.0F, 16.0F};
     for (std::size_t i = 0; i < widths.size(); ++i) {
-        const float y     = row - static_cast<float>(i) * 0.28F;
+        const float y     = row - (static_cast<float>(i) * 0.28F);
         const auto  verts = hline(y);
         renderer::StrokeStyle s;
         s.lineWidth = widths[i];

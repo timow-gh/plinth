@@ -18,11 +18,16 @@ namespace opengl {
  * gl_VertexID). The vertex shader expands the sphere center to a screen-aligned billboard; the
  * fragment shader transforms the view ray into sphere-local space, writes gl_FragDepth for correct
  * occlusion, and computes Blinn-Phong shading in view space.
+ *
+ * This class is the C++ half of a runtime shader interface. When the shader contract changes, keep
+ * its members, constructor/move plumbing, factory lookups, drawable uploads, and graphics tests in
+ * sync. See docs/sphere-point-rendering.md for that checklist and the coordinate-space contract.
  */
 class OPENGL_EXPORT SphereImpostorProgram {
     ProgramHandle m_program;
 
-    // Vertex uniforms
+    // Matrix uniforms are used across both shader stages. In particular, inverse model-view is
+    // required by visible and picking passes; the normal matrix is required only for lighting.
     Uniform m_modelMatrixLocation;
     Uniform m_viewMatrixLocation;
     Uniform m_projectionMatrixLocation;

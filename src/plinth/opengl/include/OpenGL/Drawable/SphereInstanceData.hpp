@@ -12,7 +12,9 @@
 
 namespace opengl {
 
-// 8 floats per sphere: (cx, cy, cz, radius, r, g, b, a)
+// This is the shared CPU/GPU ABI for a sphere instance: (cx, cy, cz, radius, r, g, b, a).
+// If it changes, also update the attribute offsets, SortableSphereInstance, both buffer-building
+// paths in SphereImpostorDrawable.cpp, and the shader inputs. See docs/sphere-point-rendering.md.
 inline constexpr std::size_t kSphereInstanceFloats = 8U;
 inline constexpr GLsizei kSphereInstanceStride = static_cast<GLsizei>(kSphereInstanceFloats * sizeof(float));
 

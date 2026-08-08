@@ -17,6 +17,9 @@ namespace opengl {
 namespace {
 
 [[nodiscard]] linal::hmatf inverse_matrix(const linal::hmatf& matrix) {
+    // linal::hmatf::inverse is optimized for orthogonal transforms. Sphere drawables accept
+    // general non-singular affine model transforms, so use GLM's general inverse here. Keep the
+    // explicit copies: linal is row-major while GLM indexes column first.
     glm::mat4 glmMatrix{0.0F};
     for (linal::hmatf::size_type row = 0; row < 4; ++row) {
         for (linal::hmatf::size_type column = 0; column < 4; ++column) {
@@ -84,6 +87,9 @@ void SphereImpostorDrawable::set_common_uniforms(const linal::hmatf& viewMatrix,
                                                  const linal::float2& viewportSize,
                                                  bool zeroToOneDepth,
                                                  const LightingConfig& lighting) const {
+    // The fragment shader has two deliberate working spaces: intersection in local space and
+    // lighting in view space. These matrices and transformed lights are the bridge between them.
+    // A position uses w=1 so camera translation affects it; a direction uses w=0 so it does not.
     const linal::hmatf modelViewMatrix = viewMatrix * modelMatrix;
     const linal::hmatf inverseModelViewMatrix = inverse_matrix(modelViewMatrix);
     const linal::hmatf normalMatrix = inverseModelViewMatrix.transpose();
@@ -212,9 +218,9 @@ void SphereImpostorDrawable::draw_translucent(const linal::hmatf& viewMatrix,
         return;
     }
 
-    // Re-sort translucent spheres back-to-front in world space. The stored centers are local to
-    // the drawable, so the model transform must be applied before comparing with the world-space
-    // camera position.
+    // This is the inner of two transparency sorts. DrawablesManager first orders entire sphere
+    // drawables; this pass then orders instances inside one drawable. Re-sort back-to-front in
+    // world space because the stored centers are local while the camera position is world space.
     struct SortedSphere {
         const SortableSphereInstance* sphere{nullptr};
         double distanceSquared{0.0};
@@ -266,6 +272,8 @@ void SphereImpostorDrawable::draw_pick(const linal::hmatf& viewMatrix,
 
     const LightingConfig defaultLighting{};
 
+    // Picking must use the same model-aware intersection and projected surface depth as the color
+    // pass. Otherwise the rectangular proxy, rather than the transformed sphere, would be picked.
     glUniformMatrix4fv(m_program->get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
     glUniformMatrix4fv(m_program->get_view_matrix_location().get_value(), 1, GL_TRUE, viewMatrix.data());
     glUniformMatrix4fv(m_program->get_projection_matrix_location().get_value(), 1, GL_TRUE, projectionMatrix.data());
@@ -316,7 +324,8 @@ std::optional<SphereImpostorDrawable> make_sphere_impostor_drawable(SphereImpost
     const auto attribs = make_sphere_instance_attribs(program);
     const bool hasTranslucent = contains_translucent_alpha(colors, 4);
 
-    // Separate spheres into opaque and translucent.
+    // Split once at construction so opaque rendering never pays for blending or per-frame sorting.
+    // A translucent CPU copy is retained below because its GPU order changes with the camera.
     std::vector<float> opaqueData;
     std::vector<float> translucentData;
     std::vector<SphereImpostorDrawable::SortableSphereInstance> translucentSpheres;

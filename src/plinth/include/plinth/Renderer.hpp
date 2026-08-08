@@ -242,12 +242,14 @@ class Renderer {
                                    std::span<const std::uint32_t> indices,
                                    BufferAccessPattern accessPattern);
 
-    /// Sphere-impostor point rendering: visualises each input point as a lit, screen-aligned
-    /// billboard with ray-sphere intersection in the fragment shader, giving a 3-D appearance
-    /// and correct per-point radii. centers contains flat xyz triples (N*3 floats), radii
-    /// contains one radius per sphere (N floats), colors contains flat RGBA values (N*4 floats)
-    /// or a single uniform color. Prefer add_point_drawable for large point clouds where raw
-    /// GL_POINTS performance matters.
+    /// Sphere-impostor point rendering: visualises each input point as a lit sphere without
+    /// tessellating sphere meshes. centers contains local-space xyz triples (N*3 floats), radii
+    /// contains local-space radii (N floats), and colors contains flat RGBA values (N*4 floats)
+    /// or a single uniform color. The drawable's model transform therefore also transforms the
+    /// sphere shape; non-uniform scale produces an ellipsoid. Picking identifies the returned
+    /// drawable as a whole, not an individual sphere. Prefer add_point_drawable for large point
+    /// clouds where raw GL_POINTS performance matters. See docs/sphere-point-rendering.md for the
+    /// rendering contract and extension checklist.
     DrawableHandle add_sphere_point_drawable(std::span<const float> centers,
                                              std::span<const float> radii,
                                              std::array<float, 4> color,

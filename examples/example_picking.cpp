@@ -194,6 +194,8 @@ int main() {
         scene.push_back({handle, label, color, std::move(rebuild)});
     }
 
+    // Keep raw points and sphere points in separate groups: the example is also a manual check
+    // that the two drawable kinds retain independent picking IDs and recolor through one API.
     // --- Points: yellow markers at the positive axis tips --------------------------------
     const std::array<std::pair<std::array<float, 3>, std::string>, 3> pointSpecs{{
         {{1.5F, 0.0F, 0.0F}, "point marker +X"},

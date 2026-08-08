@@ -352,6 +352,8 @@ std::string mesh_fragment_shader_source() {
 }
 
 std::string sphere_impostor_vertex_shader_source() {
+    // Sphere impostors intentionally have no static vertex buffer: six gl_VertexID values produce
+    // a conservative proxy per instance. The fragment shader, not this proxy, defines the surface.
     return
         R"(#version 330 core
 
@@ -451,6 +453,8 @@ void main() {
 }
 
 std::string sphere_impostor_fragment_shader_source() {
+    // Keep visible and picking geometry in this one shader. Both modes must run identical ray
+    // intersection and depth code; only the final color is allowed to differ.
     return
         R"(#version 330 core
 

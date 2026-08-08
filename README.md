@@ -6,6 +6,10 @@
 
 See [`examples/example_renderer_standalone.cpp`](examples/example_renderer_standalone.cpp) for a complete minimal renderer loop. Create one `renderer::Renderer`, add copied geometry or texture data, and run each frame in this order: `poll_events`, `begin_frame`, `draw`, and `end_frame`.
 
+## Design notes
+
+- [Sphere-point rendering](docs/sphere-point-rendering.md) explains the impostor pipeline, its coordinate-space and transparency invariants, picking behavior, known limitations, and how to extend it safely.
+
 ## Build and test
 
 ```sh

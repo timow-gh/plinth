@@ -25,12 +25,23 @@ namespace opengl {
 
 using renderer::LightingConfig;
 
+/** Owns instanced sphere-point data and bridges renderer state to the impostor shader.
+ *
+ * Centers/radii remain in local space. The shader intersects there so a drawable model transform
+ * can represent any non-singular affine sphere transform. CPU sorting is the exception: local
+ * centers are transformed to world space before comparison with the world-space camera.
+ *
+ * Opaque and translucent data are deliberately stored in separate buffers. Translucent instances
+ * additionally retain their interleaved CPU record so it can be reordered and streamed as the
+ * camera moves. See docs/sphere-point-rendering.md for the complete design and extension contract.
+ */
 class OPENGL_EXPORT SphereImpostorDrawable {
   public:
-    // Per-sphere translucent data for live re-sorting.
+    // Keep this record identical to the layout declared in SphereInstanceData.hpp. It is a full
+    // record, rather than only an index, because translucent order is uploaded as a flat stream.
     struct SortableSphereInstance {
         std::array<float, 8> data{};  // interleaved (center.xyz, radius, r, g, b, a)
-        linal::float3 sortCenter{0.0F, 0.0F, 0.0F};
+        linal::float3 sortCenter{0.0F, 0.0F, 0.0F}; // local space; transform before sorting
     };
 
   private:
@@ -111,7 +122,8 @@ class OPENGL_EXPORT SphereImpostorDrawable {
         return m_transparencyInfo.distance_squared_to(viewPosition, transform);
     }
 
-    // World-space xyz-triplet vertex positions for scene-bounds computation.
+    // Local-space xyz-triplet centers for scene-bounds computation; the manager applies the model
+    // transform. The generic bounds interface has no extent channel, so radii are not represented.
     [[nodiscard]] std::span<const float> get_vertex_positions() const noexcept {
         m_positionsCache.clear();
         m_positionsCache.reserve(m_centers.size() * 3U);

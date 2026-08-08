@@ -12,6 +12,7 @@
 #include "plinth/DashSpace.hpp"
 #include "plinth/LightingConfig.hpp"
 #include "plinth/MeshCullFaceMode.hpp"
+#include "plinth/SphereSizeSpace.hpp"
 #include "plinth/StrokeStyle.hpp"
 
 #include <linal/hmat.hpp>
@@ -191,7 +192,6 @@ class DrawablesManager {
                                                 std::span<const float> colors,
                                                 opengl::LineType lineType,
                                                 float lineWidth,
-                                                float pointSize,
                                                 opengl::BufferAccessPattern accessPattern,
                                                 renderer::LineCap cap = renderer::LineCap::Butt,
                                                 renderer::LineJoin join = renderer::LineJoin::Miter,
@@ -206,7 +206,6 @@ class DrawablesManager {
                                                    4,
                                                    lineType,
                                                    lineWidth,
-                                                   pointSize,
                                                    accessPattern,
                                                    cap,
                                                    join,
@@ -298,10 +297,12 @@ class DrawablesManager {
         return id;
     }
 
-    std::optional<DrawableId> add_sphere_drawable(std::span<const float> centers,
-                                                  std::span<const float> radii,
-                                                  std::span<const float> colors,
-                                                  opengl::BufferAccessPattern accessPattern) {
+    std::optional<DrawableId>
+    add_sphere_drawable(std::span<const float> centers,
+                        std::span<const float> radii,
+                        std::span<const float> colors,
+                        opengl::BufferAccessPattern accessPattern,
+                        renderer::SphereSizeSpace sizeSpace = renderer::SphereSizeSpace::World) {
         auto drawable = opengl::make_sphere_impostor_drawable(get_sphere_impostor_program(),
                                                               centers,
                                                               radii,
@@ -310,6 +311,7 @@ class DrawablesManager {
         if (!drawable.has_value()) {
             return std::nullopt;
         }
+        drawable->set_size_space(sizeSpace);
         const DrawableId id = next_drawable_id();
         m_sphereDrawables.emplace_back(DrawableEntry<opengl::SphereImpostorDrawable>{id, std::move(drawable.value())});
         return id;
@@ -362,6 +364,9 @@ class DrawablesManager {
     }
     bool set_line_dash_space(DrawableId id, renderer::DashSpace space) {
         return mutate_line_drawable_by_id(id, [space](opengl::LineDrawable& d) { d.set_line_dash_space(space); });
+    }
+    bool set_sphere_point_size_space(DrawableId id, renderer::SphereSizeSpace space) {
+        return mutate_sphere_drawable_by_id(id, [space](opengl::SphereImpostorDrawable& d) { d.set_size_space(space); });
     }
     bool set_line_cap(DrawableId id, renderer::LineCap cap) {
         return mutate_line_drawable_by_id(id, [cap](opengl::LineDrawable& d) { d.set_line_cap(cap); });
@@ -772,6 +777,23 @@ class DrawablesManager {
                                      m_lineDrawables.end(),
                                      [id](const DrawableEntry<opengl::LineDrawable>& entry) { return entry.id == id; });
         if (it == m_lineDrawables.end()) {
+            return false;
+        }
+        fn(it->drawable);
+        return true;
+    }
+
+    template <typename Fn>
+    bool mutate_sphere_drawable_by_id(DrawableId id, Fn&& fn) {
+        if (id == 0U) {
+            return false;
+        }
+        const auto it = std::find_if(m_sphereDrawables.begin(),
+                                     m_sphereDrawables.end(),
+                                     [id](const DrawableEntry<opengl::SphereImpostorDrawable>& entry) {
+                                         return entry.id == id;
+                                     });
+        if (it == m_sphereDrawables.end()) {
             return false;
         }
         fn(it->drawable);

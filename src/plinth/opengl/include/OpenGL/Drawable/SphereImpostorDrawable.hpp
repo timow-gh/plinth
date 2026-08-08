@@ -8,6 +8,7 @@
 #include "OpenGL/VertexArray.hpp"
 #include "OpenGL/opengl_export.h"
 #include "plinth/LightingConfig.hpp"
+#include "plinth/SphereSizeSpace.hpp"
 #include "plinth/Warnings.hpp"
 
 #include <linal/hmat.hpp>
@@ -54,6 +55,10 @@ class OPENGL_EXPORT SphereImpostorDrawable {
 
     std::vector<linal::float3> m_centers;            // for get_vertex_positions()
     mutable std::vector<float> m_positionsCache;
+
+    // Per-drawable: how a_sphere.w is interpreted. World = local/world units;
+    // Screen = pixels, converted to a view-space radius in the vertex shader.
+    renderer::SphereSizeSpace m_sizeSpace{renderer::SphereSizeSpace::World};
 
   public:
     SphereImpostorDrawable(SphereImpostorProgram& program,
@@ -112,6 +117,9 @@ class OPENGL_EXPORT SphereImpostorDrawable {
     }
 
     [[nodiscard]] bool is_translucent() const noexcept { return has_translucent_primitives(); }
+
+    void set_size_space(renderer::SphereSizeSpace space) noexcept { m_sizeSpace = space; }
+    [[nodiscard]] renderer::SphereSizeSpace get_size_space() const noexcept { return m_sizeSpace; }
 
     [[nodiscard]] double distance_squared_to(const linal::double3& viewPosition) const noexcept {
         return m_transparencyInfo.distance_squared_to(viewPosition);

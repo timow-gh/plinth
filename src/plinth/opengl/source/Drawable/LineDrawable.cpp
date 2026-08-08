@@ -40,7 +40,6 @@ LineDrawable::LineDrawable(LineProgram& program,
                            InstanceBuffer opaqueInstanceBuffer,
                            InstanceBuffer translucentInstanceBuffer,
                            float lineThickness,
-                           float pointSize,
                            LineType lineType,
                            DrawableTransparencyInfo transparencyInfo,
                            std::int32_t vertexDimension,
@@ -59,7 +58,6 @@ LineDrawable::LineDrawable(LineProgram& program,
     , m_translucentInstanceBuffer(std::move(translucentInstanceBuffer))
     , m_lineThickness(lineThickness)
     , m_lineType(lineType)
-    , m_pointSize(pointSize)
     , m_vertexDimension(vertexDimension)
     , m_colorDimension(colorDimension)
     , m_cap(LineCap::Butt)
@@ -82,7 +80,6 @@ LineDrawable::LineDrawable(LineDrawable&& other) noexcept
     , m_translucentInstanceBuffer(std::move(other.m_translucentInstanceBuffer))
     , m_lineThickness(other.m_lineThickness)
     , m_lineType(other.m_lineType)
-    , m_pointSize(other.m_pointSize)
     , m_vertexDimension(other.m_vertexDimension)
     , m_colorDimension(other.m_colorDimension)
     , m_cap(other.m_cap)
@@ -109,7 +106,6 @@ LineDrawable& LineDrawable::operator=(LineDrawable&& other) noexcept {
         m_translucentInstanceBuffer = std::move(other.m_translucentInstanceBuffer);
         m_lineThickness = other.m_lineThickness;
         m_lineType = other.m_lineType;
-        m_pointSize = other.m_pointSize;
         m_vertexDimension = other.m_vertexDimension;
         m_colorDimension = other.m_colorDimension;
         m_cap = other.m_cap;
@@ -313,7 +309,6 @@ std::optional<LineDrawable> make_line_drawable(LineProgram& program,
                                                std::int32_t lineColorDimension,
                                                LineType lineType,
                                                float lineThickness,
-                                               float pointThickness,
                                                BufferAccessPattern accessPattern,
                                                LineCap cap,
                                                LineJoin join,
@@ -394,7 +389,6 @@ std::optional<LineDrawable> make_line_drawable(LineProgram& program,
         std::move(opaqueInstanceBuffer.value()),
         std::move(translucentInstanceBuffer.value()),
         lineThickness,
-        pointThickness,
         lineType,
         make_drawable_transparency_info(lineVertices, lineVertexDimension, lineColors, lineColorDimension),
         lineVertexDimension,

@@ -38,6 +38,7 @@ class OPENGL_EXPORT SphereImpostorProgram {
     Uniform m_invProjectionLocation;
     Uniform m_viewportSizeLocation;
     Uniform m_zeroToOneDepthLocation;
+    Uniform m_sizeSpaceLocation;
     Uniform m_lightPosLocation;
     Uniform m_lightColorLocation;
     Uniform m_fillLightDirectionLocation;
@@ -66,6 +67,7 @@ class OPENGL_EXPORT SphereImpostorProgram {
                           Uniform invProjectionLocation,
                           Uniform viewportSizeLocation,
                           Uniform zeroToOneDepthLocation,
+                          Uniform sizeSpaceLocation,
                           Uniform lightPosLocation,
                           Uniform lightColorLocation,
                           Uniform fillLightDirectionLocation,
@@ -117,6 +119,9 @@ class OPENGL_EXPORT SphereImpostorProgram {
     }
     [[nodiscard]] constexpr Location get_zero_to_one_depth_location() const noexcept {
         return m_zeroToOneDepthLocation.get_location();
+    }
+    [[nodiscard]] constexpr Location get_size_space_location() const noexcept {
+        return m_sizeSpaceLocation.get_location();
     }
     [[nodiscard]] constexpr Location get_light_pos_location() const noexcept {
         return m_lightPosLocation.get_location();
@@ -170,6 +175,7 @@ class OPENGL_EXPORT SphereImpostorProgram {
         m_invProjectionLocation = std::move(other.m_invProjectionLocation);
         m_viewportSizeLocation = std::move(other.m_viewportSizeLocation);
         m_zeroToOneDepthLocation = std::move(other.m_zeroToOneDepthLocation);
+        m_sizeSpaceLocation = std::move(other.m_sizeSpaceLocation);
         m_lightPosLocation = std::move(other.m_lightPosLocation);
         m_lightColorLocation = std::move(other.m_lightColorLocation);
         m_fillLightDirectionLocation = std::move(other.m_fillLightDirectionLocation);

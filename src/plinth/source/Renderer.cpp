@@ -534,7 +534,6 @@ DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
                                            std::span<const float> colors,
                                            renderer::LineType lineType,
                                            const renderer::StrokeStyle& style,
-                                           float pointSize,
                                            renderer::BufferAccessPattern accessPattern,
                                            std::span<const std::uint8_t> perVertexDashFlags) {
     const auto id = m_drawablesManager->add_line_drawable(vertices,
@@ -542,7 +541,6 @@ DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
                                                           colors,
                                                           lineType,
                                                           style.lineWidth,
-                                                          pointSize,
                                                           accessPattern,
                                                           style.cap,
                                                           style.join,
@@ -563,21 +561,19 @@ DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
                                            std::array<float, 4> color,
                                            renderer::LineType lineType,
                                            const renderer::StrokeStyle& style,
-                                           float pointSize,
                                            renderer::BufferAccessPattern accessPattern) {
     const std::vector<float> colors = expand_color(vertices, color);
     const std::vector<std::uint32_t> indices = make_sequential_indices(vertices);
-    return add_line_drawable(vertices, indices, colors, lineType, style, pointSize, accessPattern);
+    return add_line_drawable(vertices, indices, colors, lineType, style, accessPattern);
 }
 
 DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
                                            std::span<const float> colors,
                                            renderer::LineType lineType,
                                            const renderer::StrokeStyle& style,
-                                           float pointSize,
                                            renderer::BufferAccessPattern accessPattern) {
     const std::vector<std::uint32_t> indices = make_sequential_indices(vertices);
-    return add_line_drawable(vertices, indices, colors, lineType, style, pointSize, accessPattern);
+    return add_line_drawable(vertices, indices, colors, lineType, style, accessPattern);
 }
 
 DrawableHandle Renderer::add_mesh_drawable(std::span<const float> vertices,
@@ -699,21 +695,30 @@ void Renderer::set_mesh_drawable_cull_mode(DrawableHandle handle, renderer::Mesh
 DrawableHandle Renderer::add_sphere_point_drawable(std::span<const float> centers,
                                                    std::span<const float> radii,
                                                    std::array<float, 4> color,
+                                                   const renderer::SphereStyle& style,
                                                    renderer::BufferAccessPattern accessPattern) {
     const std::vector<float> colors = expand_color(centers, color);
-    return add_sphere_point_drawable(centers, radii, colors, accessPattern);
+    return add_sphere_point_drawable(centers, radii, colors, style, accessPattern);
 }
 
 DrawableHandle Renderer::add_sphere_point_drawable(std::span<const float> centers,
                                                    std::span<const float> radii,
                                                    std::span<const float> colors,
+                                                   const renderer::SphereStyle& style,
                                                    renderer::BufferAccessPattern accessPattern) {
-    const auto id = m_drawablesManager->add_sphere_drawable(centers, radii, colors, accessPattern);
+    const auto id = m_drawablesManager->add_sphere_drawable(centers, radii, colors, accessPattern, style.sizeSpace);
     if (!id.has_value()) {
         return DrawableHandle{};
     }
     request_auto_fit();
     return DrawableHandle{DrawableKind::sphere, *id, m_rendererInstance};
+}
+
+bool Renderer::set_sphere_point_size_space(DrawableHandle handle, renderer::SphereSizeSpace space) {
+    if (handle.kind != DrawableKind::sphere || !handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
+        return false;
+    }
+    return m_drawablesManager->set_sphere_point_size_space(handle.id, space);
 }
 
 bool Renderer::remove_drawable(DrawableHandle handle) {

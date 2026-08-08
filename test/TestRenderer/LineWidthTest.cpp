@@ -75,7 +75,6 @@ std::size_t render_vertical_line_width(opengl::LineProgram& program, float lineW
                                                                               4,
                                                                               opengl::LineType::lines(),
                                                                               lineWidth,
-                                                                              0.0F,
                                                                               opengl::BufferAccessPattern::Static);
     EXPECT_TRUE(drawable.has_value());
 

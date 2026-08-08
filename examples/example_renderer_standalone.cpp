@@ -162,6 +162,7 @@ int main() {
         }
 
         // Advance the dash phase over time for a "marching ants" effect.
+        // Phase is in pattern-periods (space-independent): 0.5/sec = half a cycle per second.
         const float elapsedSeconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
         renderer->set_line_dash_phase(dashedLines, elapsedSeconds * 0.5F); // NOLINT(readability-magic-numbers)
 

@@ -97,6 +97,7 @@ int main() {
     const std::array<float, 4> magenta{1.0F, 0.0F, 1.0F, 1.0F};
     renderer::StrokeStyle dashedStyle;
     dashedStyle.lineWidth   = standaloneLineWidth;
+    // NOLINTNEXTLINE(readability-magic-numbers)
     dashedStyle.dashPattern = {0.2F, 0.15F};
     dashedStyle.dashSpace   = renderer::DashSpace::World;
     const renderer::DrawableHandle dashedLines =
@@ -166,7 +167,7 @@ int main() {
         // Advance the dash phase over time for a "marching ants" effect.
         const float elapsedSeconds =
             std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
-        renderer->set_line_dash_phase(dashedLines, elapsedSeconds * 0.5F);
+        renderer->set_line_dash_phase(dashedLines, elapsedSeconds * 0.5F); // NOLINT(readability-magic-numbers)
 
         renderer->begin_frame();
         renderer->draw();

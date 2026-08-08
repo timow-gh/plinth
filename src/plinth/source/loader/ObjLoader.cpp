@@ -151,7 +151,7 @@ struct CornerKeyHash {
     return face;
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+// NOLINTBEGIN(readability-function-cognitive-complexity)
 [[nodiscard]] std::expected<void, LoadError>
 process_obj_keyword(std::string_view keyword,
                     std::string_view cursor,
@@ -271,6 +271,7 @@ process_obj_keyword(std::string_view keyword,
     }
     return {};
 }
+// NOLINTEND(readability-function-cognitive-complexity)
 
 } // namespace
 

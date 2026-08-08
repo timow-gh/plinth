@@ -197,6 +197,130 @@ TEST_F(SphereImpostorRendererTest, SetAndGetTransformRoundTrips) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// set_sphere_point_size_space — handle validation
+// ──────────────────────────────────────────────────────────────────────────────
+
+TEST_F(SphereImpostorRendererTest, SetSizeSpaceSucceedsForSphereHandle) {
+    auto instance = create_renderer();
+    ASSERT_NE(nullptr, instance);
+
+    const renderer::DrawableHandle handle = instance->add_sphere_point_drawable(kCenters, kRadii, kColors);
+    ASSERT_TRUE(handle.is_valid());
+
+    EXPECT_TRUE(instance->set_sphere_point_size_space(handle, renderer::SphereSizeSpace::Screen));
+    EXPECT_TRUE(instance->set_sphere_point_size_space(handle, renderer::SphereSizeSpace::World));
+}
+
+TEST_F(SphereImpostorRendererTest, SetSizeSpaceRejectsInvalidAndForeignHandles) {
+    auto instance = create_renderer();
+    ASSERT_NE(nullptr, instance);
+
+    EXPECT_FALSE(instance->set_sphere_point_size_space(renderer::DrawableHandle{}, renderer::SphereSizeSpace::Screen));
+
+    // A non-sphere handle of the same renderer must also be rejected.
+    const renderer::DrawableHandle lineHandle =
+        instance->add_line_drawable(kCenters, kColors, renderer::LineType::lines());
+    ASSERT_TRUE(lineHandle.is_valid());
+    EXPECT_FALSE(instance->set_sphere_point_size_space(lineHandle, renderer::SphereSizeSpace::Screen));
+}
+
+TEST_F(SphereImpostorRendererTest, ScreenSizeStyleAndSetterAcceptedAtAdd) {
+    auto instance = create_renderer();
+    ASSERT_NE(nullptr, instance);
+
+    const renderer::SphereStyle style{renderer::SphereSizeSpace::Screen};
+    const renderer::DrawableHandle handle = instance->add_sphere_point_drawable(kCenters, kRadii, kColors, style);
+    ASSERT_TRUE(handle.is_valid());
+    render_one_frame(*instance);
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Screen-space size — the on-screen silhouette stays constant across camera distance,
+// unlike world-space size which shrinks as the camera pulls back.
+// ──────────────────────────────────────────────────────────────────────────────
+
+TEST_F(SphereImpostorRendererTest, ScreenSizeHoldsConstantSilhouetteAcrossDistance) {
+    auto instance = create_readback_renderer();
+    ASSERT_NE(nullptr, instance);
+
+    const std::vector<float> center{0.0F, 0.0F, 0.0F};
+    const std::array<float, 4> red{1.0F, 0.0F, 0.0F, 1.0F};
+
+    renderer::LightingConfig flatLighting;
+    flatLighting.lightColor = {0.0F, 0.0F, 0.0F};
+    flatLighting.fillLightColor = {0.0F, 0.0F, 0.0F};
+    flatLighting.ambientColor = {1.0F, 1.0F, 1.0F};
+    flatLighting.materialAmbient = {1.0F, 1.0F, 1.0F};
+    flatLighting.materialDiffuse = {0.0F, 0.0F, 0.0F};
+    flatLighting.materialSpecular = {0.0F, 0.0F, 0.0F};
+
+    // Count red pixels across the center row: the sphere's horizontal silhouette width. The camera
+    // is placed explicitly before each draw, so the framing is deterministic and independent of the
+    // renderer's auto-fit heuristics (auto-fit is disabled by default).
+    const auto countRedRowPixels = [&](double distance) {
+        auto camera = instance->get_camera().lock();
+        camera->look_at({0.0, 0.0, distance}, {0.0, 0.0, 0.0}, {0.0, 1.0, 0.0});
+
+        instance->begin_frame({0.0F, 0.0F, 0.0F, 1.0F});
+        instance->draw(flatLighting);
+        instance->end_frame();
+        glFinish();
+
+        const auto viewport = instance->scene_viewport();
+        std::vector<std::uint8_t> row(static_cast<std::size_t>(viewport.framebuffer.width) * 4U);
+        glReadBuffer(GL_FRONT);
+        glReadPixels(viewport.framebuffer.x,
+                     viewport.framebuffer.y + viewport.framebuffer.height / 2,
+                     viewport.framebuffer.width,
+                     1,
+                     GL_RGBA,
+                     GL_UNSIGNED_BYTE,
+                     row.data());
+        std::size_t covered = 0;
+        for (std::size_t pixel = 0; pixel < row.size() / 4U; ++pixel) {
+            const std::uint8_t r = row[pixel * 4U];
+            const std::uint8_t g = row[(pixel * 4U) + 1U];
+            const std::uint8_t b = row[(pixel * 4U) + 2U];
+            covered += r > 20U && g < 40U && b < 40U ? 1U : 0U;
+        }
+        return covered;
+    };
+
+    // A small world sphere and a moderate pixel radius that both stay comfortably inside the
+    // 256x256 viewport at the near distance.
+    const std::vector<float> worldRadius{0.5F};   // world units
+    const std::vector<float> screenRadius{12.0F}; // pixels
+    constexpr double kNearDistance = 6.0;
+    constexpr double kFarDistance = 12.0;
+
+    // World mode: radius is world units, so the silhouette shrinks when the camera pulls back.
+    const renderer::DrawableHandle worldHandle = instance->add_sphere_point_drawable(
+        center, worldRadius, red, renderer::SphereStyle{renderer::SphereSizeSpace::World});
+    ASSERT_TRUE(worldHandle.is_valid());
+    const std::size_t worldNear = countRedRowPixels(kNearDistance);
+    const std::size_t worldFar = countRedRowPixels(kFarDistance);
+    ASSERT_GT(worldNear, 0U);
+    EXPECT_GT(worldNear, worldFar) << "world-space sphere should shrink with distance";
+    instance->clear_sphere_point_drawables();
+
+    // Screen mode: radius is pixels, so the silhouette is ~constant across distance.
+    const renderer::DrawableHandle screenHandle = instance->add_sphere_point_drawable(
+        center, screenRadius, red, renderer::SphereStyle{renderer::SphereSizeSpace::Screen});
+    ASSERT_TRUE(screenHandle.is_valid());
+    const std::size_t screenNear = countRedRowPixels(kNearDistance);
+    const std::size_t screenFar = countRedRowPixels(kFarDistance);
+
+    ASSERT_GT(screenNear, 0U);
+    ASSERT_GT(screenFar, 0U);
+    // Allow a few pixels of tolerance for rasterization/rounding; the point is that Screen mode
+    // does not shrink the way World mode does.
+    const std::size_t diff = screenNear > screenFar ? screenNear - screenFar : screenFar - screenNear;
+    EXPECT_LE(diff, 3U) << "screen-space sphere should hold a constant pixel size across distance";
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // draw() — smoke tests (no crash, no GL error)
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -402,7 +526,11 @@ TEST_F(SphereImpostorRendererTest, SphereOccludesCoplanarMeshAtCenter) {
     const std::vector<float> center{0.0F, 0.0F, 0.0F};
     const std::vector<float> radius{0.5F};
     const std::vector<float> color{1.0F, 0.0F, 0.0F, 1.0F};
-    ASSERT_TRUE(instance->add_sphere_point_drawable(center, radius, color).is_valid());
+    ASSERT_TRUE(instance->add_sphere_point_drawable(center,
+                                                     radius,
+                                                     color,
+                                                     renderer::SphereStyle{renderer::SphereSizeSpace::World})
+                    .is_valid());
 
     instance->begin_frame({0.0F, 0.0F, 0.2F, 1.0F});
     instance->draw();
@@ -434,7 +562,11 @@ TEST_F(SphereImpostorRendererTest, OffAxisSphereIsVisibleAtProjectedPosition) {
     const std::vector<float> center{0.6F, 0.0F, 0.0F};
     const std::vector<float> radius{0.3F};
     const std::array<float, 4> red{0.8F, 0.1F, 0.1F, 1.0F};
-    ASSERT_TRUE(instance->add_sphere_point_drawable(center, radius, red).is_valid());
+    ASSERT_TRUE(instance->add_sphere_point_drawable(center,
+                                                     radius,
+                                                     red,
+                                                     renderer::SphereStyle{renderer::SphereSizeSpace::World})
+                    .is_valid());
 
     instance->begin_frame({0.0F, 0.0F, 0.2F, 1.0F});
     instance->draw();
@@ -485,7 +617,10 @@ TEST_F(SphereImpostorRendererTest, PerspectiveBillboardContainsLargeSphereSilhou
     const std::vector<float> center{0.0F, 0.0F, 0.0F};
     const std::vector<float> radius{sphereRadius};
     const std::array<float, 4> red{0.8F, 0.1F, 0.1F, 1.0F};
-    const auto handle = instance->add_sphere_point_drawable(center, radius, red);
+    const auto handle = instance->add_sphere_point_drawable(center,
+                                                           radius,
+                                                           red,
+                                                           renderer::SphereStyle{renderer::SphereSizeSpace::World});
     ASSERT_TRUE(handle.is_valid());
     render_one_frame(*instance);
 
@@ -548,7 +683,11 @@ TEST_F(SphereImpostorRendererTest, MultipleOffAxisSphereInstancesAreVisible) {
     const std::vector<float> centers{-0.8F, 0.0F, 0.0F, 0.8F, 0.0F, 0.0F};
     const std::vector<float> radii{0.3F, 0.3F};
     const std::vector<float> colors{0.8F, 0.1F, 0.1F, 1.0F, 0.1F, 0.8F, 0.1F, 1.0F};
-    ASSERT_TRUE(instance->add_sphere_point_drawable(centers, radii, colors).is_valid());
+    ASSERT_TRUE(instance->add_sphere_point_drawable(centers,
+                                                     radii,
+                                                     colors,
+                                                     renderer::SphereStyle{renderer::SphereSizeSpace::World})
+                    .is_valid());
 
     instance->begin_frame({0.0F, 0.0F, 0.2F, 1.0F});
     instance->draw();
@@ -597,7 +736,10 @@ TEST_F(SphereImpostorRendererTest, OffAxisSphereIsVisibleAndPickableWithOrthogra
     const std::vector<float> center{1.0F, 0.0F, 0.0F};
     const std::vector<float> radius{0.5F};
     const std::array<float, 4> red{0.8F, 0.1F, 0.1F, 1.0F};
-    const auto handle = instance->add_sphere_point_drawable(center, radius, red);
+    const auto handle = instance->add_sphere_point_drawable(center,
+                                                           radius,
+                                                           red,
+                                                           renderer::SphereStyle{renderer::SphereSizeSpace::World});
     ASSERT_TRUE(handle.is_valid());
 
     render_one_frame(*instance);
@@ -629,8 +771,9 @@ TEST_F(SphereImpostorRendererTest, NonUniformTransformScalesRenderedAndPickedSph
     camera->look_at({0.0, 0.0, 5.0}, {0.0, 0.0, 0.0}, {0.0, 1.0, 0.0});
 
     const auto handle = instance->add_sphere_point_drawable(std::vector<float>{0.0F, 0.0F, 0.0F},
-                                                            std::vector<float>{0.5F},
-                                                            std::array<float, 4>{0.8F, 0.1F, 0.1F, 1.0F});
+                                                             std::vector<float>{0.5F},
+                                                             std::array<float, 4>{0.8F, 0.1F, 0.1F, 1.0F},
+                                                             renderer::SphereStyle{renderer::SphereSizeSpace::World});
     ASSERT_TRUE(handle.is_valid());
     linal::hmatf transform = linal::hmatf::identity();
     transform(0, 0) = 3.0F;

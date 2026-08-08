@@ -26,8 +26,7 @@
 namespace {
 
 constexpr float cubeHalfExtent = 0.4F;
-constexpr float markerPointSize = 14.0F;
-constexpr float markerRadius = 0.08F;
+constexpr float markerRadius = 10.0F;
 constexpr float axisLineWidth = 4.0F;
 constexpr double pickRadius = 4.0;
 constexpr int mouseButtonLeft = 0; // GLFW_MOUSE_BUTTON_LEFT
@@ -173,17 +172,17 @@ int main() {
         const auto& [color, label] = axisSpecs[i];
         const std::array<std::uint32_t, 2> segmentIndices{static_cast<std::uint32_t>(2U * i),
                                                           static_cast<std::uint32_t>((2U * i) + 1U)};
-        auto rebuild = [&renderer, lineVertices, segmentIndices](const Color& c) {
+        auto rebuild = [&renderer, lineVertices, segmentIndices](const Color& drawColor) {
             const std::array<float, 24> colors{
-                c[0], c[1], c[2], c[3], c[0], c[1], c[2], c[3], c[0], c[1], c[2], c[3],
-                c[0], c[1], c[2], c[3], c[0], c[1], c[2], c[3], c[0], c[1], c[2], c[3],
+                drawColor[0], drawColor[1], drawColor[2], drawColor[3], drawColor[0], drawColor[1], drawColor[2], drawColor[3], drawColor[0], drawColor[1], drawColor[2], drawColor[3],
+                drawColor[0], drawColor[1], drawColor[2], drawColor[3], drawColor[0], drawColor[1], drawColor[2], drawColor[3], drawColor[0], drawColor[1], drawColor[2], drawColor[3],
             };
             renderer::StrokeStyle axisStyle;
             axisStyle.lineWidth = axisLineWidth;
             axisStyle.cap = renderer::LineCap::Round;
             axisStyle.join = renderer::LineJoin::Round;
             // NOLINTNEXTLINE(readability-magic-numbers)
-            axisStyle.dashPattern = {0.2F, 0.1F}; // dash/gap lengths in world units
+            axisStyle.dashPattern = {8.0F, 4.0F};
             return renderer->add_line_drawable(lineVertices,
                                                segmentIndices,
                                                colors,
@@ -204,10 +203,10 @@ int main() {
     }};
     const Color pointColor{1.0F, 0.85F, 0.10F, 1.0F};
     for (const auto& [position, label]: pointSpecs) {
-        auto rebuild = [&renderer, position](const Color& c) {
+        auto rebuild = [&renderer, position](const Color& color) {
             // NOLINTNEXTLINE(clang-analyzer-core.CallAndMessage)
             const std::array<float, 3> vertices{position[0], position[1], position[2]};
-            return renderer->add_point_drawable(vertices, c, markerPointSize);
+            return renderer->add_point_drawable(vertices, color);
         };
         const renderer::DrawableHandle handle = rebuild(pointColor);
         scene.push_back({handle, label, pointColor, std::move(rebuild)});
@@ -221,11 +220,11 @@ int main() {
     }};
     const Color spherePointColor{0.10F, 0.85F, 0.95F, 1.0F};
     for (const auto& [position, label]: spherePointSpecs) {
-        auto rebuild = [&renderer, position](const Color& c) {
+        auto rebuild = [&renderer, position](const Color& color) {
             // NOLINTNEXTLINE(clang-analyzer-core.CallAndMessage)
             const std::array<float, 3> center{position[0], position[1], position[2]};
             const std::array<float, 1> radius{markerRadius};
-            return renderer->add_sphere_point_drawable(center, radius, c);
+            return renderer->add_sphere_point_drawable(center, radius, color);
         };
         const renderer::DrawableHandle handle = rebuild(spherePointColor);
         scene.push_back({handle, label, spherePointColor, std::move(rebuild)});

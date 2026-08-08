@@ -217,8 +217,8 @@ int main() {
         renderer::StrokeStyle s;
         s.lineWidth = 8.0F;
         s.cap = renderer::LineCap::Round;
-        s.dashPattern = {0.3F, 0.2F};
-        s.dashSpace = renderer::DashSpace::World;
+        s.dashPattern = {24.0F, 12.0F};
+        s.dashSpace = renderer::DashSpace::Screen;
         antLine = renderer->add_line_drawable(verts, seg2, orange, renderer::LineType::lines(), s);
         row -= kRowSpacing;
     }
@@ -242,7 +242,7 @@ int main() {
         }
 
         const float elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
-        renderer->set_line_dash_phase(antLine, elapsed * 0.5F);
+        renderer->set_line_dash_phase(antLine, elapsed * 2.5F); // phase in pattern-periods (0.5/sec)
 
         renderer->begin_frame();
         renderer->draw();

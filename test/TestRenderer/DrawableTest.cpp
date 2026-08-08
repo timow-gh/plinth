@@ -91,7 +91,7 @@ opengl::PointDrawable make_point_drawable_with_alpha(opengl::PointProgram& progr
 }
 
 opengl::LineDrawable
-make_line_drawable_with_alpha(opengl::LineProgram& program, const std::vector<float>& colors, float pointSize) {
+make_line_drawable_with_alpha(opengl::LineProgram& program, const std::vector<float>& colors) {
     const std::vector<float> vertices = {
         0.0F,
         0.0F,
@@ -116,7 +116,6 @@ make_line_drawable_with_alpha(opengl::LineProgram& program, const std::vector<fl
                                                                               4,
                                                                               opengl::LineType::lines(),
                                                                               2.0F,
-                                                                              pointSize,
                                                                               opengl::BufferAccessPattern::Static);
     EXPECT_TRUE(drawable.has_value());
     return std::move(drawable.value());
@@ -273,7 +272,7 @@ TEST_F(OpenGLDrawableTest, LineDrawableUpdatesDrawsWithoutPointPassAndMoveAssign
         0.0F,
         0.5F,
     };
-    opengl::LineDrawable drawable = make_line_drawable_with_alpha(program, mixedColors, 0.0F);
+    opengl::LineDrawable drawable = make_line_drawable_with_alpha(program, mixedColors);
     EXPECT_TRUE(drawable.has_opaque_primitives());
     EXPECT_TRUE(drawable.has_translucent_primitives());
 
@@ -325,7 +324,7 @@ TEST_F(OpenGLDrawableTest, LineDrawableUpdatesDrawsWithoutPointPassAndMoveAssign
     drawable.draw(matrix(), linal::hmatf::identity(), viewport());
     drawable.draw_translucent(matrix(), linal::hmatf::identity(), viewport(), linal::double3{0.0, 0.0, 2.0});
 
-    opengl::LineDrawable destination = make_line_drawable_with_alpha(program, opaqueColors, 0.0F);
+    opengl::LineDrawable destination = make_line_drawable_with_alpha(program, opaqueColors);
     destination = std::move(drawable);
     EXPECT_TRUE(destination.has_translucent_primitives());
 }
@@ -491,7 +490,6 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerUpdatesClearsAndDrawsTransparentPoint
                                                              lineColors,
                                                              opengl::LineType::lines(),
                                                              2.0F,
-                                                             1.0F,
                                                              opengl::BufferAccessPattern::Static);
     ASSERT_TRUE(removedLineIdOpt.has_value());
     const opengl::DrawablesManager::DrawableId removedLineId = *removedLineIdOpt;
@@ -500,7 +498,6 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerUpdatesClearsAndDrawsTransparentPoint
                                                           lineColors,
                                                           opengl::LineType::lines(),
                                                           2.0F,
-                                                          1.0F,
                                                           opengl::BufferAccessPattern::Static);
     ASSERT_TRUE(lastLineIdOpt.has_value());
     const opengl::DrawablesManager::DrawableId lastLineId = *lastLineIdOpt;
@@ -638,7 +635,7 @@ TEST_F(OpenGLDrawableTest, LineDrawableExposesVertexPositions) {
         0.0F,
         1.0F,
     };
-    opengl::LineDrawable drawable = make_line_drawable_with_alpha(program, colors, 0.0F);
+    opengl::LineDrawable drawable = make_line_drawable_with_alpha(program, colors);
 
     const std::span<const float> positions = drawable.get_vertex_positions();
     const std::vector<float> expected = {0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F};
@@ -723,7 +720,6 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerCollectsVertexPositionBuffersAcrossAl
                                         lineColors,
                                         opengl::LineType::lines(),
                                         2.0F,
-                                        1.0F,
                                         opengl::BufferAccessPattern::Static)
                     .has_value());
 
@@ -795,7 +791,7 @@ TEST_F(OpenGLDrawableTest, PointAndLineDrawableDrawWithNonIdentityModelMatrix) {
     };
 
     opengl::PointDrawable pointDrawable = make_point_drawable_with_alpha(pointProgram, pointColors);
-    opengl::LineDrawable lineDrawable = make_line_drawable_with_alpha(lineProgram, lineColors, 0.0F);
+    opengl::LineDrawable lineDrawable = make_line_drawable_with_alpha(lineProgram, lineColors);
 
     const linal::hmatf translation = make_translation(1.0F, 2.0F, 3.0F);
 
@@ -916,7 +912,6 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerTransformAccessorsRoundTripAndRejectU
                                                       lineColors,
                                                       opengl::LineType::lines(),
                                                       2.0F,
-                                                      1.0F,
                                                       opengl::BufferAccessPattern::Static);
     ASSERT_TRUE(lineIdOpt.has_value());
     const opengl::DrawablesManager::DrawableId lineId = *lineIdOpt;

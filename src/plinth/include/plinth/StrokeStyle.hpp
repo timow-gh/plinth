@@ -42,14 +42,15 @@ struct StrokeStyle {
     /// Even indices [0,2,4,...] are dash lengths; odd indices [1,3,5,...] are gap lengths.
     /// Empty vector means solid (no dashing). {dashLen, gapLen} is the common single-pair case.
     std::vector<float> dashPattern{};
-    /// Offsets the start of the pattern along the arc length (marching ants).
+    /// Offsets the start of the pattern, measured in pattern periods (1.0 = one full cycle),
+    /// independent of dashSpace. Animate over time for marching ants.
     float dashPhase{0.0F};
-    DashSpace dashSpace{DashSpace::World};
+    DashSpace dashSpace{DashSpace::Screen};
 };
 
 /// Convenience factory: single dash+gap pair.
 [[nodiscard]] inline StrokeStyle
-make_dashed_stroke(float lineWidth, float dashLength, float gapLength, DashSpace space = DashSpace::World) {
+make_dashed_stroke(float lineWidth, float dashLength, float gapLength, DashSpace space = DashSpace::Screen) {
     return StrokeStyle{lineWidth, LineCap::Butt, LineJoin::Miter, 4.0F, {dashLength, gapLength}, 0.0F, space};
 }
 

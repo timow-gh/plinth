@@ -37,7 +37,6 @@ class OPENGL_EXPORT LineDrawable {
     InstanceBuffer m_translucentInstanceBuffer;
     float m_lineThickness{1.0F};
     LineType m_lineType{};
-    float m_pointSize{1.0F};
     std::int32_t m_vertexDimension{0};
     std::int32_t m_colorDimension{0};
     LineCap m_cap{LineCap::Butt};
@@ -62,7 +61,6 @@ class OPENGL_EXPORT LineDrawable {
                  InstanceBuffer opaqueInstanceBuffer,
                  InstanceBuffer translucentInstanceBuffer,
                  float lineThickness,
-                 float pointSize = 0.0F,
                  LineType lineType = LineType::lines(),
                  DrawableTransparencyInfo transparencyInfo = {},
                  std::int32_t vertexDimension = 3,
@@ -83,9 +81,6 @@ class OPENGL_EXPORT LineDrawable {
 
     [[nodiscard]] float get_line_thickness() const { return m_lineThickness; }
     void set_line_thickness(float lineThickness) { m_lineThickness = lineThickness; }
-
-    [[nodiscard]] float get_point_size() const { return m_pointSize; }
-    void set_point_size(float pointSize) { m_pointSize = pointSize; }
 
     // Cap and join style controls.
     void set_line_cap(LineCap cap) { m_cap = cap; }
@@ -197,7 +192,6 @@ OPENGL_EXPORT std::optional<LineDrawable> make_line_drawable(LineProgram& progra
                                                              std::int32_t lineColorDimension,
                                                              LineType lineType,
                                                              float lineThickness,
-                                                             float pointThickness,
                                                              opengl::BufferAccessPattern accessPattern,
                                                              LineCap cap = LineCap::Butt,
                                                              LineJoin join = LineJoin::Miter,

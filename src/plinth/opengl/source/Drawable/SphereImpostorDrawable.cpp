@@ -62,7 +62,8 @@ SphereImpostorDrawable::SphereImpostorDrawable(SphereImpostorDrawable&& other) n
     , m_translucentInstanceBuffer{std::move(other.m_translucentInstanceBuffer)}
     , m_transparencyInfo{other.m_transparencyInfo}
     , m_translucentSpheres{std::move(other.m_translucentSpheres)}
-    , m_centers{std::move(other.m_centers)} {
+    , m_centers{std::move(other.m_centers)}
+    , m_sizeSpace{other.m_sizeSpace} {
     other.m_program = nullptr;
 }
 
@@ -75,6 +76,7 @@ SphereImpostorDrawable& SphereImpostorDrawable::operator=(SphereImpostorDrawable
         m_transparencyInfo = other.m_transparencyInfo;
         m_translucentSpheres = std::move(other.m_translucentSpheres);
         m_centers = std::move(other.m_centers);
+        m_sizeSpace = other.m_sizeSpace;
         other.m_program = nullptr;
     }
     return *this;
@@ -112,6 +114,7 @@ void SphereImpostorDrawable::set_common_uniforms(const linal::hmatf& viewMatrix,
                        inverseProjectionMatrix.data());
     glUniform2f(m_program->get_viewport_size_location().get_value(), viewportSize[0], viewportSize[1]);
     glUniform1i(m_program->get_zero_to_one_depth_location().get_value(), zeroToOneDepth ? 1 : 0);
+    glUniform1i(m_program->get_size_space_location().get_value(), static_cast<GLint>(m_sizeSpace));
 
     glUniform3f(m_program->get_light_pos_location().get_value(),
                 lightPositionView[0],
@@ -288,6 +291,7 @@ void SphereImpostorDrawable::draw_pick(const linal::hmatf& viewMatrix,
                        inverseProjectionMatrix.data());
     glUniform2f(m_program->get_viewport_size_location().get_value(), viewportSize[0], viewportSize[1]);
     glUniform1i(m_program->get_zero_to_one_depth_location().get_value(), zeroToOneDepth ? 1 : 0);
+    glUniform1i(m_program->get_size_space_location().get_value(), static_cast<GLint>(m_sizeSpace));
 
     // Lighting uniforms must be set even in pick mode (they're queried by location at compile time).
     glUniform3f(m_program->get_light_pos_location().get_value(), 0.0F, 0.0F, 0.0F);

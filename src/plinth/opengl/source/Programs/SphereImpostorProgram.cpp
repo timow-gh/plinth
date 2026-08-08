@@ -20,6 +20,7 @@ SphereImpostorProgram::SphereImpostorProgram(ProgramHandle program,
                                              Uniform invProjectionLocation,
                                              Uniform viewportSizeLocation,
                                              Uniform zeroToOneDepthLocation,
+                                             Uniform sizeSpaceLocation,
                                              Uniform lightPosLocation,
                                              Uniform lightColorLocation,
                                              Uniform fillLightDirectionLocation,
@@ -43,6 +44,7 @@ SphereImpostorProgram::SphereImpostorProgram(ProgramHandle program,
     , m_invProjectionLocation{invProjectionLocation}
     , m_viewportSizeLocation{viewportSizeLocation}
     , m_zeroToOneDepthLocation{zeroToOneDepthLocation}
+    , m_sizeSpaceLocation{sizeSpaceLocation}
     , m_lightPosLocation{lightPosLocation}
     , m_lightColorLocation{lightColorLocation}
     , m_fillLightDirectionLocation{fillLightDirectionLocation}
@@ -66,6 +68,7 @@ SphereImpostorProgram::SphereImpostorProgram(ProgramHandle program,
     RENDERER_ASSERT(invProjectionLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(viewportSizeLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(zeroToOneDepthLocation.get_location().get_value() != -1);
+    RENDERER_ASSERT(sizeSpaceLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(lightPosLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(lightColorLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(fillLightDirectionLocation.get_location().get_value() != -1);
@@ -110,6 +113,7 @@ SphereImpostorProgram make_sphere_impostor_program() {
     Uniform invProjectionLocation = make_uniform("u_invProjection", id);
     Uniform viewportSizeLocation = make_uniform("u_viewportSize", id);
     Uniform zeroToOneDepthLocation = make_uniform("u_zeroToOneDepth", id);
+    Uniform sizeSpaceLocation = make_uniform("u_sizeSpace", id);
     Uniform lightPosLocation = make_uniform("u_lightPos", id);
     Uniform lightColorLocation = make_uniform("u_lightColor", id);
     Uniform fillLightDirectionLocation = make_uniform("u_fillLightDirection", id);
@@ -135,6 +139,7 @@ SphereImpostorProgram make_sphere_impostor_program() {
                                  invProjectionLocation,
                                  viewportSizeLocation,
                                  zeroToOneDepthLocation,
+                                 sizeSpaceLocation,
                                  lightPosLocation,
                                  lightColorLocation,
                                  fillLightDirectionLocation,

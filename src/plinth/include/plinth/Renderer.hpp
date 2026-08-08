@@ -1,7 +1,6 @@
 #ifndef RENDERER_RENDERER_HPP
 #define RENDERER_RENDERER_HPP
 
-#include "linal/vec.hpp"
 #include "plinth/BufferAccessPattern.hpp"
 #include "plinth/CameraAutoFit.hpp"
 #include "plinth/CameraInteractor.hpp"
@@ -15,10 +14,13 @@
 #include "plinth/LogicalViewportRect.hpp"
 #include "plinth/MeshCullFaceMode.hpp"
 #include "plinth/PostProcessingEnums.hpp"
+#include "plinth/SphereStyle.hpp"
 #include "plinth/StrokeStyle.hpp"
 #include "plinth/Texture.hpp"
 #include "plinth/WindowSettings.hpp"
 #include "plinth/loader/MeshData.hpp"
+
+#include <linal/vec.hpp>
 
 #include <array>
 #include <chrono>
@@ -140,7 +142,6 @@ class Renderer {
                                      std::span<const float> colors,
                                      renderer::LineType lineType,
                                      const renderer::StrokeStyle& style = {},
-                                     float pointSize = 0.0F,
                                      BufferAccessPattern accessPattern = BufferAccessPattern::Static,
                                      std::span<const std::uint8_t> perVertexDashFlags = {});
 
@@ -148,14 +149,12 @@ class Renderer {
                                      std::array<float, 4> color,
                                      renderer::LineType lineType,
                                      const renderer::StrokeStyle& style = {},
-                                     float pointSize = 0.0F,
                                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     DrawableHandle add_line_drawable(std::span<const float> vertices,
                                      std::span<const float> colors,
                                      renderer::LineType lineType,
                                      const renderer::StrokeStyle& style = {},
-                                     float pointSize = 0.0F,
                                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     DrawableHandle add_mesh_drawable(std::span<const float> vertices,
@@ -221,7 +220,8 @@ class Renderer {
     bool set_line_stroke_style(DrawableHandle handle, const renderer::StrokeStyle& style);
 
     /// Dash controls. dashPattern uses SVG stroke-dasharray semantics: alternating on/off lengths.
-    /// Empty pattern = solid. The phase animates "marching ants" when advanced over time.
+    /// Empty pattern = solid. The phase animates "marching ants" when advanced over time; it is
+    /// measured in pattern periods (1.0 = one full cycle), independent of DashSpace.
     bool set_line_dash_pattern(DrawableHandle handle, std::span<const float> pattern);
     bool set_line_dash_phase(DrawableHandle handle, float phase);
     bool set_line_dash_space(DrawableHandle handle, renderer::DashSpace space);
@@ -253,12 +253,18 @@ class Renderer {
     DrawableHandle add_sphere_point_drawable(std::span<const float> centers,
                                              std::span<const float> radii,
                                              std::array<float, 4> color,
+                                             const renderer::SphereStyle& style = {},
                                              BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     DrawableHandle add_sphere_point_drawable(std::span<const float> centers,
                                              std::span<const float> radii,
                                              std::span<const float> colors,
+                                             const renderer::SphereStyle& style = {},
                                              BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
+    /// Selects whether the drawable's sphere radii are measured in world units or pixels.
+    /// Returns false for invalid, foreign, removed, non-sphere, or stale handles.
+    bool set_sphere_point_size_space(DrawableHandle handle, renderer::SphereSizeSpace space);
 
     /// Removes all drawables of the given kind. Handles previously returned for
     /// those drawables become invalid and are rejected by subsequent operations.

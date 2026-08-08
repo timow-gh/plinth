@@ -118,7 +118,7 @@ uniform vec3  u_pickColor;
 #define DASH_PATTERN_MAX 16
 uniform int   u_dashPatternCount;
 uniform float u_dashPattern[DASH_PATTERN_MAX];
-uniform float u_dashPhase;
+uniform float u_dashPhase; // in pattern-periods; 0..1 covers one full cycle (space-independent)
 uniform int   u_dashSpace;
 
 uniform int   u_capStyle;    // 0 = Butt, 1 = Square, 2 = Round
@@ -141,7 +141,8 @@ void main() {
         }
         period = max(period, 1e-6);
 
-        float pos = mod(v_arcLen - u_dashPhase, period);
+        // dashPhase is in pattern-periods (space-independent); scale to arc units by period.
+        float pos = mod(v_arcLen - u_dashPhase * period, period);
         if (pos < 0.0) pos += period;
 
         float acc  = 0.0;
@@ -365,6 +366,7 @@ uniform mat4 u_model;
 uniform mat4 u_view;
 uniform mat4 u_projection;
 uniform vec2 u_viewportSize;
+uniform int  u_sizeSpace; // 0 = World (radius in world units), 1 = Screen (radius in pixels)
 
 out vec4  v_color;
 out vec3  v_sphereCenterLocal;
@@ -399,7 +401,25 @@ void main() {
     float infinityNorm = max(absoluteLinear[0].x + absoluteLinear[1].x + absoluteLinear[2].x,
                              max(absoluteLinear[0].y + absoluteLinear[1].y + absoluteLinear[2].y,
                                  absoluteLinear[0].z + absoluteLinear[1].z + absoluteLinear[2].z));
-    float viewRadius = abs(radius) * sqrt(oneNorm * infinityNorm);
+    float modelViewScale = sqrt(oneNorm * infinityNorm);
+
+    // Screen mode: a_sphere.w is a pixel radius. Solve for the local radius whose projected
+    // silhouette spans that many pixels, so the fragment shader (which intersects a local sphere
+    // of v_radius) and this proxy stay consistent. The projection maps a view-space radius r to a
+    // half-NDC extent of projScaleY*r for orthographic, and ~projScaleY*r/|z| for perspective;
+    // NDC spans 2 units across the viewport height, hence the 2/height pixel basis. Model-view
+    // scale is divided out so the local radius reproduces the requested pixels under any transform.
+    if (u_sizeSpace == 1) {
+        float desiredNdcHalf = abs(radius) * (2.0 / u_viewportSize.y);
+        bool  orthographicSize = abs(u_projection[3][3]) > 0.5;
+        float projScaleY = max(abs(u_projection[1][1]), 1e-6);
+        float viewZ = max(abs(centerView.z), 1e-4);
+        float targetViewRadius = orthographicSize ? (desiredNdcHalf / projScaleY)
+                                                  : (desiredNdcHalf * viewZ / projScaleY);
+        radius = targetViewRadius / max(modelViewScale, 1e-6);
+    }
+
+    float viewRadius = abs(radius) * modelViewScale;
 
     // Compute a conservative axis-aligned screen-space bound for the projected sphere.
     // Projecting center +/- radius at the center depth under-bounds a perspective sphere:

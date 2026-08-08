@@ -172,10 +172,10 @@ int main() {
         const auto& [color, label] = axisSpecs[i];
         const std::array<std::uint32_t, 2> segmentIndices{static_cast<std::uint32_t>(2U * i),
                                                           static_cast<std::uint32_t>((2U * i) + 1U)};
-        auto rebuild = [&renderer, lineVertices, segmentIndices](const Color& color) {
+        auto rebuild = [&renderer, lineVertices, segmentIndices](const Color& drawColor) {
             const std::array<float, 24> colors{
-                color[0], color[1], color[2], color[3], color[0], color[1], color[2], color[3], color[0], color[1], color[2], color[3],
-                color[0], color[1], color[2], color[3], color[0], color[1], color[2], color[3], color[0], color[1], color[2], color[3],
+                drawColor[0], drawColor[1], drawColor[2], drawColor[3], drawColor[0], drawColor[1], drawColor[2], drawColor[3], drawColor[0], drawColor[1], drawColor[2], drawColor[3],
+                drawColor[0], drawColor[1], drawColor[2], drawColor[3], drawColor[0], drawColor[1], drawColor[2], drawColor[3], drawColor[0], drawColor[1], drawColor[2], drawColor[3],
             };
             renderer::StrokeStyle axisStyle;
             axisStyle.lineWidth = axisLineWidth;

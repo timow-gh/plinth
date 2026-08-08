@@ -14,30 +14,12 @@ class LineType {
     LineType()
         : m_type(Type::Lines) {}
 
-    [[nodiscard]]
-    static LineType lines() {
-        return LineType(Type::Lines);
-    }
-    [[nodiscard]]
-    static LineType line_strip() {
-        return LineType(Type::LineStrip);
-    }
-    [[nodiscard]]
-    static LineType line_loop() {
-        return LineType(Type::LineLoop);
-    }
-    [[nodiscard]]
-    bool is_lines() const {
-        return m_type == Type::Lines;
-    }
-    [[nodiscard]]
-    bool is_line_strip() const {
-        return m_type == Type::LineStrip;
-    }
-    [[nodiscard]]
-    bool is_line_loop() const {
-        return m_type == Type::LineLoop;
-    }
+    [[nodiscard]] static LineType lines() { return LineType(Type::Lines); }
+    [[nodiscard]] static LineType line_strip() { return LineType(Type::LineStrip); }
+    [[nodiscard]] static LineType line_loop() { return LineType(Type::LineLoop); }
+    [[nodiscard]] bool is_lines() const { return m_type == Type::Lines; }
+    [[nodiscard]] bool is_line_strip() const { return m_type == Type::LineStrip; }
+    [[nodiscard]] bool is_line_loop() const { return m_type == Type::LineLoop; }
 
   private:
     LineType(Type type)

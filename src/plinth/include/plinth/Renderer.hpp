@@ -19,6 +19,7 @@
 #include "plinth/Texture.hpp"
 #include "plinth/WindowSettings.hpp"
 #include "plinth/loader/MeshData.hpp"
+
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -51,8 +52,7 @@ struct DrawableHandle {
     /// renderer-specific; invalid, foreign, removed, and stale handles are rejected.
     std::uint64_t rendererInstance{0U};
 
-    [[nodiscard]]
-    constexpr bool is_valid() const {
+    [[nodiscard]] constexpr bool is_valid() const {
         return kind != DrawableKind::invalid && id != 0U && rendererInstance != 0U;
     }
 };
@@ -71,8 +71,7 @@ class CallbackSubscription {
     /// Disconnecting is idempotent. A disconnected callback is skipped even if
     /// dispatch is in progress.
     void disconnect() noexcept;
-    [[nodiscard]]
-    bool is_connected() const noexcept;
+    [[nodiscard]] bool is_connected() const noexcept;
 
   private:
     friend class Renderer;
@@ -98,20 +97,17 @@ class Renderer {
     /// Only one live Renderer is supported at a time. A second call to create()
     /// while another Renderer is alive returns nullptr. A new instance may be
     /// created after the previous owner is destroyed.
-    [[nodiscard]]
-    static std::unique_ptr<Renderer> create(const WindowSettings& settings);
+    [[nodiscard]] static std::unique_ptr<Renderer> create(const WindowSettings& settings);
     /// Computes the scene viewport layout from window and framebuffer dimensions.
     /// The given logical rect (in window coordinates) defines the area the scene
     /// occupies; the framebuffer viewport is that rect mapped to pixel coordinates.
-    [[nodiscard]]
-    static SceneViewport calculate_scene_viewport(std::pair<int, int> windowSize,
-                                                  std::pair<int, int> framebufferSize,
-                                                  const LogicalViewportRect& logicalRect);
+    [[nodiscard]] static SceneViewport calculate_scene_viewport(std::pair<int, int> windowSize,
+                                                                std::pair<int, int> framebufferSize,
+                                                                const LogicalViewportRect& logicalRect);
     /// Converts window cursor coordinates to the scene framebuffer coordinate
     /// system. Returns std::nullopt when the position lies outside the scene
     /// logical viewport.
-    [[nodiscard]]
-    static std::optional<std::pair<double, double>>
+    [[nodiscard]] static std::optional<std::pair<double, double>>
     to_scene_framebuffer_coordinates(const SceneViewport& sceneViewport, double xpos, double ypos);
 
     /// Sets the scene viewport in logical (window) coordinates. Passing std::nullopt (the
@@ -120,10 +116,7 @@ class Renderer {
     /// the next begin_frame().
     void set_scene_viewport(std::optional<LogicalViewportRect> logicalRect);
     /// The scene viewport currently in effect (framebuffer + logical rects).
-    [[nodiscard]]
-    SceneViewport scene_viewport() const {
-        return m_sceneViewport;
-    }
+    [[nodiscard]] SceneViewport scene_viewport() const { return m_sceneViewport; }
 
     DrawableHandle add_point_drawable(std::span<const float> vertices,
                                       std::array<float, 4> color,
@@ -217,8 +210,7 @@ class Renderer {
     /// Transform operations return false (or std::nullopt) for invalid, foreign,
     /// removed, and stale handles; reset restores the identity transform.
     bool set_drawable_transform(DrawableHandle handle, const linal::hmatf& transform);
-    [[nodiscard]]
-    std::optional<linal::hmatf> get_drawable_transform(DrawableHandle handle) const;
+    [[nodiscard]] std::optional<linal::hmatf> get_drawable_transform(DrawableHandle handle) const;
     bool reset_drawable_transform(DrawableHandle handle);
 
     /// Line style controls. Return false for invalid, foreign, removed, non-line, or stale handles.
@@ -258,12 +250,9 @@ class Renderer {
     /// become invalid.
     void clear_drawables();
 
-    [[nodiscard]]
-    bool has_point_drawables() const;
-    [[nodiscard]]
-    bool has_line_drawables() const;
-    [[nodiscard]]
-    bool has_mesh_drawables() const;
+    [[nodiscard]] bool has_point_drawables() const;
+    [[nodiscard]] bool has_line_drawables() const;
+    [[nodiscard]] bool has_mesh_drawables() const;
 
     struct PickRay {
         linal::float3 origin;
@@ -274,11 +263,9 @@ class Renderer {
         PickRay ray;
     };
 
-    [[nodiscard]]
-    std::vector<PickResult> pick_drawables(double xpos, double ypos, double radius) const;
+    [[nodiscard]] std::vector<PickResult> pick_drawables(double xpos, double ypos, double radius) const;
 
-    [[nodiscard]]
-    PickRay compute_pick_ray(double xpos, double ypos) const;
+    [[nodiscard]] PickRay compute_pick_ray(double xpos, double ypos) const;
 
     /// Post-processing controls require finite numeric values. HDR display max
     /// must be positive, fog density must be non-negative, and linear fog needs
@@ -303,66 +290,21 @@ class Renderer {
 
     /// Current post-processing state. These mirror the values applied by the
     /// pipeline and are used by the ImGui overlay to render its controls.
-    [[nodiscard]]
-    float get_exposure_stops() const {
-        return m_exposureStops;
-    }
-    [[nodiscard]]
-    renderer::ToneMapMode get_tone_map_mode() const {
-        return m_toneMapMode;
-    }
-    [[nodiscard]]
-    bool get_fog_enabled() const {
-        return m_fogEnabled;
-    }
-    [[nodiscard]]
-    renderer::FogMode get_fog_mode() const {
-        return m_fogMode;
-    }
-    [[nodiscard]]
-    float get_fog_start() const {
-        return m_fogStart;
-    }
-    [[nodiscard]]
-    float get_fog_end() const {
-        return m_fogEnd;
-    }
-    [[nodiscard]]
-    float get_fog_density() const {
-        return m_fogDensity;
-    }
-    [[nodiscard]]
-    std::array<float, 3> get_fog_color() const {
-        return {m_fogColorR, m_fogColorG, m_fogColorB};
-    }
-    [[nodiscard]]
-    renderer::VisualizationMode get_visualization_mode() const {
-        return m_visualizationMode;
-    }
-    [[nodiscard]]
-    float get_hdr_display_max() const {
-        return m_hdrDisplayMax;
-    }
-    [[nodiscard]]
-    bool get_grayscale() const {
-        return m_grayscale;
-    }
-    [[nodiscard]]
-    bool get_fxaa_enabled() const {
-        return m_fxaaEnabled;
-    }
-    [[nodiscard]]
-    float get_fxaa_edge_threshold() const {
-        return m_fxaaEdgeThreshold;
-    }
-    [[nodiscard]]
-    float get_fxaa_edge_threshold_min() const {
-        return m_fxaaEdgeThresholdMin;
-    }
-    [[nodiscard]]
-    float get_fxaa_subpixel_amount() const {
-        return m_fxaaSubpixelAmount;
-    }
+    [[nodiscard]] float get_exposure_stops() const { return m_exposureStops; }
+    [[nodiscard]] renderer::ToneMapMode get_tone_map_mode() const { return m_toneMapMode; }
+    [[nodiscard]] bool get_fog_enabled() const { return m_fogEnabled; }
+    [[nodiscard]] renderer::FogMode get_fog_mode() const { return m_fogMode; }
+    [[nodiscard]] float get_fog_start() const { return m_fogStart; }
+    [[nodiscard]] float get_fog_end() const { return m_fogEnd; }
+    [[nodiscard]] float get_fog_density() const { return m_fogDensity; }
+    [[nodiscard]] std::array<float, 3> get_fog_color() const { return {m_fogColorR, m_fogColorG, m_fogColorB}; }
+    [[nodiscard]] renderer::VisualizationMode get_visualization_mode() const { return m_visualizationMode; }
+    [[nodiscard]] float get_hdr_display_max() const { return m_hdrDisplayMax; }
+    [[nodiscard]] bool get_grayscale() const { return m_grayscale; }
+    [[nodiscard]] bool get_fxaa_enabled() const { return m_fxaaEnabled; }
+    [[nodiscard]] float get_fxaa_edge_threshold() const { return m_fxaaEdgeThreshold; }
+    [[nodiscard]] float get_fxaa_edge_threshold_min() const { return m_fxaaEdgeThresholdMin; }
+    [[nodiscard]] float get_fxaa_subpixel_amount() const { return m_fxaaSubpixelAmount; }
 
     /// Replaces the active overlay. Passing nullptr removes any overlay (the frame loop and
     /// input routing then run with no UI). The caller may retain a co-owning handle to the
@@ -403,17 +345,13 @@ class Renderer {
     /// Replaces renderer-owned automatic-fit configuration and schedules a
     /// fit. Automatic fitting remains disabled by default for a new Renderer.
     void set_camera_auto_fit_settings(const CameraAutoFitSettings& settings);
-    [[nodiscard]]
-    CameraAutoFitSettings get_camera_auto_fit_settings() const noexcept {
+    [[nodiscard]] CameraAutoFitSettings get_camera_auto_fit_settings() const noexcept {
         return m_cameraAutoFitSettings;
     }
     /// Controls the scene-radius padding used for fitted far clip planes and
     /// schedules a fit. Callers are responsible for providing a valid value.
     void set_camera_far_plane_multiplier(double multiplier);
-    [[nodiscard]]
-    double get_camera_far_plane_multiplier() const noexcept {
-        return m_cameraFarPlaneMultiplier;
-    }
+    [[nodiscard]] double get_camera_far_plane_multiplier() const noexcept { return m_cameraFarPlaneMultiplier; }
     /// Animates the camera to a preset view orientation.
     void go_to_preset_view(PresetView view);
     /// Animates the camera to the home (initial) view.
@@ -433,38 +371,19 @@ class Renderer {
     /// Cursor callbacks receive scene framebuffer coordinates and are suppressed
     /// outside the scene or when ImGui captures the event. Scroll, mouse, and key
     /// callbacks are likewise suppressed while ImGui captures their input.
-    [[nodiscard]]
-    CallbackSubscription add_cursor_pos_callback(CursorPosCB cb);
-    [[nodiscard]]
-    CallbackSubscription add_scroll_callback(ScrollCB cb);
-    [[nodiscard]]
-    CallbackSubscription add_mouse_button_callback(MouseBtnCB cb);
-    [[nodiscard]]
-    CallbackSubscription add_key_callback(KeyCB cb);
+    [[nodiscard]] CallbackSubscription add_cursor_pos_callback(CursorPosCB cb);
+    [[nodiscard]] CallbackSubscription add_scroll_callback(ScrollCB cb);
+    [[nodiscard]] CallbackSubscription add_mouse_button_callback(MouseBtnCB cb);
+    [[nodiscard]] CallbackSubscription add_key_callback(KeyCB cb);
 
     // --- Accessors ---
-    [[nodiscard]] [[nodiscard]]
-    const GlfwWindow& window() const {
-        return m_window;
-    }
-    [[nodiscard]]
-    std::weak_ptr<CameraInteractor> get_camera() {
-        return m_camera;
-    }
-    [[nodiscard]]
-    std::weak_ptr<const CameraInteractor> get_camera() const {
-        return m_camera;
-    }
-    [[nodiscard]]
-    bool is_auto_fit_enabled() const noexcept {
-        return m_cameraAutoFitSettings.enabled;
-    }
+    [[nodiscard]] [[nodiscard]] const GlfwWindow& window() const { return m_window; }
+    [[nodiscard]] std::weak_ptr<CameraInteractor> get_camera() { return m_camera; }
+    [[nodiscard]] std::weak_ptr<const CameraInteractor> get_camera() const { return m_camera; }
+    [[nodiscard]] bool is_auto_fit_enabled() const noexcept { return m_cameraAutoFitSettings.enabled; }
     /// True when GL_ARB_clip_control or OpenGL 4.5 support allowed the renderer
     /// to select a floating-point reversed-Z pipeline.
-    [[nodiscard]]
-    bool uses_reversed_depth() const noexcept {
-        return m_reversedDepth;
-    }
+    [[nodiscard]] bool uses_reversed_depth() const noexcept { return m_reversedDepth; }
     static constexpr renderer::ClearColor defaultClearColor{0.05F, 0.05F, 0.05F, 1.0F};
 
   private:
@@ -489,15 +408,13 @@ class Renderer {
     void on_cursor_pos(double xpos, double ypos);
     void on_scroll(double xoff, double yoff);
     void on_mouse_button(int button, Action action, Mods mods);
-    [[nodiscard]]
-    std::optional<std::pair<double, double>> current_scene_framebuffer_coordinates() const;
+    [[nodiscard]] std::optional<std::pair<double, double>> current_scene_framebuffer_coordinates() const;
 
-    [[nodiscard]]
-    CameraAutoFitResult compute_fit_destination(const linal::double3& direction,
-                                                const linal::double3& up,
-                                                const linal::double3& targetHint,
-                                                double currentDistance,
-                                                bool suppressZoomIn = false) const;
+    [[nodiscard]] CameraAutoFitResult compute_fit_destination(const linal::double3& direction,
+                                                              const linal::double3& up,
+                                                              const linal::double3& targetHint,
+                                                              double currentDistance,
+                                                              bool suppressZoomIn = false) const;
     void maybe_update_auto_fit(std::chrono::steady_clock::time_point now);
     void apply_fit_result(const CameraAutoFitResult& result);
     // Refits near/far clip planes to the current geometry at the camera's

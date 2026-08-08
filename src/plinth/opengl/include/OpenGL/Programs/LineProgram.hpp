@@ -7,6 +7,7 @@
 #include "OpenGL/Uniform.hpp"
 #include "OpenGL/opengl_export.h"
 #include "plinth/Assert.hpp"
+
 #include <utility>
 
 namespace opengl {
@@ -64,9 +65,7 @@ class OPENGL_EXPORT LineProgram {
 
     LineProgram(const LineProgram&) = delete;
     LineProgram& operator=(const LineProgram&) = delete;
-    LineProgram(LineProgram&& other) noexcept {
-        move_from(std::move(other));
-    }
+    LineProgram(LineProgram&& other) noexcept { move_from(std::move(other)); }
     LineProgram& operator=(LineProgram&& other) noexcept {
         if (this != &other) {
             move_from(std::move(other));
@@ -75,87 +74,33 @@ class OPENGL_EXPORT LineProgram {
     }
     ~LineProgram() = default;
 
-    [[nodiscard]]
-    bool is_valid() const noexcept {
-        return m_program.is_valid();
-    }
+    [[nodiscard]] bool is_valid() const noexcept { return m_program.is_valid(); }
 
-    [[nodiscard]]
-    constexpr Location get_view_projection_location() const {
+    [[nodiscard]] constexpr Location get_view_projection_location() const {
         return m_viewProjectionLocation.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_model_matrix_location() const {
-        return m_modelMatrixLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_viewport_size_location() const {
+    [[nodiscard]] constexpr Location get_model_matrix_location() const { return m_modelMatrixLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_viewport_size_location() const {
         return m_viewportSizeLocation.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_line_width_location() const {
-        return m_lineWidthLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_dash_space_location() const {
-        return m_dashSpaceLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_dash_phase_location() const {
-        return m_dashPhaseLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_pick_mode_location() const {
-        return m_pickModeLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_pick_color_location() const {
-        return m_pickColorLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_corner_location() const {
-        return m_cornerLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_p0_location() const {
-        return m_p0Location.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_p1_location() const {
-        return m_p1Location.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_color0_location() const {
-        return m_color0Location.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_color1_location() const {
-        return m_color1Location.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_p_prev_location() const {
-        return m_pPrevLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_p_next_location() const {
-        return m_pNextLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_cap_style_location() const {
-        return m_capStyleLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_join_style_location() const {
-        return m_joinStyleLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_dash_pattern_count_location() const {
+    [[nodiscard]] constexpr Location get_line_width_location() const { return m_lineWidthLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_dash_space_location() const { return m_dashSpaceLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_dash_phase_location() const { return m_dashPhaseLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_pick_mode_location() const { return m_pickModeLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_pick_color_location() const { return m_pickColorLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_corner_location() const { return m_cornerLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_p0_location() const { return m_p0Location.get_location(); }
+    [[nodiscard]] constexpr Location get_p1_location() const { return m_p1Location.get_location(); }
+    [[nodiscard]] constexpr Location get_color0_location() const { return m_color0Location.get_location(); }
+    [[nodiscard]] constexpr Location get_color1_location() const { return m_color1Location.get_location(); }
+    [[nodiscard]] constexpr Location get_p_prev_location() const { return m_pPrevLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_p_next_location() const { return m_pNextLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_cap_style_location() const { return m_capStyleLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_join_style_location() const { return m_joinStyleLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_dash_pattern_count_location() const {
         return m_dashPatternCountLocation.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_dash_pattern_location() const {
-        return m_dashPatternLocation.get_location();
-    }
+    [[nodiscard]] constexpr Location get_dash_pattern_location() const { return m_dashPatternLocation.get_location(); }
 
     void use() const;
 

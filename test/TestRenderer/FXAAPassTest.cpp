@@ -1,7 +1,9 @@
-#include <GLFW/glfw3.h>
-#include "OpenGL/Framebuffer.hpp"
 #include "OpenGL/FXAAPass.hpp"
+
+#include "OpenGL/Framebuffer.hpp"
 #include "OpenGL/OpenGL.hpp"
+
+#include <GLFW/glfw3.h>
 #include <array>
 #include <cmath>
 #include <gtest/gtest.h>

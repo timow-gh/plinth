@@ -1,15 +1,16 @@
-#include <GLFW/glfw3.h>
 #include "OpenGL/Drawable/DrawablesManager.hpp"
 #include "OpenGL/Framebuffer.hpp"
 #include "OpenGL/OpenGL.hpp"
-#include <array>
-#include <cmath>
-#include <cstdint>
-#include <gtest/gtest.h>
 #include "plinth/LightingConfig.hpp"
 #include "plinth/Renderer.hpp"
 #include "plinth/Texture.hpp"
 #include "plinth/WindowSettings.hpp"
+
+#include <GLFW/glfw3.h>
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include <gtest/gtest.h>
 
 namespace {
 
@@ -51,8 +52,8 @@ constexpr std::array<float, 9> triangleNormals{0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0
 // Offset coordinates so the interior pixel at (16, 16) samples the red texel center (0.25, 0.25).
 constexpr std::array<float, 6> triangleUvs{0.125F, 0.125F, 0.625F, 0.125F, 0.125F, 0.625F};
 constexpr std::array<std::uint32_t, 3> triangleIndices{0U, 1U, 2U};
-constexpr std::array<std::uint8_t, 16> texturePixels{
-    255U, 0U, 0U, 17U, 0U, 255U, 0U, 34U, 0U, 0U, 255U, 51U, 255U, 255U, 0U, 68U};
+constexpr std::array<std::uint8_t, 16>
+    texturePixels{255U, 0U, 0U, 17U, 0U, 255U, 0U, 34U, 0U, 0U, 255U, 51U, 255U, 255U, 0U, 68U};
 
 std::array<float, 12> colors_with_alpha(float alpha) {
     return {1.0F, 1.0F, 1.0F, alpha, 1.0F, 1.0F, 1.0F, alpha, 1.0F, 1.0F, 1.0F, alpha};
@@ -63,11 +64,18 @@ TEST_F(TexturedMeshTest, SamplesTextureRgbAndPreservesVertexAlpha) {
     ASSERT_TRUE(framebuffer.has_value());
     auto manager = opengl::DrawablesManager::create();
     ASSERT_NE(nullptr, manager);
-    const auto textureId = manager->create_texture_2d({2U, 2U, texturePixels, renderer::TextureColorSpace::linear}, 64, 1);
+    const auto textureId =
+        manager->create_texture_2d({2U, 2U, texturePixels, renderer::TextureColorSpace::linear}, 64, 1);
     ASSERT_TRUE(textureId.has_value());
-    const auto meshId = manager->add_textured_mesh_drawable(triangleVertices, 3, triangleNormals, triangleUvs,
-                                                            colors_with_alpha(0.5F), 4, triangleIndices, *textureId,
-                                                             opengl::BufferAccessPattern::Static);
+    const auto meshId = manager->add_textured_mesh_drawable(triangleVertices,
+                                                            3,
+                                                            triangleNormals,
+                                                            triangleUvs,
+                                                            colors_with_alpha(0.5F),
+                                                            4,
+                                                            triangleIndices,
+                                                            *textureId,
+                                                            opengl::BufferAccessPattern::Static);
     ASSERT_TRUE(meshId.has_value());
 
     framebuffer->bind();
@@ -103,12 +111,18 @@ TEST_F(TexturedMeshTest, PublicApiRejectsInvalidTexturesAndRetainsTexturesUsedBy
     ASSERT_NE(nullptr, renderer);
 
     const auto colors = colors_with_alpha(1.0F);
-    EXPECT_FALSE(renderer->add_textured_mesh_drawable(triangleVertices, triangleNormals, triangleUvs, colors,
-                                                       triangleIndices, {}).is_valid());
+    EXPECT_FALSE(
+        renderer
+            ->add_textured_mesh_drawable(triangleVertices, triangleNormals, triangleUvs, colors, triangleIndices, {})
+            .is_valid());
     const auto texture = renderer->create_texture_2d({2U, 2U, texturePixels, renderer::TextureColorSpace::linear});
     ASSERT_TRUE(texture.is_valid());
-    const auto mesh = renderer->add_textured_mesh_drawable(triangleVertices, triangleNormals, triangleUvs, colors,
-                                                            triangleIndices, texture);
+    const auto mesh = renderer->add_textured_mesh_drawable(triangleVertices,
+                                                           triangleNormals,
+                                                           triangleUvs,
+                                                           colors,
+                                                           triangleIndices,
+                                                           texture);
     ASSERT_TRUE(mesh.is_valid());
     EXPECT_FALSE(renderer->remove_texture(texture));
     EXPECT_TRUE(renderer->remove_drawable(mesh));

@@ -2,8 +2,10 @@
 #define RENDERER_CAMERAAUTOFIT_HPP
 
 #include "plinth/CameraProjectionType.hpp"
-#include <chrono>
+
 #include <linal/linal.hpp>
+
+#include <chrono>
 #include <span>
 
 namespace renderer {
@@ -49,9 +51,9 @@ struct CameraAutoFitResult {
     linal::double3 vertical{0.0, 0.0, 1.0};
 };
 
-[[nodiscard]]
-CameraAutoFitResult calculate_camera_auto_fit(std::span<const std::span<const float>> vertexPositionBuffers,
-                                              const CameraAutoFitInput& input);
+[[nodiscard]] CameraAutoFitResult
+calculate_camera_auto_fit(std::span<const std::span<const float>> vertexPositionBuffers,
+                          const CameraAutoFitInput& input);
 
 /// Fitted near/far clip planes for a fixed camera pose. Unlike
 /// calculate_camera_auto_fit this never proposes camera movement: it brackets
@@ -67,9 +69,8 @@ struct CameraClipPlanes {
     double farPlane{0.0};
 };
 
-[[nodiscard]]
-CameraClipPlanes calculate_clip_planes(std::span<const std::span<const float>> vertexPositionBuffers,
-                                       const CameraAutoFitInput& input);
+[[nodiscard]] CameraClipPlanes calculate_clip_planes(std::span<const std::span<const float>> vertexPositionBuffers,
+                                                     const CameraAutoFitInput& input);
 
 } // namespace renderer
 

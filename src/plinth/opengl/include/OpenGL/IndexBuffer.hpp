@@ -6,6 +6,7 @@
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/opengl_export.h"
 #include "plinth/Warnings.hpp"
+
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -33,13 +34,9 @@ class OPENGL_EXPORT IndexBuffer {
 
     static std::optional<IndexBuffer> create(std::span<const std::uint32_t> indices, BufferAccessPattern accessPattern);
 
-    [[nodiscard]]
-    const BufferId& get_buffer_id() const;
+    [[nodiscard]] const BufferId& get_buffer_id() const;
 
-    [[nodiscard]]
-    GLsizei get_index_count() const {
-        return m_indexCount;
-    }
+    [[nodiscard]] GLsizei get_index_count() const { return m_indexCount; }
     void set_index_count(GLsizei indexCount) { m_indexCount = indexCount; }
 
     void bind() const;

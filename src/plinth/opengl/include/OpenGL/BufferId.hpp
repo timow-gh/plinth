@@ -1,8 +1,8 @@
 #ifndef OPENGL_BUFFERID_HPP
 #define OPENGL_BUFFERID_HPP
 
-#include "OpenGL/opengl_export.h"
 #include "OpenGL/UnsignedIntId.hpp"
+#include "OpenGL/opengl_export.h"
 
 namespace opengl {
 

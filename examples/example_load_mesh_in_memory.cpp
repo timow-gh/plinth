@@ -1,6 +1,7 @@
 #include "plinth/Renderer.hpp"
 #include "plinth/WindowSettings.hpp"
 #include "plinth/loader/MeshLoader.hpp"
+
 #include <array>
 #include <cstdint>
 #include <iostream>

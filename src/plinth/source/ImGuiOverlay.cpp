@@ -1,7 +1,9 @@
 #include "plinth/ImGuiOverlay.hpp"
+
 #include "plinth/Assert.hpp"
 #include "plinth/Renderer.hpp"
 #include "plinth/Warnings.hpp"
+
 #include <algorithm>
 #include <array>
 #include <utility>
@@ -232,11 +234,7 @@ void build_exposure_control(Renderer& renderer, renderer::VisualizationMode mode
         return;
     }
     float exposureStops = renderer.get_exposure_stops();
-    if (ImGui::SliderFloat("Exposure (stops)",
-                           &exposureStops,
-                           exposureStopsMin,
-                           exposureStopsMax,
-                           "%.1F")) {
+    if (ImGui::SliderFloat("Exposure (stops)", &exposureStops, exposureStopsMin, exposureStopsMax, "%.1F")) {
         renderer.set_exposure_stops(exposureStops);
     }
     ImGui::TextUnformatted("-1 = half, 0 = unchanged, +1 = twice");
@@ -414,11 +412,7 @@ void ImGuiOverlay::add_release_post_processing_controls(Renderer& renderer) {
         }
 
         float exposureStops = renderer.get_exposure_stops();
-        if (ImGui::SliderFloat("Exposure (stops)",
-                               &exposureStops,
-                               exposureStopsMin,
-                               exposureStopsMax,
-                               "%.1F")) {
+        if (ImGui::SliderFloat("Exposure (stops)", &exposureStops, exposureStopsMin, exposureStopsMax, "%.1F")) {
             renderer.set_exposure_stops(exposureStops);
         }
 

@@ -3,6 +3,7 @@
 
 #include "plinth/loader/MeshData.hpp"
 #include "plinth/loader/MeshLoader.hpp"
+
 #include <array>
 #include <expected>
 #include <string_view>
@@ -16,13 +17,9 @@ namespace renderer {
 /// paths are resolved later, by the path-aware loader). Models the
 /// MeshFormatLoader concept.
 struct ObjLoader {
-    [[nodiscard]]
-    static constexpr std::array<std::string_view, 1> extensions() {
-        return {".obj"};
-    }
+    [[nodiscard]] static constexpr std::array<std::string_view, 1> extensions() { return {".obj"}; }
 
-    [[nodiscard]]
-    static std::expected<MeshData, LoadError> parse(std::string_view rawContents);
+    [[nodiscard]] static std::expected<MeshData, LoadError> parse(std::string_view rawContents);
 };
 
 } // namespace renderer

@@ -1,4 +1,5 @@
 #include "plinth/loader/ObjLoader.hpp"
+
 #include <charconv>
 #include <cstdint>
 #include <string_view>
@@ -12,9 +13,9 @@ namespace {
 // A face corner references a position and, optionally, a texture coordinate and
 // a normal by OBJ index.
 struct Corner {
-    int position{0}; // resolved to 0-based; -1 when absent (never valid for a corner)
+    int position{0};  // resolved to 0-based; -1 when absent (never valid for a corner)
     int texcoord{-1}; // resolved to 0-based; -1 when absent
-    int normal{-1};  // resolved to 0-based; -1 when absent
+    int normal{-1};   // resolved to 0-based; -1 when absent
 };
 
 // Key identifying a unique emitted vertex: a (position, texcoord, normal) tuple.
@@ -38,16 +39,14 @@ struct CornerKeyHash {
     }
 };
 
-[[nodiscard]]
-bool is_space(char c) {
+[[nodiscard]] bool is_space(char c) {
     return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' || c == '\v';
 }
 
 // Strips leading and trailing whitespace. Used for directive operands (e.g.
 // mtllib / usemtl names) that may contain interior spaces and so cannot be read
 // as a single whitespace-delimited token.
-[[nodiscard]]
-std::string_view trim(std::string_view text) {
+[[nodiscard]] std::string_view trim(std::string_view text) {
     std::size_t begin = 0;
     while (begin < text.size() && is_space(text[begin])) {
         ++begin;
@@ -61,8 +60,7 @@ std::string_view trim(std::string_view text) {
 
 // Advances past leading whitespace and returns the next whitespace-delimited
 // token, consuming it from \p cursor. Returns an empty view at end of input.
-[[nodiscard]]
-std::string_view next_token(std::string_view& cursor) {
+[[nodiscard]] std::string_view next_token(std::string_view& cursor) {
     std::size_t begin = 0;
     while (begin < cursor.size() && is_space(cursor[begin])) {
         ++begin;
@@ -76,8 +74,7 @@ std::string_view next_token(std::string_view& cursor) {
     return token;
 }
 
-[[nodiscard]]
-bool parse_float(std::string_view token, float& out) {
+[[nodiscard]] bool parse_float(std::string_view token, float& out) {
     const char* first = token.data();
     const char* last = token.data() + token.size();
     const auto [ptr, ec] = std::from_chars(first, last, out);
@@ -87,8 +84,7 @@ bool parse_float(std::string_view token, float& out) {
 // Resolves an OBJ index token to a 0-based index. OBJ indices are 1-based and
 // may be negative (relative to the end of the current list). \p count is the
 // number of elements parsed so far for that attribute.
-[[nodiscard]]
-bool resolve_index(std::string_view token, std::size_t count, int& out) {
+[[nodiscard]] bool resolve_index(std::string_view token, std::size_t count, int& out) {
     long value = 0;
     const char* first = token.data();
     const char* last = token.data() + token.size();
@@ -107,12 +103,11 @@ bool resolve_index(std::string_view token, std::size_t count, int& out) {
 // Parses a single face vertex token of the form "v", "v/vt", "v//vn", or
 // "v/vt/vn" into a Corner. Missing position is a parse error. A present but
 // malformed texture-coordinate or normal index is a parse error.
-[[nodiscard]]
-bool parse_corner(std::string_view token,
-                  std::size_t positionCount,
-                  std::size_t texcoordCount,
-                  std::size_t normalCount,
-                  Corner& out) {
+[[nodiscard]] bool parse_corner(std::string_view token,
+                                std::size_t positionCount,
+                                std::size_t texcoordCount,
+                                std::size_t normalCount,
+                                Corner& out) {
     const std::size_t firstSlash = token.find('/');
     const std::string_view positionTok = token.substr(0, firstSlash);
     if (!resolve_index(positionTok, positionCount, out.position)) {
@@ -138,11 +133,10 @@ bool parse_corner(std::string_view token,
     return resolve_index(normalTok, normalCount, out.normal);
 }
 
-[[nodiscard]]
-std::expected<std::vector<Corner>, LoadError> parse_face_corners(std::string_view cursor,
-                                                                  std::size_t positionCount,
-                                                                  std::size_t texcoordCount,
-                                                                  std::size_t normalCount) {
+[[nodiscard]] std::expected<std::vector<Corner>, LoadError> parse_face_corners(std::string_view cursor,
+                                                                               std::size_t positionCount,
+                                                                               std::size_t texcoordCount,
+                                                                               std::size_t normalCount) {
     std::vector<Corner> face;
     for (std::string_view token = next_token(cursor); !token.empty(); token = next_token(cursor)) {
         Corner corner;
@@ -158,18 +152,19 @@ std::expected<std::vector<Corner>, LoadError> parse_face_corners(std::string_vie
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-[[nodiscard]] std::expected<void, LoadError> process_obj_keyword(std::string_view keyword,
-                                                    std::string_view cursor,
-                                                    std::vector<std::array<float, 3>>& positions,
-                                                    std::vector<std::array<float, 3>>& normals,
-                                                    std::vector<std::array<float, 2>>& texcoords,
-                                                    std::string& materialLibrary,
-                                                    std::string& currentMaterial,
-                                                    MeshData& mesh,
-                                                    std::unordered_map<CornerKey, std::uint32_t, CornerKeyHash>& emitted,
-                                                    bool haveAnyNormals,
-                                                    bool haveAnyTexcoords,
-                                                    bool& haveOpenSubMesh) {
+[[nodiscard]] std::expected<void, LoadError>
+process_obj_keyword(std::string_view keyword,
+                    std::string_view cursor,
+                    std::vector<std::array<float, 3>>& positions,
+                    std::vector<std::array<float, 3>>& normals,
+                    std::vector<std::array<float, 2>>& texcoords,
+                    std::string& materialLibrary,
+                    std::string& currentMaterial,
+                    MeshData& mesh,
+                    std::unordered_map<CornerKey, std::uint32_t, CornerKeyHash>& emitted,
+                    bool haveAnyNormals,
+                    bool haveAnyTexcoords,
+                    bool& haveOpenSubMesh) {
     const auto emitCorner = [&](const Corner& corner) -> std::uint32_t {
         const CornerKey key{corner.position, corner.texcoord, corner.normal};
         if (const auto it = emitted.find(key); it != emitted.end()) {
@@ -212,8 +207,9 @@ std::expected<std::vector<Corner>, LoadError> parse_face_corners(std::string_vie
     };
     const auto openSubMesh = [&] {
         closeSubMesh();
-        mesh.subMeshes.push_back(
-            {.indexOffset = static_cast<std::uint32_t>(mesh.triangleIndices.size()), .indexCount = 0U, .materialName = currentMaterial});
+        mesh.subMeshes.push_back({.indexOffset = static_cast<std::uint32_t>(mesh.triangleIndices.size()),
+                                  .indexCount = 0U,
+                                  .materialName = currentMaterial});
         haveOpenSubMesh = true;
     };
 
@@ -308,9 +304,18 @@ std::expected<MeshData, LoadError> ObjLoader::parse(std::string_view rawContents
             continue;
         }
 
-        auto result = process_obj_keyword(keyword, cursor, positions, normals, texcoords,
-                                          mesh.materialLibrary, currentMaterial, mesh, emitted,
-                                          haveAnyNormals, haveAnyTexcoords, haveOpenSubMesh);
+        auto result = process_obj_keyword(keyword,
+                                          cursor,
+                                          positions,
+                                          normals,
+                                          texcoords,
+                                          mesh.materialLibrary,
+                                          currentMaterial,
+                                          mesh,
+                                          emitted,
+                                          haveAnyNormals,
+                                          haveAnyTexcoords,
+                                          haveOpenSubMesh);
         if (!result) {
             return std::unexpected(result.error());
         }

@@ -8,6 +8,7 @@
 #include "plinth/LightingConfig.hpp"
 #include "plinth/PostProcessingEnums.hpp"
 #include "plinth/UiMode.hpp"
+
 #include <array>
 #include <cstdint>
 #include <functional>
@@ -39,8 +40,7 @@ class ImGuiOverlay final : public IOverlay {
 
     /// Selects the built-in post-processing control surface (Debug vs Release).
     void set_ui_mode(UiMode mode) { m_uiMode = mode; }
-    [[nodiscard]]
-    UiMode ui_mode() const { return m_uiMode; }
+    [[nodiscard]] UiMode ui_mode() const { return m_uiMode; }
 
     void add_control(std::function<void()> controlFunc);
     void add_camera_controls(bool& autoZoomEnabled, CameraProjectionType& projectionType, bool& homeRequested);
@@ -55,18 +55,12 @@ class ImGuiOverlay final : public IOverlay {
     /// Also routes through the renderer's validated set_* methods.
     void add_release_post_processing_controls(Renderer& renderer);
 
-    [[nodiscard]]
-    bool wants_mouse() const override;
-    [[nodiscard]]
-    bool wants_keyboard() const override;
-    [[nodiscard]]
-    bool handle_cursor_position(double xpos, double ypos) override;
-    [[nodiscard]]
-    bool handle_mouse_button(int button, Action action, Mods mods) override;
-    [[nodiscard]]
-    bool handle_scroll(double xoffset, double yoffset) override;
-    [[nodiscard]]
-    bool handle_key(Key key, Scancode scancode, Action action, Mods mods) override;
+    [[nodiscard]] bool wants_mouse() const override;
+    [[nodiscard]] bool wants_keyboard() const override;
+    [[nodiscard]] bool handle_cursor_position(double xpos, double ypos) override;
+    [[nodiscard]] bool handle_mouse_button(int button, Action action, Mods mods) override;
+    [[nodiscard]] bool handle_scroll(double xoffset, double yoffset) override;
+    [[nodiscard]] bool handle_key(Key key, Scancode scancode, Action action, Mods mods) override;
     void handle_char(std::uint32_t codepoint) override;
 
   private:

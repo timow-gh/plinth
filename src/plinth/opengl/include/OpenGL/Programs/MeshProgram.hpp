@@ -91,80 +91,76 @@ class OPENGL_EXPORT MeshProgram {
     }
     ~MeshProgram() = default;
 
-    [[nodiscard]]
-    bool is_valid() const noexcept {
-        return m_program.is_valid();
-    }
+    [[nodiscard]] bool is_valid() const noexcept { return m_program.is_valid(); }
 
-    [[nodiscard]]
-    ProgramId get_id() const;
+    [[nodiscard]] ProgramId get_id() const;
 
-    [[nodiscard]]
-    constexpr Location get_model_matrix_location() const noexcept {
+    [[nodiscard]] constexpr Location get_model_matrix_location() const noexcept {
         return m_input.m_modelMatrix.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_view_matrix_location() const noexcept {
+    [[nodiscard]] constexpr Location get_view_matrix_location() const noexcept {
         return m_input.m_viewMatrix.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_projection_matrix_location() const noexcept {
+    [[nodiscard]] constexpr Location get_projection_matrix_location() const noexcept {
         return m_input.m_projectionMatrix.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_normal_matrix_location() const noexcept {
+    [[nodiscard]] constexpr Location get_normal_matrix_location() const noexcept {
         return m_input.m_normalMatrix.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_pos_location() const noexcept {
-        return m_input.m_posLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_color_location() const noexcept {
+    [[nodiscard]] constexpr Location get_pos_location() const noexcept { return m_input.m_posLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_color_location() const noexcept {
         return m_input.m_colorLocation.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_normal_location() const noexcept {
+    [[nodiscard]] constexpr Location get_normal_location() const noexcept {
         return m_input.m_normalLocation.get_location();
     }
-    [[nodiscard]] constexpr Location get_tex_coord_location() const noexcept { return m_input.m_texCoordLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_tex_coord_location() const noexcept {
+        return m_input.m_texCoordLocation.get_location();
+    }
 
-    [[nodiscard]]
-    constexpr Location get_light_pos_location() const noexcept {
+    [[nodiscard]] constexpr Location get_light_pos_location() const noexcept {
         return m_input.m_lightPos.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_view_pos_location() const noexcept {
-        return m_input.viewPos.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_light_color_location() const noexcept {
+    [[nodiscard]] constexpr Location get_view_pos_location() const noexcept { return m_input.viewPos.get_location(); }
+    [[nodiscard]] constexpr Location get_light_color_location() const noexcept {
         return m_input.lightColor.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_fill_light_direction_location() const noexcept {
+    [[nodiscard]] constexpr Location get_fill_light_direction_location() const noexcept {
         return m_input.fillLightDirection.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_fill_light_color_location() const noexcept {
+    [[nodiscard]] constexpr Location get_fill_light_color_location() const noexcept {
         return m_input.fillLightColor.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_ambient_color_location() const noexcept {
+    [[nodiscard]] constexpr Location get_ambient_color_location() const noexcept {
         return m_input.ambientColor.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_shininess_location() const noexcept {
+    [[nodiscard]] constexpr Location get_shininess_location() const noexcept {
         return m_input.shininess.get_location();
     }
-    [[nodiscard]] constexpr Location get_has_albedo_texture_location() const noexcept { return m_input.hasAlbedoTexture.get_location(); }
-    [[nodiscard]] constexpr Location get_albedo_texture_location() const noexcept { return m_input.albedoTexture.get_location(); }
-    [[nodiscard]] constexpr Location get_light_attenuation_location() const noexcept { return m_input.lightAttenuation.get_location(); }
-    [[nodiscard]] constexpr Location get_material_ambient_location() const noexcept { return m_input.materialAmbient.get_location(); }
-    [[nodiscard]] constexpr Location get_material_diffuse_location() const noexcept { return m_input.materialDiffuse.get_location(); }
-    [[nodiscard]] constexpr Location get_material_specular_location() const noexcept { return m_input.materialSpecular.get_location(); }
-    [[nodiscard]] constexpr Location get_pick_mode_location() const noexcept { return m_input.m_pickMode.get_location(); }
-    [[nodiscard]] constexpr Location get_pick_color_location() const noexcept { return m_input.m_pickColor.get_location(); }
+    [[nodiscard]] constexpr Location get_has_albedo_texture_location() const noexcept {
+        return m_input.hasAlbedoTexture.get_location();
+    }
+    [[nodiscard]] constexpr Location get_albedo_texture_location() const noexcept {
+        return m_input.albedoTexture.get_location();
+    }
+    [[nodiscard]] constexpr Location get_light_attenuation_location() const noexcept {
+        return m_input.lightAttenuation.get_location();
+    }
+    [[nodiscard]] constexpr Location get_material_ambient_location() const noexcept {
+        return m_input.materialAmbient.get_location();
+    }
+    [[nodiscard]] constexpr Location get_material_diffuse_location() const noexcept {
+        return m_input.materialDiffuse.get_location();
+    }
+    [[nodiscard]] constexpr Location get_material_specular_location() const noexcept {
+        return m_input.materialSpecular.get_location();
+    }
+    [[nodiscard]] constexpr Location get_pick_mode_location() const noexcept {
+        return m_input.m_pickMode.get_location();
+    }
+    [[nodiscard]] constexpr Location get_pick_color_location() const noexcept {
+        return m_input.m_pickColor.get_location();
+    }
 
     void use() const;
 };

@@ -3,6 +3,7 @@
 
 #include "plinth/loader/MeshData.hpp"
 #include "plinth/loader/MeshLoader.hpp"
+
 #include <array>
 #include <expected>
 #include <string_view>
@@ -14,13 +15,9 @@ namespace renderer {
 /// sequential indices, and per-facet normals replicated to each vertex. Models
 /// the MeshFormatLoader concept.
 struct StlLoader {
-    [[nodiscard]]
-    static constexpr std::array<std::string_view, 1> extensions() {
-        return {".stl"};
-    }
+    [[nodiscard]] static constexpr std::array<std::string_view, 1> extensions() { return {".stl"}; }
 
-    [[nodiscard]]
-    static std::expected<MeshData, LoadError> parse(std::string_view rawContents);
+    [[nodiscard]] static std::expected<MeshData, LoadError> parse(std::string_view rawContents);
 };
 
 } // namespace renderer

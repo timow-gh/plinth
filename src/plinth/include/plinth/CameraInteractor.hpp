@@ -9,6 +9,7 @@
 #include "plinth/Plane.hpp"
 #include "plinth/RayPlaneIntersection.hpp"
 #include "plinth/Warnings.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -17,8 +18,9 @@ RENDERER_DISABLE_ALL_WARNINGS
 #include <glm/ext/quaternion_double.hpp>
 #include <glm/gtx/quaternion.hpp>
 RENDERER_ENABLE_ALL_WARNINGS
-#include <iostream>
 #include <linal/linal.hpp>
+
+#include <iostream>
 
 namespace renderer {
 
@@ -63,8 +65,7 @@ struct PresetViewDirection {
  *
  * Follows the same Z-up convention as CameraSettings::m_defaultUp.
  */
-[[nodiscard]]
-inline PresetViewDirection preset_view_direction(PresetView view) {
+[[nodiscard]] inline PresetViewDirection preset_view_direction(PresetView view) {
     switch (view) {
     case PresetView::FRONT: return {{0.0, -1.0, 0.0}, {0.0, 0.0, 1.0}};
     case PresetView::BACK:  return {{0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}};
@@ -188,10 +189,7 @@ class CameraInteractor : private CameraSettings {
         update_mvp();
     }
 
-    [[nodiscard]]
-    bool get_was_blocking() const {
-        return m_wasBlocking;
-    }
+    [[nodiscard]] bool get_was_blocking() const { return m_wasBlocking; }
     void reset_was_blocking() { m_wasBlocking = false; }
 
     /** @brief Set the camera position and gaze target.
@@ -205,51 +203,20 @@ class CameraInteractor : private CameraSettings {
         update_mvp();
     }
 
-    [[nodiscard]]
-    linal::double3 get_position() const {
-        return to_linal(m_camera.get_position());
-    }
-    [[nodiscard]]
-    linal::double3 get_target() const {
-        return to_linal(m_camera.get_target());
-    }
-    [[nodiscard]]
-    linal::double3 get_vertical() const {
-        return to_linal(m_camera.get_vertical());
-    }
-    [[nodiscard]]
-    CameraProjectionType get_projection_type() const {
-        return m_projectionType;
-    }
-    [[nodiscard]]
-    double get_fov() const {
-        return m_camera.get_fov();
-    }
-    [[nodiscard]]
-    double get_near_plane() const {
-        return m_camera.get_near_plane();
-    }
-    [[nodiscard]]
-    double get_far_plane() const {
-        return m_camera.get_far_plane();
-    }
-    [[nodiscard]]
-    Camera::OrthographicParams get_orthographic_params() const {
+    [[nodiscard]] linal::double3 get_position() const { return to_linal(m_camera.get_position()); }
+    [[nodiscard]] linal::double3 get_target() const { return to_linal(m_camera.get_target()); }
+    [[nodiscard]] linal::double3 get_vertical() const { return to_linal(m_camera.get_vertical()); }
+    [[nodiscard]] CameraProjectionType get_projection_type() const { return m_projectionType; }
+    [[nodiscard]] double get_fov() const { return m_camera.get_fov(); }
+    [[nodiscard]] double get_near_plane() const { return m_camera.get_near_plane(); }
+    [[nodiscard]] double get_far_plane() const { return m_camera.get_far_plane(); }
+    [[nodiscard]] Camera::OrthographicParams get_orthographic_params() const {
         return m_camera.get_orthographic_params();
     }
 
-    [[nodiscard]]
-    linal::double3 get_default_position() const {
-        return m_defaultPosition;
-    }
-    [[nodiscard]]
-    linal::double3 get_default_target() const {
-        return m_defaultTarget;
-    }
-    [[nodiscard]]
-    linal::double3 get_default_up() const {
-        return m_defaultUp;
-    }
+    [[nodiscard]] linal::double3 get_default_position() const { return m_defaultPosition; }
+    [[nodiscard]] linal::double3 get_default_target() const { return m_defaultTarget; }
+    [[nodiscard]] linal::double3 get_default_up() const { return m_defaultUp; }
 
     void set_zoom_factor(double zoomFactor) {
 
@@ -274,28 +241,16 @@ class CameraInteractor : private CameraSettings {
      *  measure for scroll zoom. When the cursor ray misses this plane (e.g. grazing views that look
      *  along it), zoom falls back to the camera-to-target distance so scrolling still works. */
     void set_ground_plane(const Plane& groundPlane) { m_groundPlane = groundPlane; }
-    [[nodiscard]]
-    const Plane& get_ground_plane() const noexcept {
-        return m_groundPlane;
-    }
+    [[nodiscard]] const Plane& get_ground_plane() const noexcept { return m_groundPlane; }
 
     void set_navigation_style(NavigationStyle style) noexcept { m_navigationStyle = style; }
-    [[nodiscard]]
-    NavigationStyle get_navigation_style() const noexcept {
-        return m_navigationStyle;
-    }
+    [[nodiscard]] NavigationStyle get_navigation_style() const noexcept { return m_navigationStyle; }
     void set_fly_speed(double unitsPerSecond) noexcept { m_flySpeed = unitsPerSecond; }
-    [[nodiscard]]
-    double get_fly_speed() const noexcept {
-        return m_flySpeed;
-    }
+    [[nodiscard]] double get_fly_speed() const noexcept { return m_flySpeed; }
 
     /** @brief Fix (lock) or unlock camera movements for interactive input. See CameraViewMode. */
     void set_view_mode(CameraViewMode viewMode) noexcept { m_viewMode = viewMode; }
-    [[nodiscard]]
-    CameraViewMode get_view_mode() const noexcept {
-        return m_viewMode;
-    }
+    [[nodiscard]] CameraViewMode get_view_mode() const noexcept { return m_viewMode; }
 
     /** @brief Smoothly transition the camera to a named preset view (front/top/iso/...).
      *
@@ -324,10 +279,7 @@ class CameraInteractor : private CameraSettings {
     }
 
     void set_view_transition_duration(double seconds) noexcept { m_transitionDurationSeconds = std::max(0.0, seconds); }
-    [[nodiscard]]
-    bool is_transitioning_view() const noexcept {
-        return m_isTransitioning;
-    }
+    [[nodiscard]] bool is_transitioning_view() const noexcept { return m_isTransitioning; }
 
     void set_viewport(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height) {
         m_camera.set_viewport(x, y, width, height);
@@ -395,8 +347,7 @@ class CameraInteractor : private CameraSettings {
      * @param isKeyPressed Query function returning whether a given key is currently held down.
      */
     void update(double deltaSeconds, const KeyPressQuery& isKeyPressed) {
-        if (m_navigationStyle == NavigationStyle::FLY && deltaSeconds > 0.0 &&
-            !is_fixed(CameraViewMode::FIX_PAN)) {
+        if (m_navigationStyle == NavigationStyle::FLY && deltaSeconds > 0.0 && !is_fixed(CameraViewMode::FIX_PAN)) {
             const linal::double3 cameraPos = to_linal(m_camera.get_position());
             const linal::double3 cameraTarget = to_linal(m_camera.get_target());
             const linal::double3 forward = linal::normalize(cameraTarget - cameraPos);
@@ -686,8 +637,7 @@ class CameraInteractor : private CameraSettings {
         update_mvp();
     }
 
-    [[nodiscard]]
-    PickRay get_pick_ray(double xpos, double ypos) const {
+    [[nodiscard]] PickRay get_pick_ray(double xpos, double ypos) const {
         switch (m_projectionType) {
         case CameraProjectionType::PERSPECTIVE:  return m_camera.create_perspective_ray(xpos, ypos);
         case CameraProjectionType::ORTHOGRAPHIC: return m_camera.create_orthographic_ray(xpos, ypos);
@@ -698,36 +648,17 @@ class CameraInteractor : private CameraSettings {
         }
     }
 
-    [[nodiscard]]
-    const Viewport& get_viewport() const {
-        return m_camera.get_viewport();
-    }
+    [[nodiscard]] const Viewport& get_viewport() const { return m_camera.get_viewport(); }
 
-    [[nodiscard]]
-    linal::hmatf get_model_matrix() const {
-        return to_hmatf(m_camera.get_model_matrix());
-    }
-    [[nodiscard]]
-    linal::hmatf get_view_matrix() const {
-        return to_hmatf(m_camera.get_view_matrix());
-    }
-    [[nodiscard]]
-    linal::hmatf get_projection_matrix() const {
-        return get_projection_matrix_impl();
-    }
-    [[nodiscard]]
-    linal::hmatf get_current_MVP() const {
-        return to_hmatf(m_currentMVP);
-    }
-    [[nodiscard]]
-    linal::hmatf get_normal_matrix() const {
-        return to_hmatf(m_camera.get_normal_matrix());
-    }
+    [[nodiscard]] linal::hmatf get_model_matrix() const { return to_hmatf(m_camera.get_model_matrix()); }
+    [[nodiscard]] linal::hmatf get_view_matrix() const { return to_hmatf(m_camera.get_view_matrix()); }
+    [[nodiscard]] linal::hmatf get_projection_matrix() const { return get_projection_matrix_impl(); }
+    [[nodiscard]] linal::hmatf get_current_MVP() const { return to_hmatf(m_currentMVP); }
+    [[nodiscard]] linal::hmatf get_normal_matrix() const { return to_hmatf(m_camera.get_normal_matrix()); }
 
   private:
     /** @brief Whether the given interactive movement is currently fixed (locked) for user input. */
-    [[nodiscard]]
-    bool is_fixed(CameraViewMode flag) const noexcept {
+    [[nodiscard]] bool is_fixed(CameraViewMode flag) const noexcept {
         return (static_cast<std::uint8_t>(m_viewMode) & static_cast<std::uint8_t>(flag)) != 0U;
     }
 
@@ -763,8 +694,7 @@ class CameraInteractor : private CameraSettings {
         }
     }
 
-    [[nodiscard]]
-    static linal::hmatf to_hmatf(const glm::dmat4& mat) {
+    [[nodiscard]] static linal::hmatf to_hmatf(const glm::dmat4& mat) {
         linal::hmatf result;
         using size_type = linal::hmatf::size_type;
         // glm is column-major (mat[col][row]); linal::hmatf is row-major (result(row,col)).
@@ -778,8 +708,7 @@ class CameraInteractor : private CameraSettings {
         return result;
     }
 
-    [[nodiscard]]
-    linal::hmatf get_projection_matrix_impl() const {
+    [[nodiscard]] linal::hmatf get_projection_matrix_impl() const {
         switch (m_projectionType) {
         case CameraProjectionType::PERSPECTIVE:  return to_hmatf(m_camera.get_perspective_matrix());
         case CameraProjectionType::ORTHOGRAPHIC: return to_hmatf(m_camera.get_ortho_projection_matrix());
@@ -804,16 +733,14 @@ class CameraInteractor : private CameraSettings {
 };
 
 /** @brief Combine camera view-mode flags, e.g. FIX_ROTATE | FIX_ZOOM. */
-[[nodiscard]]
-constexpr CameraInteractor::CameraViewMode operator|(CameraInteractor::CameraViewMode lhs,
-                                                     CameraInteractor::CameraViewMode rhs) noexcept {
+[[nodiscard]] constexpr CameraInteractor::CameraViewMode operator|(CameraInteractor::CameraViewMode lhs,
+                                                                   CameraInteractor::CameraViewMode rhs) noexcept {
     return static_cast<CameraInteractor::CameraViewMode>(static_cast<std::uint8_t>(lhs) |
                                                          static_cast<std::uint8_t>(rhs));
 }
 
-[[nodiscard]]
-constexpr CameraInteractor::CameraViewMode operator&(CameraInteractor::CameraViewMode lhs,
-                                                     CameraInteractor::CameraViewMode rhs) noexcept {
+[[nodiscard]] constexpr CameraInteractor::CameraViewMode operator&(CameraInteractor::CameraViewMode lhs,
+                                                                   CameraInteractor::CameraViewMode rhs) noexcept {
     return static_cast<CameraInteractor::CameraViewMode>(static_cast<std::uint8_t>(lhs) &
                                                          static_cast<std::uint8_t>(rhs));
 }

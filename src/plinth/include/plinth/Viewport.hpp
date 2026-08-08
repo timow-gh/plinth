@@ -2,6 +2,7 @@
 #define RENDERER_VIEWPORT_HPP
 
 #include "plinth/Assert.hpp"
+
 #include <cstdint>
 
 namespace renderer {
@@ -25,22 +26,10 @@ class Viewport {
         RENDERER_ASSERT(width > 0 && height > 0);
     }
 
-    [[nodiscard]]
-    value_type get_xpos() const {
-        return m_position_x;
-    }
-    [[nodiscard]]
-    value_type get_ypos() const {
-        return m_position_y;
-    }
-    [[nodiscard]]
-    value_type get_width() const {
-        return m_width;
-    }
-    [[nodiscard]]
-    value_type get_height() const {
-        return m_height;
-    }
+    [[nodiscard]] value_type get_xpos() const { return m_position_x; }
+    [[nodiscard]] value_type get_ypos() const { return m_position_y; }
+    [[nodiscard]] value_type get_width() const { return m_width; }
+    [[nodiscard]] value_type get_height() const { return m_height; }
 
     // clang-format off
   void set_position_x(value_type positionX) { m_position_x = positionX; }
@@ -49,8 +38,7 @@ class Viewport {
   void set_height(value_type height) { RENDERER_ASSERT(height > 0); m_height = height; }
     // clang-format on
 
-    [[nodiscard]]
-    double get_aspect_ratio() const {
+    [[nodiscard]] double get_aspect_ratio() const {
         RENDERER_ASSERT(m_height > 0);
         if (m_height == 0) {
             return 1.0;

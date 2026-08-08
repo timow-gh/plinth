@@ -1,6 +1,8 @@
 #include "plinth/Camera.hpp"
+
 #include "plinth/Assert.hpp"
 #include "plinth/PickRay.hpp"
+
 #include <cmath>
 #include <glm/ext/vector_double3.hpp>
 #include <glm/geometric.hpp>
@@ -8,18 +10,15 @@
 
 namespace renderer {
 
-[[maybe_unused]]
-static bool has_nan_value(const glm::dvec3& vec) {
+[[maybe_unused]] static bool has_nan_value(const glm::dvec3& vec) {
     return std::isnan(vec[0]) || std::isnan(vec[1]) || std::isnan(vec[2]);
 }
 
-[[maybe_unused]]
-static bool has_inf_value(const glm::dvec3& vec) {
+[[maybe_unused]] static bool has_inf_value(const glm::dvec3& vec) {
     return std::isinf(vec[0]) || std::isinf(vec[1]) || std::isinf(vec[2]);
 }
 
-[[maybe_unused]]
-static bool has_huge_value(const glm::dvec3& vec) {
+[[maybe_unused]] static bool has_huge_value(const glm::dvec3& vec) {
     constexpr double hugeValue = 1e10;
     return std::abs(vec[0]) > hugeValue || std::abs(vec[1]) > hugeValue || std::abs(vec[2]) > hugeValue;
 }

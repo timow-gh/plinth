@@ -1,6 +1,7 @@
 #include "plinth/CameraInteractor.hpp"
-#include <gtest/gtest.h>
+
 #include <cmath>
+#include <gtest/gtest.h>
 
 namespace {
 
@@ -313,9 +314,8 @@ TEST(CameraInteractorTest, FlyModeStrafeAndVerticalKeysCombine) {
     const linal::double3 up = interactor.get_vertical();
     const linal::double3 right = linal::normalize(linal::cross(forward, up));
 
-    interactor.update(1.0, [](renderer::Key key) {
-        return key == renderer::Key::KEY_D || key == renderer::Key::KEY_E;
-    });
+    interactor.update(1.0,
+                      [](renderer::Key key) { return key == renderer::Key::KEY_D || key == renderer::Key::KEY_E; });
 
     const linal::double3 translation = interactor.get_position() - initialPosition;
     EXPECT_GT(linal::dot(translation, right), 0.0);
@@ -437,8 +437,7 @@ TEST(CameraInteractorTest, PresetViewTransitionIsMonotonicInProgress) {
     double previousAngle = std::numeric_limits<double>::max();
     for (int i = 0; i < steps; ++i) {
         interactor.update(stepSeconds, no_key_pressed);
-        const linal::double3 currentDirection =
-            linal::normalize(interactor.get_position() - interactor.get_target());
+        const linal::double3 currentDirection = linal::normalize(interactor.get_position() - interactor.get_target());
         const double cosAngle = std::clamp(linal::dot(currentDirection, endDirection), -1.0, 1.0);
         const double angle = std::acos(cosAngle);
         EXPECT_LE(angle, previousAngle + 1.0e-9);
@@ -632,11 +631,11 @@ TEST(CameraInteractorTest, RightDragDoesNotSnapGazeOntoCursorPivot) {
 
     linal::double3 expectedPivot;
     const renderer::PickRay ray = interactor.get_pick_ray(cursorX, cursorY);
-    ASSERT_TRUE(renderer::ray_plane_intersection(interactor.get_position(),
-                                                 ray.direction,
-                                                 renderer::Plane{linal::double3{0.0, 0.0, 0.0},
-                                                                 linal::double3{0.0, 0.0, 1.0}},
-                                                 expectedPivot));
+    ASSERT_TRUE(
+        renderer::ray_plane_intersection(interactor.get_position(),
+                                         ray.direction,
+                                         renderer::Plane{linal::double3{0.0, 0.0, 0.0}, linal::double3{0.0, 0.0, 1.0}},
+                                         expectedPivot));
 
     interactor.on_mouse_button(1, renderer::Action::PRESS, renderer::Mods::NONE);
     interactor.on_cursor_position(cursorX + 20.0, cursorY);
@@ -645,9 +644,7 @@ TEST(CameraInteractorTest, RightDragDoesNotSnapGazeOntoCursorPivot) {
     // The gaze target must not have collapsed onto the pivot (the old jump), and rigid rotation
     // preserves the eye-to-target distance so the framing does not change.
     EXPECT_GT(linal::length(interactor.get_target() - expectedPivot), tolerance);
-    EXPECT_NEAR(linal::length(interactor.get_position() - interactor.get_target()),
-                initialEyeTargetDist,
-                1.0e-6);
+    EXPECT_NEAR(linal::length(interactor.get_position() - interactor.get_target()), initialEyeTargetDist, 1.0e-6);
 }
 
 TEST(CameraInteractorTest, OrbitsAroundWorldOrigin) {

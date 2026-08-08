@@ -1,8 +1,9 @@
-#include <GLFW/glfw3.h>
-#include <gtest/gtest.h>
 #include "plinth/ImGuiOverlay.hpp"
 #include "plinth/Renderer.hpp"
 #include "plinth/WindowSettings.hpp"
+
+#include <GLFW/glfw3.h>
+#include <gtest/gtest.h>
 #include <memory>
 #include <optional>
 
@@ -102,8 +103,10 @@ TEST_F(RendererOverlayTest, UserDefinedSceneViewportIsApplied) {
 
     // Reserve a left strip; the scene occupies the remainder.
     constexpr double reserved = 40.0;
-    instance->set_scene_viewport(renderer::LogicalViewportRect{
-        reserved, 0.0, static_cast<double>(winWidth) - reserved, static_cast<double>(winHeight)});
+    instance->set_scene_viewport(renderer::LogicalViewportRect{reserved,
+                                                               0.0,
+                                                               static_cast<double>(winWidth) - reserved,
+                                                               static_cast<double>(winHeight)});
 
     const auto viewport = instance->scene_viewport();
     EXPECT_DOUBLE_EQ(viewport.logical.x, reserved);
@@ -115,10 +118,8 @@ TEST_F(RendererOverlayTest, UserDefinedSceneViewportIsApplied) {
     EXPECT_EQ(viewport.framebuffer.height, fbHeight);
 
     // A cursor inside the reserved strip maps to no scene coordinates; one to the right does.
-    EXPECT_FALSE(
-        renderer::Renderer::to_scene_framebuffer_coordinates(viewport, reserved - 1.0, 10.0).has_value());
-    EXPECT_TRUE(
-        renderer::Renderer::to_scene_framebuffer_coordinates(viewport, reserved + 1.0, 10.0).has_value());
+    EXPECT_FALSE(renderer::Renderer::to_scene_framebuffer_coordinates(viewport, reserved - 1.0, 10.0).has_value());
+    EXPECT_TRUE(renderer::Renderer::to_scene_framebuffer_coordinates(viewport, reserved + 1.0, 10.0).has_value());
 }
 
 TEST_F(RendererOverlayTest, BuiltInOverlayReservesSceneViewportBesidePanel) {
@@ -154,8 +155,8 @@ TEST_F(RendererOverlayTest, ApplicationSceneViewportOverridesBuiltInOverlay) {
 
     const auto [winWidth, winHeight] = instance->window().get_window_size();
     // The application pins a full-window scene viewport; the overlay's reservation must not win.
-    instance->set_scene_viewport(renderer::LogicalViewportRect{
-        0.0, 0.0, static_cast<double>(winWidth), static_cast<double>(winHeight)});
+    instance->set_scene_viewport(
+        renderer::LogicalViewportRect{0.0, 0.0, static_cast<double>(winWidth), static_cast<double>(winHeight)});
 
     for (int frame = 0; frame < 3; ++frame) {
         instance->begin_frame();
@@ -176,8 +177,8 @@ TEST_F(RendererOverlayTest, ResetSceneViewportRestoresFullWindow) {
     ASSERT_NE(nullptr, instance);
 
     const auto [winWidth, winHeight] = instance->window().get_window_size();
-    instance->set_scene_viewport(renderer::LogicalViewportRect{
-        20.0, 0.0, static_cast<double>(winWidth) - 20.0, static_cast<double>(winHeight)});
+    instance->set_scene_viewport(
+        renderer::LogicalViewportRect{20.0, 0.0, static_cast<double>(winWidth) - 20.0, static_cast<double>(winHeight)});
     ASSERT_DOUBLE_EQ(instance->scene_viewport().logical.x, 20.0);
 
     instance->set_scene_viewport(std::nullopt);

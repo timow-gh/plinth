@@ -13,6 +13,7 @@
 #include "plinth/LineType.hpp"
 #include "plinth/Renderer.hpp"
 #include "plinth/WindowSettings.hpp"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -141,9 +142,24 @@ int main() {
 
     // --- Lines: three colored axis segments through the origin ---------------------------
     const std::array<float, 18> lineVertices{
-        -1.5F, 0.0F,  0.0F, 1.5F, 0.0F,  0.0F, // X axis
-        0.0F,  -1.5F, 0.0F, 0.0F, 1.5F,  0.0F, // Y axis
-        0.0F,  0.0F,  -1.5F, 0.0F, 0.0F, 1.5F, // Z axis
+        -1.5F,
+        0.0F,
+        0.0F,
+        1.5F,
+        0.0F,
+        0.0F, // X axis
+        0.0F,
+        -1.5F,
+        0.0F,
+        0.0F,
+        1.5F,
+        0.0F, // Y axis
+        0.0F,
+        0.0F,
+        -1.5F,
+        0.0F,
+        0.0F,
+        1.5F, // Z axis
     };
     // Per-vertex colors are needed for the highlight to be uniform; each axis keeps a single
     // hue that the highlight overrides wholesale.
@@ -154,16 +170,12 @@ int main() {
     }};
     for (std::size_t i = 0; i < axisSpecs.size(); ++i) {
         const auto& [color, label] = axisSpecs[i];
-        const std::array<std::uint32_t, 2> segmentIndices{
-            static_cast<std::uint32_t>(2U * i), static_cast<std::uint32_t>((2U * i) + 1U)};
+        const std::array<std::uint32_t, 2> segmentIndices{static_cast<std::uint32_t>(2U * i),
+                                                          static_cast<std::uint32_t>((2U * i) + 1U)};
         auto rebuild = [&renderer, lineVertices, segmentIndices](const Color& c) {
             const std::array<float, 24> colors{
-                c[0], c[1], c[2], c[3],
-                c[0], c[1], c[2], c[3],
-                c[0], c[1], c[2], c[3],
-                c[0], c[1], c[2], c[3],
-                c[0], c[1], c[2], c[3],
-                c[0], c[1], c[2], c[3],
+                c[0], c[1], c[2], c[3], c[0], c[1], c[2], c[3], c[0], c[1], c[2], c[3],
+                c[0], c[1], c[2], c[3], c[0], c[1], c[2], c[3], c[0], c[1], c[2], c[3],
             };
             renderer::StrokeStyle axisStyle;
             axisStyle.lineWidth = axisLineWidth;
@@ -171,8 +183,11 @@ int main() {
             axisStyle.join = renderer::LineJoin::Round;
             // NOLINTNEXTLINE(readability-magic-numbers)
             axisStyle.dashPattern = {0.2F, 0.1F}; // dash/gap lengths in world units
-            return renderer->add_line_drawable(
-                lineVertices, segmentIndices, colors, renderer::LineType::lines(), axisStyle);
+            return renderer->add_line_drawable(lineVertices,
+                                               segmentIndices,
+                                               colors,
+                                               renderer::LineType::lines(),
+                                               axisStyle);
         };
         const renderer::DrawableHandle handle = rebuild(color);
         scene.push_back({handle, label, color, std::move(rebuild)});
@@ -198,9 +213,7 @@ int main() {
     // --- Picking: track the cursor, pick on left-click -----------------------------------
     std::pair<double, double> lastCursor{0.0, 0.0};
     const renderer::CallbackSubscription cursorSub =
-        renderer->add_cursor_pos_callback([&lastCursor](double xpos, double ypos) {
-            lastCursor = {xpos, ypos};
-        });
+        renderer->add_cursor_pos_callback([&lastCursor](double xpos, double ypos) { lastCursor = {xpos, ypos}; });
 
     SceneEntry* highlighted = nullptr;
     const renderer::CallbackSubscription buttonSub = renderer->add_mouse_button_callback(

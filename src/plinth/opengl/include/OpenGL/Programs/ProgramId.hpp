@@ -4,6 +4,7 @@
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/UnsignedIntId.hpp"
 #include "OpenGL/opengl_export.h"
+
 #include <optional>
 
 namespace opengl {
@@ -29,14 +30,9 @@ class OPENGL_EXPORT ProgramHandle {
 
     void reset() noexcept;
 
-    [[nodiscard]]
-    bool is_valid() const noexcept {
-        return m_id.has_value();
-    }
-    [[nodiscard]]
-    ProgramId get_id() const;
-    [[nodiscard]]
-    GLuint get_value() const;
+    [[nodiscard]] bool is_valid() const noexcept { return m_id.has_value(); }
+    [[nodiscard]] ProgramId get_id() const;
+    [[nodiscard]] GLuint get_value() const;
 };
 
 } // namespace opengl

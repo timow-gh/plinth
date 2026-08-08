@@ -1,7 +1,9 @@
 #include "OpenGL/FXAAPass.hpp"
+
 #include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/Programs/CreateProgram.hpp"
 #include "OpenGL/ShaderSources.hpp"
+
 #include <array>
 #include <format>
 #include <utility>
@@ -58,10 +60,14 @@ class ScopedFullscreenState {
 
 } // namespace
 
-FXAAPass::FXAAPass(ProgramHandle program, GLuint vertexArray,
-                   Uniform inputTexture, Uniform invTextureSize,
-                   Uniform enabled, Uniform edgeThreshold,
-                   Uniform edgeThresholdMin, Uniform subpixelAmount) noexcept
+FXAAPass::FXAAPass(ProgramHandle program,
+                   GLuint vertexArray,
+                   Uniform inputTexture,
+                   Uniform invTextureSize,
+                   Uniform enabled,
+                   Uniform edgeThreshold,
+                   Uniform edgeThresholdMin,
+                   Uniform subpixelAmount) noexcept
     : m_program(std::move(program))
     , m_vertexArray(vertexArray)
     , m_inputTexture(inputTexture)
@@ -127,20 +133,22 @@ std::optional<FXAAPass> FXAAPass::create() {
     Uniform edgeThresholdMin = make_uniform("u_edgeThresholdMin", pid);
     Uniform subpixelAmount = make_uniform("u_subpixelAmount", pid);
 
-    if (inputTexture.get_location().get_value() == -1 ||
-        invTextureSize.get_location().get_value() == -1 ||
-        enabled.get_location().get_value() == -1 ||
-        edgeThreshold.get_location().get_value() == -1 ||
-        edgeThresholdMin.get_location().get_value() == -1 ||
-        subpixelAmount.get_location().get_value() == -1) {
+    if (inputTexture.get_location().get_value() == -1 || invTextureSize.get_location().get_value() == -1 ||
+        enabled.get_location().get_value() == -1 || edgeThreshold.get_location().get_value() == -1 ||
+        edgeThresholdMin.get_location().get_value() == -1 || subpixelAmount.get_location().get_value() == -1) {
         glDeleteVertexArrays(1, &vertexArray);
         report_error("FXAAPass::create: one or more uniforms not found");
         return std::nullopt;
     }
 
-    return FXAAPass{std::move(*program), vertexArray,
-                    inputTexture, invTextureSize,
-                    enabled, edgeThreshold, edgeThresholdMin, subpixelAmount};
+    return FXAAPass{std::move(*program),
+                    vertexArray,
+                    inputTexture,
+                    invTextureSize,
+                    enabled,
+                    edgeThreshold,
+                    edgeThresholdMin,
+                    subpixelAmount};
 }
 
 bool FXAAPass::is_valid() const noexcept {

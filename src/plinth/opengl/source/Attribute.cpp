@@ -1,6 +1,8 @@
 #include "OpenGL/Attribute.hpp"
+
 #include "OpenGL/ErrorReporting.hpp"
 #include "plinth/Assert.hpp"
+
 #include <cstdlib>
 #include <format>
 

@@ -4,6 +4,7 @@
 #include "plinth/loader/MeshData.hpp"
 #include "plinth/loader/MeshLoader.hpp"
 #include "plinth/plinth_export.h"
+
 #include <expected>
 #include <filesystem>
 #include <string_view>
@@ -21,9 +22,8 @@ namespace renderer {
 ///
 /// Parsing is lenient: malformed or unknown lines are skipped rather than
 /// rejected. Returns LoadError::empty when no material was declared.
-[[nodiscard]]
-PLINTH_EXPORT std::expected<std::vector<MeshData::Material>, LoadError> parse_mtl(std::string_view contents,
-                                                                                  const std::filesystem::path& baseDir);
+[[nodiscard]] PLINTH_EXPORT std::expected<std::vector<MeshData::Material>, LoadError>
+parse_mtl(std::string_view contents, const std::filesystem::path& baseDir);
 
 } // namespace renderer
 

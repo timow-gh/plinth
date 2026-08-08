@@ -1,5 +1,7 @@
 #include "plinth/loader/StlLoader.hpp"
+
 #include "plinth/loader/MeshLoader.hpp"
+
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -34,7 +36,7 @@ std::string make_binary_stl_one_triangle() {
     append_float(blob, 1.0F);
     // three vertices
     const std::array<std::array<float, 3>, 3> verts{{{0.0F, 0.0F, 0.0F}, {1.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F}}};
-    for (const auto& v : verts) {
+    for (const auto& v: verts) {
         append_float(blob, v[0]);
         append_float(blob, v[1]);
         append_float(blob, v[2]);
@@ -61,15 +63,16 @@ TEST(StlLoaderTest, ParsesBinarySingleTriangle) {
 }
 
 TEST(StlLoaderTest, ParsesAsciiSingleTriangle) {
-    constexpr std::string_view stl = "solid test\n"
-                                     "  facet normal 0 0 1\n"
-                                     "    outer loop\n"
-                                     "      vertex 0 0 0\n"
-                                     "      vertex 1 0 0\n"
-                                     "      vertex 0 1 0\n"
-                                     "    endloop\n"
-                                     "  endfacet\n"
-                                     "endsolid test\n";
+    constexpr std::string_view stl =
+        "solid test\n"
+        "  facet normal 0 0 1\n"
+        "    outer loop\n"
+        "      vertex 0 0 0\n"
+        "      vertex 1 0 0\n"
+        "      vertex 0 1 0\n"
+        "    endloop\n"
+        "  endfacet\n"
+        "endsolid test\n";
     const auto mesh = StlLoader{}.parse(stl);
     ASSERT_TRUE(mesh.has_value());
     EXPECT_EQ(mesh->vertices.size(), 3U * 3U);
@@ -85,13 +88,14 @@ TEST(StlLoaderTest, EmptyInputIsEmptyError) {
 }
 
 TEST(StlLoaderTest, RejectsAsciiWithMalformedVertex) {
-    constexpr std::string_view stl = "solid test\n"
-                                     "  facet normal 0 0 1\n"
-                                     "    outer loop\n"
-                                     "      vertex 0 0\n" // missing component
-                                     "    endloop\n"
-                                     "  endfacet\n"
-                                     "endsolid test\n";
+    constexpr std::string_view stl =
+        "solid test\n"
+        "  facet normal 0 0 1\n"
+        "    outer loop\n"
+        "      vertex 0 0\n" // missing component
+        "    endloop\n"
+        "  endfacet\n"
+        "endsolid test\n";
     const auto mesh = StlLoader{}.parse(stl);
     ASSERT_FALSE(mesh.has_value());
     EXPECT_EQ(mesh.error(), LoadError::parseError);

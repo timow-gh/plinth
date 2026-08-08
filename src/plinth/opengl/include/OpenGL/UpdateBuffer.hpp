@@ -3,6 +3,7 @@
 
 #include "OpenGL/BufferAccessPattern.hpp"
 #include "plinth/Assert.hpp"
+
 #include <cstddef>
 #include <limits>
 #include <span>

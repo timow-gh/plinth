@@ -1,4 +1,5 @@
 #include "plinth/loader/MtlLoader.hpp"
+
 #include <array>
 #include <filesystem>
 #include <gtest/gtest.h>

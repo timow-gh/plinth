@@ -6,6 +6,7 @@
 #include "OpenGL/Location.hpp"
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/opengl_export.h"
+
 #include <cstddef>
 #include <optional>
 #include <span>
@@ -51,13 +52,9 @@ class OPENGL_EXPORT InstanceBuffer {
                                                 std::span<const InstanceAttribSpec> attribs,
                                                 BufferAccessPattern accessPattern);
 
-    [[nodiscard]]
-    const BufferId& get_buffer_id() const;
+    [[nodiscard]] const BufferId& get_buffer_id() const;
 
-    [[nodiscard]]
-    GLsizei get_instance_count() const {
-        return m_instanceCount;
-    }
+    [[nodiscard]] GLsizei get_instance_count() const { return m_instanceCount; }
 
     void bind() const;
 

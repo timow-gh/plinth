@@ -1,11 +1,15 @@
-#include <GLFW/glfw3.h>
-#include "OpenGL/OpenGL.hpp"
 #include "OpenGL/Texture2D.hpp"
+
+#include "OpenGL/OpenGL.hpp"
+
+#include <GLFW/glfw3.h>
 #include <array>
 #include <gtest/gtest.h>
 
 namespace {
-void* load_glfw_proc(const char* name) { return reinterpret_cast<void*>(glfwGetProcAddress(name)); }
+void* load_glfw_proc(const char* name) {
+    return reinterpret_cast<void*>(glfwGetProcAddress(name));
+}
 class Texture2DTest : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { ASSERT_EQ(GLFW_TRUE, glfwInit()); }

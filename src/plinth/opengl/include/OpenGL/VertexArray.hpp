@@ -3,6 +3,7 @@
 
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/opengl_export.h"
+
 #include <optional>
 
 namespace opengl {
@@ -21,8 +22,7 @@ class OPENGL_EXPORT VertexArray {
 
     void reset() noexcept;
 
-    [[nodiscard]]
-    static std::optional<VertexArray> create();
+    [[nodiscard]] static std::optional<VertexArray> create();
 
     void bind() const;
     static void unbind();

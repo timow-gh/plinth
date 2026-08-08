@@ -13,10 +13,12 @@
 #include "plinth/DashSpace.hpp"
 #include "plinth/StrokeStyle.hpp"
 #include "plinth/Warnings.hpp"
-#include <array>
-#include <cstdint>
+
 #include <linal/hmat.hpp>
 #include <linal/vec.hpp>
+
+#include <array>
+#include <cstdint>
 #include <optional>
 #include <span>
 #include <vector>
@@ -38,7 +40,7 @@ class OPENGL_EXPORT LineDrawable {
     float m_pointSize{1.0F};
     std::int32_t m_vertexDimension{0};
     std::int32_t m_colorDimension{0};
-    LineCap  m_cap {LineCap::Butt};
+    LineCap m_cap{LineCap::Butt};
     LineJoin m_join{LineJoin::Miter};
     std::vector<float> m_dashPattern{};
     float m_dashPhase{0.0F};
@@ -79,31 +81,22 @@ class OPENGL_EXPORT LineDrawable {
     LineDrawable& operator=(LineDrawable&& other) noexcept;
     ~LineDrawable() = default;
 
-    [[nodiscard]]
-    float get_line_thickness() const {
-        return m_lineThickness;
-    }
+    [[nodiscard]] float get_line_thickness() const { return m_lineThickness; }
     void set_line_thickness(float lineThickness) { m_lineThickness = lineThickness; }
 
-    [[nodiscard]]
-    float get_point_size() const {
-        return m_pointSize;
-    }
+    [[nodiscard]] float get_point_size() const { return m_pointSize; }
     void set_point_size(float pointSize) { m_pointSize = pointSize; }
 
     // Cap and join style controls.
-    void set_line_cap(LineCap cap)   { m_cap  = cap;  }
-    [[nodiscard]] LineCap  get_line_cap()  const { return m_cap;  }
+    void set_line_cap(LineCap cap) { m_cap = cap; }
+    [[nodiscard]] LineCap get_line_cap() const { return m_cap; }
     void set_line_join(LineJoin join) { m_join = join; }
     [[nodiscard]] LineJoin get_line_join() const { return m_join; }
 
     // Dashing controls. dashPattern uses SVG stroke-dasharray semantics: alternating on/off lengths.
     // Empty pattern = solid. per-vertex dash flags (see set_dash_flags) control per-segment dashing.
-    void set_line_dash_pattern(std::span<const float> pattern) {
-        m_dashPattern.assign(pattern.begin(), pattern.end());
-    }
-    [[nodiscard]]
-    const std::vector<float>& get_line_dash_pattern() const { return m_dashPattern; }
+    void set_line_dash_pattern(std::span<const float> pattern) { m_dashPattern.assign(pattern.begin(), pattern.end()); }
+    [[nodiscard]] const std::vector<float>& get_line_dash_pattern() const { return m_dashPattern; }
 
     // Convenience: single dash+gap pair (replaces old set_line_dash_enabled / set_line_dash).
     void set_line_dash(float dashSize, float gapSize) { m_dashPattern = {dashSize, gapSize}; }
@@ -114,11 +107,9 @@ class OPENGL_EXPORT LineDrawable {
     }
 
     void set_line_dash_phase(float phase) { m_dashPhase = phase; }
-    [[nodiscard]]
-    float get_line_dash_phase() const { return m_dashPhase; }
+    [[nodiscard]] float get_line_dash_phase() const { return m_dashPhase; }
     void set_line_dash_space(DashSpace space) { m_dashSpace = space; }
-    [[nodiscard]]
-    DashSpace get_line_dash_space() const { return m_dashSpace; }
+    [[nodiscard]] DashSpace get_line_dash_space() const { return m_dashSpace; }
     // Replaces the per-vertex dashed flags and rebuilds the instance buffers.
     void set_dash_flags(std::span<const std::uint8_t> dashFlags, BufferAccessPattern accessPattern);
 
@@ -149,28 +140,22 @@ class OPENGL_EXPORT LineDrawable {
                    const linal::float2& viewportSize,
                    const std::array<float, 3>& pickColor) const;
 
-    [[nodiscard]]
-    bool has_opaque_primitives() const noexcept {
+    [[nodiscard]] bool has_opaque_primitives() const noexcept {
         return m_opaqueInstanceBuffer.get_instance_count() > 0;
     }
 
-    [[nodiscard]]
-    bool has_translucent_primitives() const noexcept {
+    [[nodiscard]] bool has_translucent_primitives() const noexcept {
         return m_translucentInstanceBuffer.get_instance_count() > 0;
     }
 
-    [[nodiscard]]
-    bool is_translucent() const noexcept {
-        return has_translucent_primitives();
-    }
+    [[nodiscard]] bool is_translucent() const noexcept { return has_translucent_primitives(); }
 
-    [[nodiscard]]
-    double distance_squared_to(const linal::double3& viewPosition) const noexcept {
+    [[nodiscard]] double distance_squared_to(const linal::double3& viewPosition) const noexcept {
         return m_transparencyInfo.distance_squared_to(viewPosition);
     }
 
-    [[nodiscard]]
-    double distance_squared_to(const linal::double3& viewPosition, const linal::hmatf& transform) const noexcept {
+    [[nodiscard]] double distance_squared_to(const linal::double3& viewPosition,
+                                             const linal::hmatf& transform) const noexcept {
         return m_transparencyInfo.distance_squared_to(viewPosition, transform);
     }
 
@@ -178,8 +163,7 @@ class OPENGL_EXPORT LineDrawable {
     // Flattens element-by-element rather than reinterpreting m_vertexPositions' memory directly -
     // linal::float3 is not guaranteed to be a tightly-packed 3-float struct (its policy-mixin base
     // classes can add padding/alignment), so a raw reinterpret_cast is not safe here.
-    [[nodiscard]]
-    std::span<const float> get_vertex_positions() const noexcept {
+    [[nodiscard]] std::span<const float> get_vertex_positions() const noexcept {
         m_vertexPositionsFlatCache.clear();
         m_vertexPositionsFlatCache.reserve(m_vertexPositions.size() * 3U);
         for (const auto& p: m_vertexPositions) {

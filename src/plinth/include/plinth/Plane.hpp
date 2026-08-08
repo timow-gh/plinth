@@ -15,14 +15,8 @@ class Plane {
         : m_origin(origin)
         , m_normal(normal) {}
 
-    [[nodiscard]]
-    const linal::double3& get_origin() const {
-        return m_origin;
-    }
-    [[nodiscard]]
-    const linal::double3& get_normal() const {
-        return m_normal;
-    }
+    [[nodiscard]] const linal::double3& get_origin() const { return m_origin; }
+    [[nodiscard]] const linal::double3& get_normal() const { return m_normal; }
 };
 
 } // namespace renderer

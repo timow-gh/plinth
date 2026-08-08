@@ -9,15 +9,17 @@
 #include "OpenGL/Programs/ProgramManager.hpp"
 #include "OpenGL/Texture2D.hpp"
 #include "plinth/DashSpace.hpp"
-#include "plinth/StrokeStyle.hpp"
 #include "plinth/LightingConfig.hpp"
 #include "plinth/MeshCullFaceMode.hpp"
+#include "plinth/StrokeStyle.hpp"
+
+#include <linal/hmat.hpp>
+#include <linal/vec.hpp>
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <linal/hmat.hpp>
-#include <linal/vec.hpp>
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -102,8 +104,7 @@ class DrawablesManager {
     DrawablesManager& operator=(DrawablesManager&&) = delete;
     ~DrawablesManager() { clear_drawables(); }
 
-    [[nodiscard]]
-    static std::unique_ptr<DrawablesManager> create() {
+    [[nodiscard]] static std::unique_ptr<DrawablesManager> create() {
         ProgramManager programManager;
         programManager.compile();
 
@@ -114,31 +115,20 @@ class DrawablesManager {
         return std::unique_ptr<DrawablesManager>(new DrawablesManager(std::move(programManager)));
     }
 
-    [[nodiscard]]
-    bool has_drawables() const {
+    [[nodiscard]] bool has_drawables() const {
         return !m_pointDrawables.empty() || !m_lineDrawables.empty() || !m_meshDrawables.empty();
     }
 
-    [[nodiscard]]
-    bool has_point_drawables() const {
-        return !m_pointDrawables.empty();
-    }
-    [[nodiscard]]
-    bool has_line_drawables() const {
-        return !m_lineDrawables.empty();
-    }
-    [[nodiscard]]
-    bool has_mesh_drawables() const {
-        return !m_meshDrawables.empty();
-    }
+    [[nodiscard]] bool has_point_drawables() const { return !m_pointDrawables.empty(); }
+    [[nodiscard]] bool has_line_drawables() const { return !m_lineDrawables.empty(); }
+    [[nodiscard]] bool has_mesh_drawables() const { return !m_meshDrawables.empty(); }
 
     // Collects a position buffer (world-space xyz triplets, transformed by each drawable's
     // current transform) for every currently-added drawable, for use with
     // renderer::calculate_camera_auto_fit. Unlike the untransformed local vertex data a drawable
     // caches internally, this must return owned data - applying a transform produces new values,
     // not a view into existing memory.
-    [[nodiscard]]
-    std::vector<std::vector<float>> collect_vertex_position_buffers() const {
+    [[nodiscard]] std::vector<std::vector<float>> collect_vertex_position_buffers() const {
         std::vector<std::vector<float>> buffers;
         buffers.reserve(m_pointDrawables.size() + m_lineDrawables.size() + m_meshDrawables.size());
         const auto collect = [&buffers](const auto& drawables) {
@@ -322,16 +312,14 @@ class DrawablesManager {
     bool set_point_drawable_transform(DrawableId id, const linal::hmatf& transform) {
         return set_drawable_transform_by_id(m_pointDrawables, id, transform);
     }
-    [[nodiscard]]
-    std::optional<linal::hmatf> get_point_drawable_transform(DrawableId id) const {
+    [[nodiscard]] std::optional<linal::hmatf> get_point_drawable_transform(DrawableId id) const {
         return get_drawable_transform_by_id(m_pointDrawables, id);
     }
 
     bool set_line_drawable_transform(DrawableId id, const linal::hmatf& transform) {
         return set_drawable_transform_by_id(m_lineDrawables, id, transform);
     }
-    [[nodiscard]]
-    std::optional<linal::hmatf> get_line_drawable_transform(DrawableId id) const {
+    [[nodiscard]] std::optional<linal::hmatf> get_line_drawable_transform(DrawableId id) const {
         return get_drawable_transform_by_id(m_lineDrawables, id);
     }
 
@@ -339,8 +327,9 @@ class DrawablesManager {
         return mutate_line_drawable_by_id(id, [enabled](opengl::LineDrawable& d) { d.set_line_dash_enabled(enabled); });
     }
     bool set_line_dash(DrawableId id, float dashSize, float gapSize) {
-        return mutate_line_drawable_by_id(
-            id, [dashSize, gapSize](opengl::LineDrawable& d) { d.set_line_dash(dashSize, gapSize); });
+        return mutate_line_drawable_by_id(id, [dashSize, gapSize](opengl::LineDrawable& d) {
+            d.set_line_dash(dashSize, gapSize);
+        });
     }
     bool set_line_dash_phase(DrawableId id, float phase) {
         return mutate_line_drawable_by_id(id, [phase](opengl::LineDrawable& d) { d.set_line_dash_phase(phase); });
@@ -355,15 +344,13 @@ class DrawablesManager {
         return mutate_line_drawable_by_id(id, [join](opengl::LineDrawable& d) { d.set_line_join(join); });
     }
     bool set_line_dash_pattern(DrawableId id, std::span<const float> pattern) {
-        return mutate_line_drawable_by_id(
-            id, [pattern](opengl::LineDrawable& d) { d.set_line_dash_pattern(pattern); });
+        return mutate_line_drawable_by_id(id, [pattern](opengl::LineDrawable& d) { d.set_line_dash_pattern(pattern); });
     }
 
     bool set_mesh_drawable_transform(DrawableId id, const linal::hmatf& transform) {
         return set_drawable_transform_by_id(m_meshDrawables, id, transform);
     }
-    [[nodiscard]]
-    std::optional<linal::hmatf> get_mesh_drawable_transform(DrawableId id) const {
+    [[nodiscard]] std::optional<linal::hmatf> get_mesh_drawable_transform(DrawableId id) const {
         return get_drawable_transform_by_id(m_meshDrawables, id);
     }
 
@@ -627,11 +614,10 @@ class DrawablesManager {
     // read back from the framebuffer can be resolved to a drawable. Depth testing (which the caller
     // must enable) resolves occlusion. The caller owns framebuffer binding, viewport, clear, and
     // depth/blend state.
-    [[nodiscard]]
-    std::vector<PickEntry> draw_pick_pass(const linal::hmatf& mvp,
-                                          const linal::hmatf& viewMatrix,
-                                          const linal::hmatf& projectionMatrix,
-                                          const linal::float2& viewportSize) const {
+    [[nodiscard]] std::vector<PickEntry> draw_pick_pass(const linal::hmatf& mvp,
+                                                        const linal::hmatf& viewMatrix,
+                                                        const linal::hmatf& projectionMatrix,
+                                                        const linal::float2& viewportSize) const {
         std::vector<PickEntry> entries;
         entries.reserve(m_pointDrawables.size() + m_lineDrawables.size() + m_meshDrawables.size());
 

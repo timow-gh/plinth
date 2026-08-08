@@ -1,8 +1,10 @@
 #include "OpenGL/Programs/LineProgram.hpp"
+
 #include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/Programs/CreateProgram.hpp"
 #include "OpenGL/ShaderSources.hpp"
 #include "plinth/Assert.hpp"
+
 #include <format>
 #include <string>
 #include <utility>
@@ -109,26 +111,11 @@ opengl::LineProgram make_line_program() {
     Attribute color1Location = make_attribute("a_color1", id);
     Attribute pPrevLocation = make_attribute("a_pPrev", id);
     Attribute pNextLocation = make_attribute("a_pNext", id);
-    return LineProgram{std::move(*program),
-                       viewProjectionLocation,
-                       modelMatrixLocation,
-                       viewportSizeLocation,
-                       lineWidthLocation,
-                       dashSpaceLocation,
-                       dashPhaseLocation,
-                       pickModeLocation,
-                       pickColorLocation,
-                       capStyleLocation,
-                       joinStyleLocation,
-                       dashPatternCountLocation,
-                       dashPatternLocation,
-                       cornerLocation,
-                       p0Location,
-                       p1Location,
-                       color0Location,
-                       color1Location,
-                       pPrevLocation,
-                       pNextLocation};
+    return LineProgram{std::move(*program), viewProjectionLocation, modelMatrixLocation, viewportSizeLocation,
+                       lineWidthLocation,   dashSpaceLocation,      dashPhaseLocation,   pickModeLocation,
+                       pickColorLocation,   capStyleLocation,       joinStyleLocation,   dashPatternCountLocation,
+                       dashPatternLocation, cornerLocation,         p0Location,          p1Location,
+                       color0Location,      color1Location,         pPrevLocation,       pNextLocation};
 }
 
 } // namespace opengl

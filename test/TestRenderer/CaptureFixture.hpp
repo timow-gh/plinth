@@ -9,8 +9,9 @@
 // MSAA samples and fixed GL 3.3 core context hints with no parameter to override them - a
 // test author cannot construct one wrong.
 
-#include <GLFW/glfw3.h>
 #include "OpenGL/OpenGL.hpp"
+
+#include <GLFW/glfw3.h>
 #include <algorithm>
 #include <cstdint>
 #include <vector>

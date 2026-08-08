@@ -1,6 +1,8 @@
 #include "OpenGL/Drawable/LineDrawable.hpp"
+
 #include "OpenGL/Drawable/LineInstanceData.hpp"
 #include "plinth/Assert.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -21,9 +23,9 @@ namespace {
 //   floats 20-23  a_pNext  offset 80
 std::array<InstanceAttribSpec, 6> make_instance_attribs(const LineProgram& program) {
     return {
-        InstanceAttribSpec{program.get_p0_location(),     4, 0},
-        InstanceAttribSpec{program.get_p1_location(),     4, 4  * static_cast<GLsizei>(sizeof(float))},
-        InstanceAttribSpec{program.get_color0_location(), 4, 8  * static_cast<GLsizei>(sizeof(float))},
+        InstanceAttribSpec{program.get_p0_location(), 4, 0},
+        InstanceAttribSpec{program.get_p1_location(), 4, 4 * static_cast<GLsizei>(sizeof(float))},
+        InstanceAttribSpec{program.get_color0_location(), 4, 8 * static_cast<GLsizei>(sizeof(float))},
         InstanceAttribSpec{program.get_color1_location(), 4, 12 * static_cast<GLsizei>(sizeof(float))},
         InstanceAttribSpec{program.get_p_prev_location(), 4, 16 * static_cast<GLsizei>(sizeof(float))},
         InstanceAttribSpec{program.get_p_next_location(), 4, 20 * static_cast<GLsizei>(sizeof(float))},
@@ -178,15 +180,14 @@ void LineDrawable::set_common_uniforms(const linal::hmatf& mvp,
     glUniform1f(prog.get_line_width_location().get_value(), m_lineThickness);
     glUniform1i(prog.get_dash_space_location().get_value(), static_cast<GLint>(m_dashSpace));
     glUniform1f(prog.get_dash_phase_location().get_value(), m_dashPhase);
-    glUniform1i(prog.get_cap_style_location().get_value(),  static_cast<GLint>(m_cap));
+    glUniform1i(prog.get_cap_style_location().get_value(), static_cast<GLint>(m_cap));
     glUniform1i(prog.get_join_style_location().get_value(), static_cast<GLint>(m_join));
 
     // Dash pattern: clamp to DASH_PATTERN_MAX (16) entries, upload count + array.
     constexpr GLint kMaxDashPattern = 16;
-    const GLint patternCount = static_cast<GLint>(
-        m_dashPattern.size() < static_cast<std::size_t>(kMaxDashPattern)
-            ? m_dashPattern.size()
-            : static_cast<std::size_t>(kMaxDashPattern));
+    const GLint patternCount = static_cast<GLint>(m_dashPattern.size() < static_cast<std::size_t>(kMaxDashPattern)
+                                                      ? m_dashPattern.size()
+                                                      : static_cast<std::size_t>(kMaxDashPattern));
     glUniform1i(prog.get_dash_pattern_count_location().get_value(), patternCount);
     if (patternCount > 0) {
         glUniform1fv(prog.get_dash_pattern_location().get_value(), patternCount, m_dashPattern.data());
@@ -373,10 +374,8 @@ std::optional<LineDrawable> make_line_drawable(LineProgram& program,
                                                                        &neighbours);
 
     const std::array<InstanceAttribSpec, 6> attribs = make_instance_attribs(program);
-    auto opaqueInstanceBuffer = InstanceBuffer::create(opaqueData,
-                                                       static_cast<GLsizei>(kLineInstanceStrideBytes),
-                                                       attribs,
-                                                       accessPattern);
+    auto opaqueInstanceBuffer =
+        InstanceBuffer::create(opaqueData, static_cast<GLsizei>(kLineInstanceStrideBytes), attribs, accessPattern);
     if (!opaqueInstanceBuffer.has_value()) {
         return std::nullopt;
     }
@@ -388,27 +387,25 @@ std::optional<LineDrawable> make_line_drawable(LineProgram& program,
         return std::nullopt;
     }
 
-    LineDrawable drawable{program,
-                          std::move(vertexArray.value()),
-                          std::move(quadCornerBuffer.value()),
-                          std::move(opaqueInstanceBuffer.value()),
-                          std::move(translucentInstanceBuffer.value()),
-                          lineThickness,
-                          pointThickness,
-                          lineType,
-                          make_drawable_transparency_info(lineVertices,
-                                                          lineVertexDimension,
-                                                          lineColors,
-                                                          lineColorDimension),
-                          lineVertexDimension,
-                          lineColorDimension,
-                          std::move(vertexPositions),
-                          std::move(vertexColors),
-                          std::move(vertexTranslucency),
-                          std::move(vertexArcLengths),
-                          std::move(dashFlags),
-                          originalIndices,
-                          std::move(split.translucentSegments)};
+    LineDrawable drawable{
+        program,
+        std::move(vertexArray.value()),
+        std::move(quadCornerBuffer.value()),
+        std::move(opaqueInstanceBuffer.value()),
+        std::move(translucentInstanceBuffer.value()),
+        lineThickness,
+        pointThickness,
+        lineType,
+        make_drawable_transparency_info(lineVertices, lineVertexDimension, lineColors, lineColorDimension),
+        lineVertexDimension,
+        lineColorDimension,
+        std::move(vertexPositions),
+        std::move(vertexColors),
+        std::move(vertexTranslucency),
+        std::move(vertexArcLengths),
+        std::move(dashFlags),
+        originalIndices,
+        std::move(split.translucentSegments)};
     drawable.set_line_cap(cap);
     drawable.set_line_join(join);
     drawable.set_line_dash_pattern(dashPattern);

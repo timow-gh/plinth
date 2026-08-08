@@ -2,6 +2,7 @@
 #define PLINTH_STROKESTYLE_HPP
 
 #include "plinth/DashSpace.hpp"
+
 #include <vector>
 
 namespace renderer {
@@ -47,8 +48,7 @@ struct StrokeStyle {
 };
 
 /// Convenience factory: single dash+gap pair.
-[[nodiscard]]
-inline StrokeStyle
+[[nodiscard]] inline StrokeStyle
 make_dashed_stroke(float lineWidth, float dashLength, float gapLength, DashSpace space = DashSpace::World) {
     return StrokeStyle{lineWidth, LineCap::Butt, LineJoin::Miter, 4.0F, {dashLength, gapLength}, 0.0F, space};
 }

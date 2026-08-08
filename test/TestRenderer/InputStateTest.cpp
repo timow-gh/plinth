@@ -1,6 +1,8 @@
-#include <GLFW/glfw3.h>
 #include "plinth/InputState.hpp"
+
 #include "../../src/plinth/source/InputStateInternal.hpp"
+
+#include <GLFW/glfw3.h>
 #include <gtest/gtest.h>
 
 using namespace renderer;
@@ -76,11 +78,12 @@ TEST_F(GlfwWindowFixture, TrampolinesForwardRegisteredCallbacks) {
     int receivedButton = -1;
     renderer::Action receivedButtonAction = renderer::Action::UNDEFINED;
     renderer::Mods receivedButtonMods = renderer::Mods::NONE;
-    renderer::detail::set_mouse_button_callback(m_window, [&](int button, renderer::Action action, renderer::Mods mods) {
-        receivedButton = button;
-        receivedButtonAction = action;
-        receivedButtonMods = mods;
-    });
+    renderer::detail::set_mouse_button_callback(m_window,
+                                                [&](int button, renderer::Action action, renderer::Mods mods) {
+                                                    receivedButton = button;
+                                                    receivedButtonAction = action;
+                                                    receivedButtonMods = mods;
+                                                });
     GLFWmousebuttonfun mouseButtonCallback = glfwSetMouseButtonCallback(m_window, nullptr);
     ASSERT_NE(nullptr, mouseButtonCallback);
     mouseButtonCallback(m_window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_RELEASE, GLFW_MOD_CONTROL);

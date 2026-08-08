@@ -1,4 +1,5 @@
 #include "plinth/Renderer.hpp"
+
 #include "OpenGL/Drawable/DrawablesManager.hpp"
 #include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/FXAAPass.hpp"
@@ -9,13 +10,15 @@
 #include "OpenGL/PostProcessingPass.hpp"
 #include "plinth/ImGuiOverlay.hpp"
 #include "plinth/ScopeExit.hpp"
+
+#include <linal/vec.hpp>
+
 #include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <limits>
-#include <linal/vec.hpp>
 #include <string>
 #include <string_view>
 
@@ -452,8 +455,7 @@ void Renderer::wire_callbacks() {
     });
 
     m_window.set_framebuffer_size_callback([this]([[maybe_unused]] std::uint32_t width,
-                                                  [[maybe_unused]]
-                                                  std::uint32_t height) { update_scene_viewport(); });
+                                                  [[maybe_unused]] std::uint32_t height) { update_scene_viewport(); });
 }
 
 // --- Geometry ---
@@ -488,14 +490,14 @@ DrawableHandle Renderer::add_point_drawable(std::span<const float> vertices,
     return DrawableHandle{DrawableKind::point, *id, m_rendererInstance};
 }
 
-DrawableHandle Renderer::add_line_drawable(std::span<const float>         vertices,
+DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
                                            std::span<const std::uint32_t> indices,
-                                           std::span<const float>         colors,
-                                           renderer::LineType              lineType,
-                                           const renderer::StrokeStyle&   style,
-                                           float                           pointSize,
-                                           renderer::BufferAccessPattern   accessPattern,
-                                           std::span<const std::uint8_t>  perVertexDashFlags) {
+                                           std::span<const float> colors,
+                                           renderer::LineType lineType,
+                                           const renderer::StrokeStyle& style,
+                                           float pointSize,
+                                           renderer::BufferAccessPattern accessPattern,
+                                           std::span<const std::uint8_t> perVertexDashFlags) {
     const auto id = m_drawablesManager->add_line_drawable(vertices,
                                                           indices,
                                                           colors,
@@ -518,23 +520,23 @@ DrawableHandle Renderer::add_line_drawable(std::span<const float>         vertic
     return DrawableHandle{DrawableKind::line, *id, m_rendererInstance};
 }
 
-DrawableHandle Renderer::add_line_drawable(std::span<const float>        vertices,
-                                           std::array<float, 4>          color,
-                                           renderer::LineType             lineType,
-                                           const renderer::StrokeStyle&  style,
-                                           float                          pointSize,
-                                           renderer::BufferAccessPattern  accessPattern) {
+DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
+                                           std::array<float, 4> color,
+                                           renderer::LineType lineType,
+                                           const renderer::StrokeStyle& style,
+                                           float pointSize,
+                                           renderer::BufferAccessPattern accessPattern) {
     const std::vector<float> colors = expand_color(vertices, color);
     const std::vector<std::uint32_t> indices = make_sequential_indices(vertices);
     return add_line_drawable(vertices, indices, colors, lineType, style, pointSize, accessPattern);
 }
 
-DrawableHandle Renderer::add_line_drawable(std::span<const float>        vertices,
-                                           std::span<const float>        colors,
-                                           renderer::LineType             lineType,
-                                           const renderer::StrokeStyle&  style,
-                                           float                          pointSize,
-                                           renderer::BufferAccessPattern  accessPattern) {
+DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
+                                           std::span<const float> colors,
+                                           renderer::LineType lineType,
+                                           const renderer::StrokeStyle& style,
+                                           float pointSize,
+                                           renderer::BufferAccessPattern accessPattern) {
     const std::vector<std::uint32_t> indices = make_sequential_indices(vertices);
     return add_line_drawable(vertices, indices, colors, lineType, style, pointSize, accessPattern);
 }
@@ -985,21 +987,13 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
     const int sceneWidth = static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.width));
     const int sceneHeight = static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.height));
     if (m_sceneFramebuffer->get_width() != sceneWidth || m_sceneFramebuffer->get_height() != sceneHeight) {
-        opengl::Framebuffer::HdrConfig hdrConfig{sceneWidth,
-                                                 sceneHeight,
-                                                 m_sceneSamples,
-                                                 true,
-                                                 m_reversedDepth};
+        opengl::Framebuffer::HdrConfig hdrConfig{sceneWidth, sceneHeight, m_sceneSamples, true, m_reversedDepth};
         auto scene = opengl::Framebuffer::create_hdr(hdrConfig);
         std::optional<opengl::Framebuffer> resolve;
         std::optional<opengl::Framebuffer> ldr;
         if (scene.has_value()) {
             if (m_sceneSamples > 1) {
-                opengl::Framebuffer::HdrConfig resolveConfig{sceneWidth,
-                                                             sceneHeight,
-                                                             1,
-                                                             true,
-                                                             m_reversedDepth};
+                opengl::Framebuffer::HdrConfig resolveConfig{sceneWidth, sceneHeight, 1, true, m_reversedDepth};
                 resolve = opengl::Framebuffer::create_hdr(resolveConfig);
             }
             ldr = opengl::Framebuffer::create_ldr_intermediate(sceneWidth, sceneHeight);
@@ -1020,10 +1014,7 @@ void Renderer::begin_frame(const renderer::ClearColor& clearColor) {
     }
     m_sceneFramebuffer->bind();
     // The scene framebuffer *is* the viewport, so render into all of it starting at the origin.
-    opengl::begin_frame(clearColor,
-                        renderer::ViewportRect{0, 0, sceneWidth, sceneHeight},
-                        false,
-                        m_reversedDepth);
+    opengl::begin_frame(clearColor, renderer::ViewportRect{0, 0, sceneWidth, sceneHeight}, false, m_reversedDepth);
 }
 
 void Renderer::draw() {
@@ -1033,16 +1024,16 @@ void Renderer::draw() {
 
 void Renderer::draw(const renderer::LightingConfig& lighting) {
     make_context_current();
-    if (m_sceneFramebuffer->get_width() != static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.width)) ||
-        m_sceneFramebuffer->get_height() != static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.height))) {
+    if (m_sceneFramebuffer->get_width() !=
+            static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.width)) ||
+        m_sceneFramebuffer->get_height() !=
+            static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.height))) {
         return;
     }
 
     const linal::float2 sceneViewportSize{static_cast<float>(m_sceneViewport.framebuffer.width),
                                           static_cast<float>(m_sceneViewport.framebuffer.height)};
-    m_drawablesManager->draw_lines_and_points(m_camera->get_current_MVP(),
-                                              sceneViewportSize,
-                                              m_camera->get_position());
+    m_drawablesManager->draw_lines_and_points(m_camera->get_current_MVP(), sceneViewportSize, m_camera->get_position());
 
     if (m_drawablesManager->has_mesh_drawables()) {
         const linal::float3 viewPosF{static_cast<float>(m_camera->get_position()[0]),
@@ -1070,8 +1061,10 @@ void Renderer::end_frame(bool& autoFitEnabled) {
 
 void Renderer::end_frame(bool& autoFitEnabled, bool& homeRequested) {
     make_context_current();
-    if (m_sceneFramebuffer->get_width() != static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.width)) ||
-        m_sceneFramebuffer->get_height() != static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.height))) {
+    if (m_sceneFramebuffer->get_width() !=
+            static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.width)) ||
+        m_sceneFramebuffer->get_height() !=
+            static_cast<int>(valid_framebuffer_dimension(m_sceneViewport.framebuffer.height))) {
         return;
     }
 
@@ -1467,9 +1460,8 @@ void Renderer::refit_current_view() {
     const double currentDistance = linal::length(currentPosition - currentTarget);
     // Degenerate pose (camera on its target): fall back to the default direction so normalize is
     // well-defined. This mirrors maybe_update_auto_fit's guard.
-    const linal::double3 direction = currentDistance > 1.0e-9
-                                         ? linal::normalize(currentPosition - currentTarget)
-                                         : linal::double3{0.0, -1.0, 0.0};
+    const linal::double3 direction =
+        currentDistance > 1.0e-9 ? linal::normalize(currentPosition - currentTarget) : linal::double3{0.0, -1.0, 0.0};
 
     const CameraAutoFitResult result =
         compute_fit_destination(direction, m_camera->get_vertical(), currentTarget, currentDistance);
@@ -1525,8 +1517,7 @@ void Renderer::update_scene_viewport() {
                                          valid_logical_dimension(windowSize.second)};
     const LogicalViewportRect logicalRect =
         m_requestedSceneViewport.value_or(m_overlaySceneViewport.value_or(fullWindow));
-    m_sceneViewport =
-        Renderer::calculate_scene_viewport(windowSize, m_window.get_framebuffer_size(), logicalRect);
+    m_sceneViewport = Renderer::calculate_scene_viewport(windowSize, m_window.get_framebuffer_size(), logicalRect);
     m_camera->set_viewport(0,
                            0,
                            valid_framebuffer_dimension(m_sceneViewport.framebuffer.width),

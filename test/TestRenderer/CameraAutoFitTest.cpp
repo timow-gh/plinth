@@ -1,4 +1,5 @@
 #include "plinth/CameraAutoFit.hpp"
+
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -255,8 +256,7 @@ TEST(CameraAutoFitTest, SinglePointProducesFiniteResult) {
 }
 
 TEST(CameraAutoFitTest, CoincidentPointsProduceFiniteResult) {
-    const std::vector<float> pointVertices{
-        3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f};
+    const std::vector<float> pointVertices{3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f, 3.0f};
     const std::array<std::span<const float>, 1> vertexPositionBuffers{std::span<const float>{pointVertices}};
 
     const renderer::CameraAutoFitInput input = make_input();
@@ -272,8 +272,8 @@ TEST(CameraAutoFitTest, CoincidentPointsProduceFiniteResult) {
 TEST(CameraAutoFitTest, ClipPlanesBracketGeometryWithoutMovingCamera) {
     // A box spanning world z in [-10, 10]; a camera at z=100 looking toward -z
     // sees it at camera-space depth [90, 110].
-    const std::vector<float> boxVertices{
-        -5.0f, -5.0f, -10.0f, 5.0f, 5.0f, 10.0f, -5.0f, 5.0f, 10.0f, 5.0f, -5.0f, -10.0f};
+    const std::vector<float>
+        boxVertices{-5.0f, -5.0f, -10.0f, 5.0f, 5.0f, 10.0f, -5.0f, 5.0f, 10.0f, 5.0f, -5.0f, -10.0f};
     const std::array<std::span<const float>, 1> vertexPositionBuffers{std::span<const float>{boxVertices}};
 
     renderer::CameraAutoFitInput input = make_input();
@@ -347,8 +347,7 @@ TEST(CameraAutoFitTest, ClipPlanesDoNotRatchetAcrossZoomOutThenZoomIn) {
     // clipped. Previously the fitter used the camera's current near plane as its
     // floor, so the large zoomed-out near plane ratcheted forward and clipped the
     // geometry after zooming back in.
-    const std::vector<float> boxVertices{
-        -5.0f, -5.0f, -5.0f, 5.0f, 5.0f, 5.0f, -5.0f, 5.0f, 5.0f, 5.0f, -5.0f, -5.0f};
+    const std::vector<float> boxVertices{-5.0f, -5.0f, -5.0f, 5.0f, 5.0f, 5.0f, -5.0f, 5.0f, 5.0f, 5.0f, -5.0f, -5.0f};
     const std::array<std::span<const float>, 1> vertexPositionBuffers{std::span<const float>{boxVertices}};
 
     // Zoomed far out: camera at z = 1000, geometry front at camera-space depth ~995.

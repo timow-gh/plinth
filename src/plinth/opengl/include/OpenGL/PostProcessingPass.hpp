@@ -5,6 +5,7 @@
 #include "OpenGL/Programs/ProgramId.hpp"
 #include "OpenGL/Uniform.hpp"
 #include "OpenGL/opengl_export.h"
+
 #include <optional>
 
 namespace opengl {
@@ -17,11 +18,9 @@ class OPENGL_EXPORT PostProcessingPass {
     PostProcessingPass& operator=(PostProcessingPass&&) noexcept;
     ~PostProcessingPass();
 
-    [[nodiscard]]
-    static std::optional<PostProcessingPass> create();
+    [[nodiscard]] static std::optional<PostProcessingPass> create();
 
-    [[nodiscard]]
-    bool is_valid() const noexcept;
+    [[nodiscard]] bool is_valid() const noexcept;
 
     void process(GLuint hdrColorTexture, GLuint depthTexture, int width, int height) const;
 
@@ -40,13 +39,22 @@ class OPENGL_EXPORT PostProcessingPass {
     void set_grayscale(bool enabled) const;
 
   private:
-    PostProcessingPass(ProgramHandle program, GLuint vertexArray,
-                       Uniform sceneColor, Uniform sceneDepth,
-                       Uniform invProjection, Uniform reversedDepth,
-                       Uniform fogEnabled, Uniform fogMode,
-                       Uniform fogStart, Uniform fogEnd, Uniform fogDensity, Uniform fogColor,
-                       Uniform exposureStops, Uniform toneMapMode,
-                       Uniform visualizationMode, Uniform hdrDisplayMax,
+    PostProcessingPass(ProgramHandle program,
+                       GLuint vertexArray,
+                       Uniform sceneColor,
+                       Uniform sceneDepth,
+                       Uniform invProjection,
+                       Uniform reversedDepth,
+                       Uniform fogEnabled,
+                       Uniform fogMode,
+                       Uniform fogStart,
+                       Uniform fogEnd,
+                       Uniform fogDensity,
+                       Uniform fogColor,
+                       Uniform exposureStops,
+                       Uniform toneMapMode,
+                       Uniform visualizationMode,
+                       Uniform hdrDisplayMax,
                        Uniform grayscale) noexcept;
     void reset() noexcept;
 

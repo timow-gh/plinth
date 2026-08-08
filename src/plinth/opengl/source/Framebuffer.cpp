@@ -1,5 +1,7 @@
 #include "OpenGL/Framebuffer.hpp"
+
 #include "OpenGL/ErrorReporting.hpp"
+
 #include <array>
 #include <utility>
 
@@ -47,9 +49,17 @@ class ScopedFramebufferState {
 
 } // namespace
 
-Framebuffer::Framebuffer(GLuint framebuffer, GLuint colorTexture, GLuint colorRenderbuffer,
-                          GLuint depthStencilRenderbuffer, GLuint depthTexture, bool hasDepthTexture,
-                          int width, int height, int samples, bool srgb, CreationDescriptor descriptor)
+Framebuffer::Framebuffer(GLuint framebuffer,
+                         GLuint colorTexture,
+                         GLuint colorRenderbuffer,
+                         GLuint depthStencilRenderbuffer,
+                         GLuint depthTexture,
+                         bool hasDepthTexture,
+                         int width,
+                         int height,
+                         int samples,
+                         bool srgb,
+                         CreationDescriptor descriptor)
     : m_framebuffer(framebuffer)
     , m_colorTexture(colorTexture)
     , m_colorRenderbuffer(colorRenderbuffer)
@@ -158,8 +168,15 @@ std::optional<Framebuffer> Framebuffer::create(int width, int height, int sample
             return std::nullopt;
         }
         glBindTexture(GL_TEXTURE_2D, colorTexture);
-        glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(colorInternalFormat), width, height, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glTexImage2D(GL_TEXTURE_2D,
+                     0,
+                     static_cast<GLint>(colorInternalFormat),
+                     width,
+                     height,
+                     0,
+                     GL_RGBA,
+                     GL_UNSIGNED_BYTE,
+                     nullptr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -218,9 +235,17 @@ std::optional<Framebuffer> Framebuffer::create(int width, int height, int sample
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    Framebuffer result{framebuffer, colorTexture, colorRenderbuffer, depthStencilRenderbuffer,
-                        0, false,
-                        width, height, samples, srgb, {AttachmentLayout::Generic, false}};
+    Framebuffer result{framebuffer,
+                       colorTexture,
+                       colorRenderbuffer,
+                       depthStencilRenderbuffer,
+                       0,
+                       false,
+                       width,
+                       height,
+                       samples,
+                       srgb,
+                       {AttachmentLayout::Generic, false}};
     return std::optional<Framebuffer>{std::move(result)};
 }
 
@@ -255,8 +280,7 @@ std::optional<Framebuffer> Framebuffer::create_hdr(const HdrConfig& config) {
             return std::nullopt;
         }
         glBindTexture(GL_TEXTURE_2D, colorTexture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, config.width, config.height, 0,
-                     GL_RGBA, GL_HALF_FLOAT, nullptr);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, config.width, config.height, 0, GL_RGBA, GL_HALF_FLOAT, nullptr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -273,8 +297,15 @@ std::optional<Framebuffer> Framebuffer::create_hdr(const HdrConfig& config) {
                 return std::nullopt;
             }
             glBindTexture(GL_TEXTURE_2D, depthTexture);
-            glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(depthInternalFormat), config.width, config.height, 0,
-                         GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+            glTexImage2D(GL_TEXTURE_2D,
+                         0,
+                         static_cast<GLint>(depthInternalFormat),
+                         config.width,
+                         config.height,
+                         0,
+                         GL_DEPTH_COMPONENT,
+                         GL_FLOAT,
+                         nullptr);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -291,7 +322,10 @@ std::optional<Framebuffer> Framebuffer::create_hdr(const HdrConfig& config) {
             }
             glBindRenderbuffer(GL_RENDERBUFFER, depthStencilRenderbuffer);
             glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, config.width, config.height);
-            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depthStencilRenderbuffer);
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER,
+                                      GL_DEPTH_STENCIL_ATTACHMENT,
+                                      GL_RENDERBUFFER,
+                                      depthStencilRenderbuffer);
             glBindRenderbuffer(GL_RENDERBUFFER, 0);
         }
     } else {
@@ -303,8 +337,12 @@ std::optional<Framebuffer> Framebuffer::create_hdr(const HdrConfig& config) {
             return std::nullopt;
         }
         glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, colorTexture);
-        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, config.samples, GL_RGBA16F,
-                                config.width, config.height, GL_TRUE);
+        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE,
+                                config.samples,
+                                GL_RGBA16F,
+                                config.width,
+                                config.height,
+                                GL_TRUE);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, colorTexture, 0);
         glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
 
@@ -318,8 +356,12 @@ std::optional<Framebuffer> Framebuffer::create_hdr(const HdrConfig& config) {
                 return std::nullopt;
             }
             glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, depthTexture);
-            glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, config.samples, depthInternalFormat,
-                                    config.width, config.height, GL_TRUE);
+            glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE,
+                                    config.samples,
+                                    depthInternalFormat,
+                                    config.width,
+                                    config.height,
+                                    GL_TRUE);
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D_MULTISAMPLE, depthTexture, 0);
             glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
         } else {
@@ -332,9 +374,15 @@ std::optional<Framebuffer> Framebuffer::create_hdr(const HdrConfig& config) {
                 return std::nullopt;
             }
             glBindRenderbuffer(GL_RENDERBUFFER, depthStencilRenderbuffer);
-            glRenderbufferStorageMultisample(GL_RENDERBUFFER, config.samples, GL_DEPTH24_STENCIL8,
-                                             config.width, config.height);
-            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depthStencilRenderbuffer);
+            glRenderbufferStorageMultisample(GL_RENDERBUFFER,
+                                             config.samples,
+                                             GL_DEPTH24_STENCIL8,
+                                             config.width,
+                                             config.height);
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER,
+                                      GL_DEPTH_STENCIL_ATTACHMENT,
+                                      GL_RENDERBUFFER,
+                                      depthStencilRenderbuffer);
             glBindRenderbuffer(GL_RENDERBUFFER, 0);
         }
     }
@@ -361,10 +409,17 @@ std::optional<Framebuffer> Framebuffer::create_hdr(const HdrConfig& config) {
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    Framebuffer result{framebuffer, colorTexture, colorRenderbuffer, depthStencilRenderbuffer,
-                       depthTexture, hasDepthTexture,
-                        config.width, config.height, config.samples, false,
-                         {AttachmentLayout::Hdr, config.useDepthTexture, config.useFloatDepth}};
+    Framebuffer result{framebuffer,
+                       colorTexture,
+                       colorRenderbuffer,
+                       depthStencilRenderbuffer,
+                       depthTexture,
+                       hasDepthTexture,
+                       config.width,
+                       config.height,
+                       config.samples,
+                       false,
+                       {AttachmentLayout::Hdr, config.useDepthTexture, config.useFloatDepth}};
     return std::optional<Framebuffer>{std::move(result)};
 }
 
@@ -393,8 +448,7 @@ std::optional<Framebuffer> Framebuffer::create_ldr_intermediate(int width, int h
         return std::nullopt;
     }
     glBindTexture(GL_TEXTURE_2D, colorTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0,
-                 GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -412,8 +466,17 @@ std::optional<Framebuffer> Framebuffer::create_ldr_intermediate(int width, int h
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    Framebuffer result{framebuffer, colorTexture, 0, 0, 0, false,
-                        width, height, 1, false, {AttachmentLayout::LdrIntermediate, false}};
+    Framebuffer result{framebuffer,
+                       colorTexture,
+                       0,
+                       0,
+                       0,
+                       false,
+                       width,
+                       height,
+                       1,
+                       false,
+                       {AttachmentLayout::LdrIntermediate, false}};
     return std::optional<Framebuffer>{std::move(result)};
 }
 
@@ -424,19 +487,12 @@ bool Framebuffer::resize(int width, int height) {
 
     std::optional<Framebuffer> temp;
     switch (m_creationDescriptor.layout) {
-    case AttachmentLayout::Generic:
-        temp = create(width, height, m_samples, m_srgb);
-        break;
+    case AttachmentLayout::Generic: temp = create(width, height, m_samples, m_srgb); break;
     case AttachmentLayout::Hdr:
-        temp = create_hdr({width,
-                           height,
-                           m_samples,
-                           m_creationDescriptor.useDepthTexture,
-                           m_creationDescriptor.useFloatDepth});
+        temp = create_hdr(
+            {width, height, m_samples, m_creationDescriptor.useDepthTexture, m_creationDescriptor.useFloatDepth});
         break;
-    case AttachmentLayout::LdrIntermediate:
-        temp = create_ldr_intermediate(width, height);
-        break;
+    case AttachmentLayout::LdrIntermediate: temp = create_ldr_intermediate(width, height); break;
     }
     if (!temp.has_value()) {
         return false;
@@ -470,8 +526,7 @@ bool Framebuffer::resolve_to(Framebuffer& destination, GLbitfield mask) const {
     check_gl_errors("Framebuffer::resolve_to pre-existing");
     glBindFramebuffer(GL_READ_FRAMEBUFFER, m_framebuffer);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, destination.m_framebuffer);
-    glBlitFramebuffer(0, 0, m_width, m_height, 0, 0, destination.m_width, destination.m_height,
-                      mask, GL_NEAREST);
+    glBlitFramebuffer(0, 0, m_width, m_height, 0, 0, destination.m_width, destination.m_height, mask, GL_NEAREST);
     return !check_gl_errors("Framebuffer::resolve_to");
 }
 

@@ -9,10 +9,12 @@
 #include "OpenGL/VertexBuffer.hpp"
 #include "OpenGL/opengl_export.h"
 #include "plinth/Warnings.hpp"
-#include <array>
-#include <cstdint>
+
 #include <linal/hmat.hpp>
 #include <linal/vec.hpp>
+
+#include <array>
+#include <cstdint>
 #include <memory>
 #include <span>
 #include <vector>
@@ -84,18 +86,14 @@ class OPENGL_EXPORT MeshDrawable {
                    const linal::hmatf& projectionMatrix,
                    const std::array<float, 3>& pickColor) const;
 
-    [[nodiscard]]
-    bool is_translucent() const noexcept {
-        return m_transparencyInfo.isTranslucent;
-    }
+    [[nodiscard]] bool is_translucent() const noexcept { return m_transparencyInfo.isTranslucent; }
 
-    [[nodiscard]]
-    double distance_squared_to(const linal::double3& viewPosition) const noexcept {
+    [[nodiscard]] double distance_squared_to(const linal::double3& viewPosition) const noexcept {
         return m_transparencyInfo.distance_squared_to(viewPosition);
     }
 
-    [[nodiscard]]
-    double distance_squared_to(const linal::double3& viewPosition, const linal::hmatf& transform) const noexcept {
+    [[nodiscard]] double distance_squared_to(const linal::double3& viewPosition,
+                                             const linal::hmatf& transform) const noexcept {
         return m_transparencyInfo.distance_squared_to(viewPosition, transform);
     }
 
@@ -103,8 +101,7 @@ class OPENGL_EXPORT MeshDrawable {
     // Flattens element-by-element rather than reinterpreting m_vertexPositions' memory directly -
     // linal::float3 is not guaranteed to be a tightly-packed 3-float struct (its policy-mixin base
     // classes can add padding/alignment), so a raw reinterpret_cast is not safe here.
-    [[nodiscard]]
-    std::span<const float> get_vertex_positions() const noexcept {
+    [[nodiscard]] std::span<const float> get_vertex_positions() const noexcept {
         m_vertexPositionsFlatCache.clear();
         m_vertexPositionsFlatCache.reserve(m_vertexPositions.size() * 3U);
         for (const auto& p: m_vertexPositions) {

@@ -1,4 +1,5 @@
 #include "plinth/loader/StlLoader.hpp"
+
 #include <array>
 #include <charconv>
 #include <cstdint>
@@ -16,16 +17,14 @@ constexpr std::size_t kBinaryTriangleSize = 50; // 12 floats (normal + 3 verts) 
 constexpr std::ptrdiff_t kBinaryFloatSize = 4;
 constexpr std::ptrdiff_t kBinaryVertex0Offset = 12; // offset of first vertex from triangle start
 constexpr std::ptrdiff_t kBinaryVertexStride = 12;  // bytes between consecutive vertices
-constexpr std::ptrdiff_t kBinaryVertexZOffset = 8;   // offset of z component from vertex start
-constexpr std::size_t kVertexFloatCount = 9;         // 3 vertices * 3 floats per vertex
+constexpr std::ptrdiff_t kBinaryVertexZOffset = 8;  // offset of z component from vertex start
+constexpr std::size_t kVertexFloatCount = 9;        // 3 vertices * 3 floats per vertex
 
-[[nodiscard]]
-bool is_space(char c) {
+[[nodiscard]] bool is_space(char c) {
     return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' || c == '\v';
 }
 
-[[nodiscard]]
-std::string_view next_token(std::string_view& cursor) {
+[[nodiscard]] std::string_view next_token(std::string_view& cursor) {
     std::size_t begin = 0;
     while (begin < cursor.size() && is_space(cursor[begin])) {
         ++begin;
@@ -39,16 +38,14 @@ std::string_view next_token(std::string_view& cursor) {
     return token;
 }
 
-[[nodiscard]]
-bool parse_float(std::string_view token, float& out) {
+[[nodiscard]] bool parse_float(std::string_view token, float& out) {
     const char* first = token.data();
     const char* last = token.data() + token.size();
     const auto [ptr, ec] = std::from_chars(first, last, out);
     return ec == std::errc{} && ptr == last;
 }
 
-[[nodiscard]]
-float read_le_float(const char* bytes) {
+[[nodiscard]] float read_le_float(const char* bytes) {
     // STL binary is little-endian IEEE-754. Copy through memcpy to avoid
     // aliasing/alignment issues; hosts are assumed little-endian (as are all
     // supported targets).
@@ -57,8 +54,7 @@ float read_le_float(const char* bytes) {
     return value;
 }
 
-[[nodiscard]]
-std::uint32_t read_le_uint32(const char* bytes) {
+[[nodiscard]] std::uint32_t read_le_uint32(const char* bytes) {
     std::uint32_t value = 0;
     std::memcpy(&value, bytes, sizeof(std::uint32_t));
     return value;
@@ -66,8 +62,7 @@ std::uint32_t read_le_uint32(const char* bytes) {
 
 // Binary STL is detected by size: an 80-byte header, a 4-byte triangle count,
 // then exactly count * 50 bytes. ASCII files rarely satisfy this exactly.
-[[nodiscard]]
-bool looks_binary(std::string_view data) {
+[[nodiscard]] bool looks_binary(std::string_view data) {
     if (data.size() < kBinaryHeaderSize + kBinaryCountSize) {
         return false;
     }
@@ -85,8 +80,7 @@ void push_normal(MeshData& mesh, const std::array<float, 3>& n) {
     mesh.normals.insert(mesh.normals.end(), n.begin(), n.end());
 }
 
-[[nodiscard]]
-std::expected<MeshData, LoadError> parse_binary(std::string_view data) {
+[[nodiscard]] std::expected<MeshData, LoadError> parse_binary(std::string_view data) {
     MeshData mesh;
     mesh.sourceName = "stl";
     const std::uint32_t count = read_le_uint32(data.data() + kBinaryHeaderSize);
@@ -96,8 +90,12 @@ std::expected<MeshData, LoadError> parse_binary(std::string_view data) {
                                           read_le_float(triangle + 4),
                                           read_le_float(triangle + 8)};
         for (int v = 0; v < 3; ++v) {
-            const char* vertex = triangle + kBinaryVertex0Offset + (static_cast<std::ptrdiff_t>(v) * kBinaryVertexStride);
-            push_vec3(mesh, {read_le_float(vertex), read_le_float(vertex + kBinaryFloatSize), read_le_float(vertex + kBinaryVertexZOffset)});
+            const char* vertex =
+                triangle + kBinaryVertex0Offset + (static_cast<std::ptrdiff_t>(v) * kBinaryVertexStride);
+            push_vec3(mesh,
+                      {read_le_float(vertex),
+                       read_le_float(vertex + kBinaryFloatSize),
+                       read_le_float(vertex + kBinaryVertexZOffset)});
             push_normal(mesh, normal);
         }
         triangle += kBinaryTriangleSize;
@@ -110,8 +108,7 @@ std::expected<MeshData, LoadError> parse_binary(std::string_view data) {
     return mesh;
 }
 
-[[nodiscard]]
-std::expected<MeshData, LoadError> parse_ascii(std::string_view data) {
+[[nodiscard]] std::expected<MeshData, LoadError> parse_ascii(std::string_view data) {
     MeshData mesh;
     mesh.sourceName = "stl";
     std::array<float, 3> facetNormal{0.0F, 0.0F, 1.0F};

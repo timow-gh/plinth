@@ -1,6 +1,8 @@
 #include "OpenGL/Drawable/MeshDrawable.hpp"
+
 #include "plinth/Assert.hpp"
 #include "plinth/ColorConversion.hpp"
+
 #include <utility>
 #include <vector>
 

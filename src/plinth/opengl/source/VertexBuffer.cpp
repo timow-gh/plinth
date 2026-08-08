@@ -1,7 +1,9 @@
 #include "OpenGL/VertexBuffer.hpp"
+
 #include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/UpdateBuffer.hpp"
 #include "plinth/Assert.hpp"
+
 #include <limits>
 #include <utility>
 

@@ -1,6 +1,8 @@
+#include "plinth/loader/MeshShading.hpp"
+
 #include "plinth/loader/MeshData.hpp"
 #include "plinth/loader/MeshLoader.hpp"
-#include "plinth/loader/MeshShading.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -20,10 +22,18 @@ using renderer::ShadingMode;
 MeshData make_quad() {
     MeshData mesh;
     mesh.vertices = {
-        0.0F, 0.0F, 0.0F, // 0
-        1.0F, 0.0F, 0.0F, // 1
-        1.0F, 1.0F, 0.0F, // 2
-        0.0F, 1.0F, 0.0F, // 3
+        0.0F,
+        0.0F,
+        0.0F, // 0
+        1.0F,
+        0.0F,
+        0.0F, // 1
+        1.0F,
+        1.0F,
+        0.0F, // 2
+        0.0F,
+        1.0F,
+        0.0F, // 3
     };
     mesh.triangleIndices = {0U, 1U, 2U, 0U, 2U, 3U};
     return mesh;
@@ -57,17 +67,18 @@ TEST(MeshShadingTest, FlatUnsharesVerticesAndAssignsFaceNormals) {
 
 TEST(MeshShadingTest, FlatOnCubeGivesAxisAlignedFaceNormals) {
     // A cube through the loader: 8 shared positions, 12 triangles.
-    constexpr std::string_view cube = "v -0.5 -0.5 -0.5\nv 0.5 -0.5 -0.5\nv 0.5 0.5 -0.5\nv -0.5 0.5 -0.5\n"
-                                      "v -0.5 -0.5 0.5\nv 0.5 -0.5 0.5\nv 0.5 0.5 0.5\nv -0.5 0.5 0.5\n"
-                                      "f 4 3 2 1\nf 6 7 8 5\nf 2 6 5 1\nf 8 7 3 4\nf 5 8 4 1\nf 3 7 6 2\n";
+    constexpr std::string_view cube =
+        "v -0.5 -0.5 -0.5\nv 0.5 -0.5 -0.5\nv 0.5 0.5 -0.5\nv -0.5 0.5 -0.5\n"
+        "v -0.5 -0.5 0.5\nv 0.5 -0.5 0.5\nv 0.5 0.5 0.5\nv -0.5 0.5 0.5\n"
+        "f 4 3 2 1\nf 6 7 8 5\nf 2 6 5 1\nf 8 7 3 4\nf 5 8 4 1\nf 3 7 6 2\n";
     const auto smooth = renderer::load_mesh(".obj", std::string{cube});
     ASSERT_TRUE(smooth.has_value());
     // Smooth (preserve, no vn) leaves normals for the renderer => empty here,
     // and welds to 8 vertices.
     EXPECT_EQ(smooth->vertices.size(), 8U * 3U);
 
-    const auto flat = renderer::load_mesh(".obj", std::string{cube},
-                                          renderer::MeshLoadOptions{.shading = ShadingMode::Flat});
+    const auto flat =
+        renderer::load_mesh(".obj", std::string{cube}, renderer::MeshLoadOptions{.shading = ShadingMode::Flat});
     ASSERT_TRUE(flat.has_value());
     // 12 triangles * 3 unshared vertices.
     EXPECT_EQ(flat->vertices.size(), 12U * 3U * 3U);

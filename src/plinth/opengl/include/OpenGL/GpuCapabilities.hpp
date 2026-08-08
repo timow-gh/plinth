@@ -3,6 +3,7 @@
 
 #include "OpenGL/opengl_export.h"
 #include "plinth/DLLWarnings.hpp"
+
 #include <string>
 
 namespace opengl {
@@ -16,12 +17,12 @@ RENDERER_SUPPRESS_STL_DLL_WARNINGS_BEGIN
 struct OPENGL_EXPORT GpuCapabilities {
     int glMajorVersion{0};
     int glMinorVersion{0};
-    std::string glRenderer;     // GL_RENDERER, e.g. "NVIDIA GeForce RTX 3070/PCIe/SSE2"
-    std::string glVendor;       // GL_VENDOR
-    std::string glslVersion;    // GL_SHADING_LANGUAGE_VERSION, e.g. "4.30"
-    int maxTextureSize{0};      // GL_MAX_TEXTURE_SIZE
-    int maxColorAttachments{0}; // GL_MAX_COLOR_ATTACHMENTS - relevant once framebuffer work lands
-    int maxAnisotropy{1};       // GL_MAX_TEXTURE_MAX_ANISOTROPY, default to 1 if unsupported
+    std::string glRenderer;          // GL_RENDERER, e.g. "NVIDIA GeForce RTX 3070/PCIe/SSE2"
+    std::string glVendor;            // GL_VENDOR
+    std::string glslVersion;         // GL_SHADING_LANGUAGE_VERSION, e.g. "4.30"
+    int maxTextureSize{0};           // GL_MAX_TEXTURE_SIZE
+    int maxColorAttachments{0};      // GL_MAX_COLOR_ATTACHMENTS - relevant once framebuffer work lands
+    int maxAnisotropy{1};            // GL_MAX_TEXTURE_MAX_ANISOTROPY, default to 1 if unsupported
     bool supportsDebugOutput{false}; // core-4.3 glDebugMessageCallback path (see ErrorReporting.hpp)
     bool supportsClipControl{false}; // core 4.5 or GL_ARB_clip_control
 

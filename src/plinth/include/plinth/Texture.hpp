@@ -2,13 +2,20 @@
 #define RENDERER_TEXTURE_HPP
 
 #include "plinth/plinth_export.h"
+
 #include <cstdint>
 #include <span>
 
 namespace renderer {
 
-enum class TextureColorSpace { linear, srgb };
-enum class TextureFilter { nearest, linear };
+enum class TextureColorSpace {
+    linear,
+    srgb
+};
+enum class TextureFilter {
+    nearest,
+    linear
+};
 
 struct PLINTH_EXPORT TextureData {
     /// RGBA8 pixel data is copied during Renderer::create_texture_2d; the span

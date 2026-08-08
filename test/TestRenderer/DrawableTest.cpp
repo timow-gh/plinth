@@ -1,9 +1,10 @@
-#include <GLFW/glfw3.h>
 #include "OpenGL/Drawable/DrawablesManager.hpp"
 #include "OpenGL/Drawable/LineDrawable.hpp"
 #include "OpenGL/Drawable/MeshDrawable.hpp"
 #include "OpenGL/Drawable/PointDrawable.hpp"
 #include "OpenGL/OpenGL.hpp"
+
+#include <GLFW/glfw3.h>
 #include <array>
 #include <cstdint>
 #include <gtest/gtest.h>
@@ -77,15 +78,14 @@ opengl::PointDrawable make_point_drawable_with_alpha(opengl::PointProgram& progr
     };
     const std::vector<std::uint32_t> indices = {0U, 1U, 2U};
 
-    std::optional<opengl::PointDrawable> drawable =
-        opengl::make_point_drawable(program,
-                                    vertices,
-                                    3,
-                                    colors,
-                                    4,
-                                    indices,
-                                    3.0F,
-                                    opengl::BufferAccessPattern::Static);
+    std::optional<opengl::PointDrawable> drawable = opengl::make_point_drawable(program,
+                                                                                vertices,
+                                                                                3,
+                                                                                colors,
+                                                                                4,
+                                                                                indices,
+                                                                                3.0F,
+                                                                                opengl::BufferAccessPattern::Static);
     EXPECT_TRUE(drawable.has_value());
     return std::move(drawable.value());
 }
@@ -147,20 +147,14 @@ opengl::MeshDrawable make_mesh_drawable_with_alpha(opengl::MeshProgram& program,
     };
     const std::vector<std::uint32_t> indices = {0U, 1U, 2U};
 
-    std::optional<opengl::MeshDrawable> drawable = opengl::make_mesh_soup(program,
-                                                                          vertices,
-                                                                          3,
-                                                                          normals,
-                                                                          colors,
-                                                                          4,
-                                                                          indices,
-                                                                          opengl::BufferAccessPattern::Static);
+    std::optional<opengl::MeshDrawable> drawable =
+        opengl::make_mesh_soup(program, vertices, 3, normals, colors, 4, indices, opengl::BufferAccessPattern::Static);
     EXPECT_TRUE(drawable.has_value());
     return std::move(drawable.value());
 }
 
-opengl::DrawablesManager::DrawableId
-add_mesh_drawable_with_alpha(opengl::DrawablesManager& manager, const std::vector<float>& colors) {
+opengl::DrawablesManager::DrawableId add_mesh_drawable_with_alpha(opengl::DrawablesManager& manager,
+                                                                  const std::vector<float>& colors) {
     const std::vector<float> vertices = {
         0.0F,
         0.0F,
@@ -239,10 +233,7 @@ TEST_F(OpenGLDrawableTest, PointDrawableUpdatesDrawsAndMoveAssigns) {
         1.0F,
     };
     const std::vector<std::uint32_t> emptyIndices;
-    drawable.update_point_drawable(updatedVertices,
-                                   opaqueColors,
-                                   emptyIndices,
-                                   opengl::BufferAccessPattern::Dynamic);
+    drawable.update_point_drawable(updatedVertices, opaqueColors, emptyIndices, opengl::BufferAccessPattern::Dynamic);
     EXPECT_FALSE(drawable.has_opaque_primitives());
     EXPECT_FALSE(drawable.has_translucent_primitives());
     drawable.draw_opaque(matrix(), linal::hmatf::identity());
@@ -319,10 +310,7 @@ TEST_F(OpenGLDrawableTest, LineDrawableUpdatesDrawsWithoutPointPassAndMoveAssign
         1.0F,
     };
     const std::vector<std::uint32_t> emptyIndices;
-    drawable.update_line_drawable(updatedVertices,
-                                  opaqueColors,
-                                  emptyIndices,
-                                  opengl::BufferAccessPattern::Dynamic);
+    drawable.update_line_drawable(updatedVertices, opaqueColors, emptyIndices, opengl::BufferAccessPattern::Dynamic);
     EXPECT_FALSE(drawable.has_opaque_primitives());
     EXPECT_FALSE(drawable.has_translucent_primitives());
     drawable.draw_opaque(matrix(), linal::hmatf::identity(), viewport());
@@ -405,13 +393,13 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerUpdatesClearsAndDrawsTransparentPoint
     const std::vector<float> emptyFloatData;
     const std::vector<std::uint32_t> emptyIndices;
     manager->update_last_point_drawable(emptyFloatData,
+                                        emptyFloatData,
+                                        emptyIndices,
+                                        opengl::BufferAccessPattern::Dynamic);
+    manager->update_last_line_drawable(emptyFloatData,
                                        emptyFloatData,
                                        emptyIndices,
                                        opengl::BufferAccessPattern::Dynamic);
-    manager->update_last_line_drawable(emptyFloatData,
-                                      emptyFloatData,
-                                      emptyIndices,
-                                      opengl::BufferAccessPattern::Dynamic);
 
     const std::vector<float> pointVertices = {
         0.0F,
@@ -440,10 +428,10 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerUpdatesClearsAndDrawsTransparentPoint
     };
     const std::vector<std::uint32_t> pointIndices = {0U, 1U, 2U};
     const auto firstPointIdOpt = manager->add_point_drawable(pointVertices,
-                                                            pointColors,
-                                                            pointIndices,
-                                                            3.0F,
-                                                            opengl::BufferAccessPattern::Static);
+                                                             pointColors,
+                                                             pointIndices,
+                                                             3.0F,
+                                                             opengl::BufferAccessPattern::Static);
     ASSERT_TRUE(firstPointIdOpt.has_value());
     const opengl::DrawablesManager::DrawableId firstPointId = *firstPointIdOpt;
     const auto removedPointIdOpt = manager->add_point_drawable(pointVertices,
@@ -454,10 +442,10 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerUpdatesClearsAndDrawsTransparentPoint
     ASSERT_TRUE(removedPointIdOpt.has_value());
     const opengl::DrawablesManager::DrawableId removedPointId = *removedPointIdOpt;
     const auto lastPointIdOpt = manager->add_point_drawable(pointVertices,
-                                                           pointColors,
-                                                           pointIndices,
-                                                           3.0F,
-                                                           opengl::BufferAccessPattern::Static);
+                                                            pointColors,
+                                                            pointIndices,
+                                                            3.0F,
+                                                            opengl::BufferAccessPattern::Static);
     ASSERT_TRUE(lastPointIdOpt.has_value());
     const opengl::DrawablesManager::DrawableId lastPointId = *lastPointIdOpt;
     EXPECT_TRUE(manager->remove_point_drawable(removedPointId));
@@ -499,21 +487,21 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerUpdatesClearsAndDrawsTransparentPoint
     };
     const std::vector<std::uint32_t> lineIndices = {0U, 1U, 2U, 3U};
     const auto removedLineIdOpt = manager->add_line_drawable(lineVertices,
-                                                            lineIndices,
-                                                            lineColors,
-                                                            opengl::LineType::lines(),
-                                                            2.0F,
-                                                            1.0F,
-                                                            opengl::BufferAccessPattern::Static);
+                                                             lineIndices,
+                                                             lineColors,
+                                                             opengl::LineType::lines(),
+                                                             2.0F,
+                                                             1.0F,
+                                                             opengl::BufferAccessPattern::Static);
     ASSERT_TRUE(removedLineIdOpt.has_value());
     const opengl::DrawablesManager::DrawableId removedLineId = *removedLineIdOpt;
     const auto lastLineIdOpt = manager->add_line_drawable(lineVertices,
-                                                         lineIndices,
-                                                         lineColors,
-                                                         opengl::LineType::lines(),
-                                                         2.0F,
-                                                         1.0F,
-                                                         opengl::BufferAccessPattern::Static);
+                                                          lineIndices,
+                                                          lineColors,
+                                                          opengl::LineType::lines(),
+                                                          2.0F,
+                                                          1.0F,
+                                                          opengl::BufferAccessPattern::Static);
     ASSERT_TRUE(lastLineIdOpt.has_value());
     const opengl::DrawablesManager::DrawableId lastLineId = *lastLineIdOpt;
     EXPECT_TRUE(manager->remove_line_drawable(removedLineId));
@@ -534,14 +522,8 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerUpdatesClearsAndDrawsTransparentPoint
     glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
     EXPECT_EQ(GL_TRUE, depthMask);
 
-    manager->update_last_point_drawable(pointVertices,
-                                       pointColors,
-                                       emptyIndices,
-                                       opengl::BufferAccessPattern::Dynamic);
-    manager->update_last_line_drawable(lineVertices,
-                                      lineColors,
-                                      emptyIndices,
-                                      opengl::BufferAccessPattern::Dynamic);
+    manager->update_last_point_drawable(pointVertices, pointColors, emptyIndices, opengl::BufferAccessPattern::Dynamic);
+    manager->update_last_line_drawable(lineVertices, lineColors, emptyIndices, opengl::BufferAccessPattern::Dynamic);
     manager->clear_point_drawables();
     manager->clear_line_drawables();
     EXPECT_FALSE(manager->remove_point_drawable(firstPointId));
@@ -613,7 +595,18 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerDrawsTransparentMeshesAndRestoresCull
 TEST_F(OpenGLDrawableTest, PointDrawableExposesVertexPositions) {
     opengl::PointProgram program = opengl::make_point_program();
     const std::vector<float> colors = {
-        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        1.0F,
     };
     opengl::PointDrawable drawable = make_point_drawable_with_alpha(program, colors);
 
@@ -628,7 +621,22 @@ TEST_F(OpenGLDrawableTest, PointDrawableExposesVertexPositions) {
 TEST_F(OpenGLDrawableTest, LineDrawableExposesVertexPositions) {
     opengl::LineProgram program = opengl::make_line_program();
     const std::vector<float> colors = {
-        1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
     };
     opengl::LineDrawable drawable = make_line_drawable_with_alpha(program, colors, 0.0F);
 
@@ -643,7 +651,18 @@ TEST_F(OpenGLDrawableTest, LineDrawableExposesVertexPositions) {
 TEST_F(OpenGLDrawableTest, MeshDrawableExposesVertexPositions) {
     opengl::MeshProgram program = opengl::make_mesh_program();
     const std::vector<float> colors = {
-        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        1.0F,
     };
     opengl::MeshDrawable drawable = make_mesh_drawable_with_alpha(program, colors);
 
@@ -660,34 +679,67 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerCollectsVertexPositionBuffersAcrossAl
 
     const std::vector<float> pointVertices = {0.0F, 0.0F, 0.0F, 3.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F};
     const std::vector<float> pointColors = {
-        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        1.0F,
     };
     const std::vector<std::uint32_t> pointIndices = {0U, 1U, 2U};
-    ASSERT_TRUE(manager
-                    ->add_point_drawable(pointVertices,
-                                       pointColors,
-                                       pointIndices,
-                                       3.0F,
-                                       opengl::BufferAccessPattern::Static)
-                    .has_value());
+    ASSERT_TRUE(
+        manager->add_point_drawable(pointVertices, pointColors, pointIndices, 3.0F, opengl::BufferAccessPattern::Static)
+            .has_value());
 
     const std::vector<float> lineVertices = {0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 5.0F, 0.0F, 0.0F, 6.0F, 0.0F, 0.0F};
     const std::vector<float> lineColors = {
-        1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
     };
     const std::vector<std::uint32_t> lineIndices = {0U, 1U, 2U, 3U};
     ASSERT_TRUE(manager
                     ->add_line_drawable(lineVertices,
-                                       lineIndices,
-                                       lineColors,
-                                       opengl::LineType::lines(),
-                                       2.0F,
-                                       1.0F,
-                                       opengl::BufferAccessPattern::Static)
+                                        lineIndices,
+                                        lineColors,
+                                        opengl::LineType::lines(),
+                                        2.0F,
+                                        1.0F,
+                                        opengl::BufferAccessPattern::Static)
                     .has_value());
 
     const std::vector<float> meshColors = {
-        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        1.0F,
     };
     add_mesh_drawable_with_alpha(*manager, meshColors); // hardcoded 3 vertices (9 floats), see the helper above
 
@@ -710,10 +762,36 @@ TEST_F(OpenGLDrawableTest, PointAndLineDrawableDrawWithNonIdentityModelMatrix) {
     opengl::PointProgram pointProgram = opengl::make_point_program();
     opengl::LineProgram lineProgram = opengl::make_line_program();
     const std::vector<float> pointColors = {
-        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.5F, 0.0F, 0.0F, 1.0F, 1.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        0.5F,
+        0.0F,
+        0.0F,
+        1.0F,
+        1.0F,
     };
     const std::vector<float> lineColors = {
-        1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.5F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        0.5F,
     };
 
     opengl::PointDrawable pointDrawable = make_point_drawable_with_alpha(pointProgram, pointColors);
@@ -735,7 +813,18 @@ TEST_F(OpenGLDrawableTest, PointAndLineDrawableDrawWithNonIdentityModelMatrix) {
 TEST_F(OpenGLDrawableTest, MeshDrawableDrawsWithNonIdentityModelMatrix) {
     opengl::MeshProgram program = opengl::make_mesh_program();
     const std::vector<float> colors = {
-        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        1.0F,
     };
     opengl::MeshDrawable drawable = make_mesh_drawable_with_alpha(program, colors);
 
@@ -762,14 +851,25 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerTransformAccessorsRoundTripAndRejectU
 
     const std::vector<float> pointVertices = {0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F};
     const std::vector<float> pointColors = {
-        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        1.0F,
     };
     const std::vector<std::uint32_t> pointIndices = {0U, 1U, 2U};
     const auto pointIdOpt = manager->add_point_drawable(pointVertices,
-                                                       pointColors,
-                                                       pointIndices,
-                                                       3.0F,
-                                                       opengl::BufferAccessPattern::Static);
+                                                        pointColors,
+                                                        pointIndices,
+                                                        3.0F,
+                                                        opengl::BufferAccessPattern::Static);
     ASSERT_TRUE(pointIdOpt.has_value());
     const opengl::DrawablesManager::DrawableId pointId = *pointIdOpt;
 
@@ -793,16 +893,31 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerTransformAccessorsRoundTripAndRejectU
 
     const std::vector<float> lineVertices = {0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 5.0F, 0.0F, 0.0F, 6.0F, 0.0F, 0.0F};
     const std::vector<float> lineColors = {
-        1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
     };
     const std::vector<std::uint32_t> lineIndices = {0U, 1U, 2U, 3U};
     const auto lineIdOpt = manager->add_line_drawable(lineVertices,
-                                                     lineIndices,
-                                                     lineColors,
-                                                     opengl::LineType::lines(),
-                                                     2.0F,
-                                                     1.0F,
-                                                     opengl::BufferAccessPattern::Static);
+                                                      lineIndices,
+                                                      lineColors,
+                                                      opengl::LineType::lines(),
+                                                      2.0F,
+                                                      1.0F,
+                                                      opengl::BufferAccessPattern::Static);
     ASSERT_TRUE(lineIdOpt.has_value());
     const opengl::DrawablesManager::DrawableId lineId = *lineIdOpt;
     EXPECT_TRUE(manager->get_line_drawable_transform(lineId)->is_identity());
@@ -810,7 +925,18 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerTransformAccessorsRoundTripAndRejectU
     EXPECT_FALSE(manager->get_line_drawable_transform(lineId)->is_identity());
 
     const std::vector<float> meshColors = {
-        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F,
+        1.0F,
     };
     const opengl::DrawablesManager::DrawableId meshId = add_mesh_drawable_with_alpha(*manager, meshColors);
     EXPECT_TRUE(manager->get_mesh_drawable_transform(meshId)->is_identity());
@@ -825,10 +951,10 @@ TEST_F(OpenGLDrawableTest, CollectVertexPositionBuffersAppliesNonIdentityTransfo
     const std::vector<float> pointColors = {1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F};
     const std::vector<std::uint32_t> pointIndices = {0U, 1U};
     const auto pointIdOpt = manager->add_point_drawable(pointVertices,
-                                                       pointColors,
-                                                       pointIndices,
-                                                       3.0F,
-                                                       opengl::BufferAccessPattern::Static);
+                                                        pointColors,
+                                                        pointIndices,
+                                                        3.0F,
+                                                        opengl::BufferAccessPattern::Static);
     ASSERT_TRUE(pointIdOpt.has_value());
 
     const linal::hmatf translation = make_translation(10.0F, 20.0F, 30.0F);

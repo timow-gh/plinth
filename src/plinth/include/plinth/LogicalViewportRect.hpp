@@ -12,8 +12,7 @@ struct LogicalViewportRect {
     double width{1.0};
     double height{1.0};
 
-    [[nodiscard]]
-    bool contains(double xpos, double ypos) const {
+    [[nodiscard]] bool contains(double xpos, double ypos) const {
         return xpos >= x && ypos >= y && xpos < x + width && ypos < y + height;
     }
 };

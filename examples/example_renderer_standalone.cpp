@@ -3,6 +3,7 @@
 #include "plinth/Renderer.hpp"
 #include "plinth/UiMode.hpp"
 #include "plinth/WindowSettings.hpp"
+
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -35,7 +36,7 @@ renderer::CallbackSubscription add_preset_view_callback(renderer::Renderer& rend
             renderer.go_to_preset_view(renderer::PresetView::ISO);
             viewMode = renderer::CameraInteractor::CameraViewMode::NONE;
             break;
-        default:                   return;
+        default: return;
         }
         auto camera = renderer.get_camera().lock();
         if (camera) {
@@ -87,22 +88,20 @@ int main() {
     {
         renderer::StrokeStyle crossStyle;
         crossStyle.lineWidth = standaloneLineWidth;
-        renderer->add_line_drawable(lineVertices, lineIndices, lineColors,
-                                    renderer::LineType::lines(), crossStyle);
+        renderer->add_line_drawable(lineVertices, lineIndices, lineColors, renderer::LineType::lines(), crossStyle);
     }
 
     // A dashed cross above the solid one; the handle is kept so dashPhase can be animated.
-    const std::array<float, 12> dashedLineVertices{
-        -1.0F, 1.5F, 0.0F, 1.0F, 1.5F, 0.0F, 0.0F, 0.5F, 0.0F, 0.0F, 2.5F, 0.0F};
+    const std::array<float, 12>
+        dashedLineVertices{-1.0F, 1.5F, 0.0F, 1.0F, 1.5F, 0.0F, 0.0F, 0.5F, 0.0F, 0.0F, 2.5F, 0.0F};
     const std::array<float, 4> magenta{1.0F, 0.0F, 1.0F, 1.0F};
     renderer::StrokeStyle dashedStyle;
-    dashedStyle.lineWidth   = standaloneLineWidth;
+    dashedStyle.lineWidth = standaloneLineWidth;
     // NOLINTNEXTLINE(readability-magic-numbers)
     dashedStyle.dashPattern = {0.2F, 0.15F};
-    dashedStyle.dashSpace   = renderer::DashSpace::World;
+    dashedStyle.dashSpace = renderer::DashSpace::World;
     const renderer::DrawableHandle dashedLines =
-        renderer->add_line_drawable(dashedLineVertices, lineIndices, magenta,
-                                    renderer::LineType::lines(), dashedStyle);
+        renderer->add_line_drawable(dashedLineVertices, lineIndices, magenta, renderer::LineType::lines(), dashedStyle);
 
     // Add a rectangle
     const std::array<float, 4> darkBlue{0.0F, 0.0F, 0.5F, 1.0F};
@@ -125,15 +124,13 @@ int main() {
 
     // F1 toggles between the game-like Release control panel (the default) and the full
     // Debug panel exposing every post-processing and visualization control.
-    const auto uiModeSubscription = renderer->add_key_callback([&ui](renderer::Key key,
-                                                                      renderer::Scancode /*scancode*/,
-                                                                      renderer::Action action,
-                                                                      renderer::Mods /*mods*/) {
-        if (key == renderer::Key::KEY_F1 && action == renderer::Action::PRESS) {
-            ui.set_ui_mode(ui.ui_mode() == renderer::UiMode::Release ? renderer::UiMode::Debug
-                                                                     : renderer::UiMode::Release);
-        }
-    });
+    const auto uiModeSubscription = renderer->add_key_callback(
+        [&ui](renderer::Key key, renderer::Scancode /*scancode*/, renderer::Action action, renderer::Mods /*mods*/) {
+            if (key == renderer::Key::KEY_F1 && action == renderer::Action::PRESS) {
+                ui.set_ui_mode(ui.ui_mode() == renderer::UiMode::Release ? renderer::UiMode::Debug
+                                                                         : renderer::UiMode::Release);
+            }
+        });
 
     // Tab toggles between orbit navigation and fly (WASD+QE) navigation, proving the new
     // CameraInteractor::NavigationStyle switch works end-to-end.
@@ -165,8 +162,7 @@ int main() {
         }
 
         // Advance the dash phase over time for a "marching ants" effect.
-        const float elapsedSeconds =
-            std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
+        const float elapsedSeconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
         renderer->set_line_dash_phase(dashedLines, elapsedSeconds * 0.5F); // NOLINT(readability-magic-numbers)
 
         renderer->begin_frame();

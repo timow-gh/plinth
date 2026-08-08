@@ -23,14 +23,8 @@ class OPENGL_EXPORT UnsignedIntId {
     ~UnsignedIntId() = default;
 
     // Some OpenGL functions require a lvalue reference to GLuint
-    [[nodiscard]]
-    constexpr const GLuint& get_value() const noexcept {
-        return m_id;
-    }
-    [[nodiscard]]
-    constexpr GLuint& get_value() noexcept {
-        return m_id;
-    }
+    [[nodiscard]] constexpr const GLuint& get_value() const noexcept { return m_id; }
+    [[nodiscard]] constexpr GLuint& get_value() noexcept { return m_id; }
 };
 
 } // namespace opengl

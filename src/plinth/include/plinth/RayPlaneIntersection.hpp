@@ -3,6 +3,7 @@
 
 #include "plinth/Assert.hpp"
 #include "plinth/Plane.hpp"
+
 #include <linal/linal.hpp>
 
 namespace renderer {
@@ -14,12 +15,11 @@ namespace renderer {
  *  @param result The intersection point.
  *  @return True if the ray intersects the plane, false otherwise.
  */
-[[nodiscard]]
-inline bool ray_plane_intersection(const linal::double3& rayOrigin,
-                                   const linal::double3& rayDir,
-                                   const Plane& plane,
-                                   linal::double3& result,
-                                   double eps = 1e-6) {
+[[nodiscard]] inline bool ray_plane_intersection(const linal::double3& rayOrigin,
+                                                 const linal::double3& rayDir,
+                                                 const Plane& plane,
+                                                 linal::double3& result,
+                                                 double eps = 1e-6) {
     RENDERER_ASSERT(!linal::is_zero(rayDir));
     const linal::double3 planeNormal = plane.get_normal();
     const double dirDot = linal::dot(rayDir, planeNormal);

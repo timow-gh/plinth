@@ -3,6 +3,7 @@
 
 #include "plinth/InputState.hpp"
 #include "plinth/WindowSettings.hpp"
+
 #include <memory>
 #include <optional>
 
@@ -20,11 +21,9 @@ class GlfwWindow {
     /// Only one live plinth GlfwWindow may exist at a time. A second call to
     /// create() while another GlfwWindow is alive returns std::nullopt. A new
     /// instance may be created after the previous owner is destroyed.
-    [[nodiscard]]
-    static std::optional<GlfwWindow> create(const WindowSettings& settings);
+    [[nodiscard]] static std::optional<GlfwWindow> create(const WindowSettings& settings);
 
-    [[nodiscard]]
-    bool is_initialized() const;
+    [[nodiscard]] bool is_initialized() const;
     [[nodiscard]]
     /// Returns the underlying GLFWwindow pointer. Must be called on the creating thread.
     void* get_native_handle() const;
@@ -37,26 +36,18 @@ class GlfwWindow {
     /// Swaps the front and back buffers. Must be called on the creating thread.
     void swap_buffers() const;
 
-    [[nodiscard]]
-    bool should_close() const;
-    [[nodiscard]]
-    bool is_escape_pressed() const;
-    [[nodiscard]]
-    bool is_key_pressed(Key key) const;
-    [[nodiscard]]
-    std::pair<int, int> get_window_size() const;
-    [[nodiscard]]
-    std::pair<int, int> get_framebuffer_size() const;
-    [[nodiscard]]
-    std::pair<double, double> get_framebuffer_scale() const;
+    [[nodiscard]] bool should_close() const;
+    [[nodiscard]] bool is_escape_pressed() const;
+    [[nodiscard]] bool is_key_pressed(Key key) const;
+    [[nodiscard]] std::pair<int, int> get_window_size() const;
+    [[nodiscard]] std::pair<int, int> get_framebuffer_size() const;
+    [[nodiscard]] std::pair<double, double> get_framebuffer_scale() const;
     /// Reports whether the default framebuffer is sRGB-capable. Must be called
     /// on the creating thread with this window's context current and the
     /// default framebuffer bound.
-    [[nodiscard]]
-    bool is_srgb_capable() const;
+    [[nodiscard]] bool is_srgb_capable() const;
 
-    [[nodiscard]]
-    InputState& get_input_state() const;
+    [[nodiscard]] InputState& get_input_state() const;
 
     void set_key_callback(KeyCB cb);
     void set_char_callback(CharCB cb);
@@ -66,10 +57,7 @@ class GlfwWindow {
     void set_framebuffer_size_callback(FramebufferSizeCB cb);
 
   private:
-    [[nodiscard]]
-    static int window_hint_to_glfw_hint(bool hint) {
-        return hint ? 1 : 0;
-    }
+    [[nodiscard]] static int window_hint_to_glfw_hint(bool hint) { return hint ? 1 : 0; }
     static void set_window_hints(const WindowSettings& hints);
 
     struct Impl;

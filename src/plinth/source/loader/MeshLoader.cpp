@@ -1,9 +1,11 @@
 #include "plinth/loader/MeshLoader.hpp"
+
 #include "plinth/loader/MeshFormatLoader.hpp"
 #include "plinth/loader/MeshShading.hpp"
 #include "plinth/loader/MtlLoader.hpp"
 #include "plinth/loader/ObjLoader.hpp"
 #include "plinth/loader/StlLoader.hpp"
+
 #include <cctype>
 #include <filesystem>
 #include <fstream>
@@ -20,8 +22,7 @@ using BuiltinMeshLoaders = MeshLoaderList<ObjLoader, StlLoader>;
 
 // Conventional up-axis per format, used when the caller does not set one. OBJ is
 // authored Y-up in the Wavefront ecosystem; STL is Z-up in the CAD world.
-[[nodiscard]]
-SourceUpAxis conventional_up_axis(std::string_view extension) {
+[[nodiscard]] SourceUpAxis conventional_up_axis(std::string_view extension) {
     std::string lowered(extension);
     for (char& c: lowered) {
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -51,8 +52,7 @@ void apply_up_axis(MeshData& mesh, SourceUpAxis upAxis) {
     rotate_y_up_to_z_up(mesh.normals);
 }
 
-[[nodiscard]]
-std::expected<std::string, LoadError> read_file(const std::filesystem::path& path) {
+[[nodiscard]] std::expected<std::string, LoadError> read_file(const std::filesystem::path& path) {
     std::error_code errorCode;
     if (!std::filesystem::is_regular_file(path, errorCode) || errorCode) {
         return std::unexpected(LoadError::fileNotFound);
@@ -78,8 +78,7 @@ std::expected<std::string, LoadError> read_file(const std::filesystem::path& pat
 // and the parsed normals/UVs/submeshes are kept intact. A mesh with submeshes
 // but no UVs can still be re-shaded, but its per-material index ranges no longer
 // map onto the rebuilt geometry, so the (now meaningless) grouping is dropped.
-[[nodiscard]]
-std::expected<MeshData, LoadError> apply_shading_if_supported(const MeshData& mesh, ShadingMode mode) {
+[[nodiscard]] std::expected<MeshData, LoadError> apply_shading_if_supported(const MeshData& mesh, ShadingMode mode) {
     if (mode == ShadingMode::Preserve || !mesh.textureCoordinates.empty()) {
         return mesh;
     }

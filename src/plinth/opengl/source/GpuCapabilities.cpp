@@ -1,6 +1,8 @@
 #include "OpenGL/GpuCapabilities.hpp"
+
 #include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/OpenGL.hpp"
+
 #include <algorithm>
 #include <cstring>
 
@@ -59,9 +61,9 @@ GpuCapabilities query_gpu_capabilities() {
     caps.maxAnisotropy = std::max(caps.maxAnisotropy, 1);
 
     caps.supportsDebugOutput = caps.supports_version(4, 3);
-    caps.supportsClipControl = glad_glClipControl != nullptr &&
-                               (caps.supports_version(clipControlCoreMajor, clipControlCoreMinor) ||
-                                has_extension("GL_ARB_clip_control"));
+    caps.supportsClipControl =
+        glad_glClipControl != nullptr &&
+        (caps.supports_version(clipControlCoreMajor, clipControlCoreMinor) || has_extension("GL_ARB_clip_control"));
 
     return caps;
 }

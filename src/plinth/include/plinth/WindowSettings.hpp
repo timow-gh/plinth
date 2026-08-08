@@ -2,6 +2,7 @@
 #define RENDERER_WINDOWSETTINGS_HPP
 
 #include "plinth/plinth_export.h"
+
 #include <cstdint>
 #include <string>
 
@@ -58,9 +59,9 @@ struct PLINTH_EXPORT WindowSettings {
                                              ///< the built-in UI so the application can roll its own.
                                              ///< The overlay owns its own state (e.g. the built-in
                                              ///< ImGuiOverlay's UiMode); set it via the overlay.
-    bool debug_context = false;    ///< Request a debug-capable GL context (GL 4.3 core +
-                                   ///< GLFW_OPENGL_DEBUG_CONTEXT) instead of the default GL 4.1 core.
-                                   ///< Intended for development builds only - see OpenGL/ErrorReporting.hpp.
+    bool debug_context = false;              ///< Request a debug-capable GL context (GL 4.3 core +
+                                             ///< GLFW_OPENGL_DEBUG_CONTEXT) instead of the default GL 4.1 core.
+                                             ///< Intended for development builds only - see OpenGL/ErrorReporting.hpp.
 };
 
 #ifdef _MSC_VER

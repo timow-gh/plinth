@@ -54,33 +54,20 @@ class OPENGL_EXPORT PointProgram {
     }
     ~PointProgram() = default;
 
-    [[nodiscard]]
-    bool is_valid() const noexcept {
-        return m_program.is_valid();
-    }
+    [[nodiscard]] bool is_valid() const noexcept { return m_program.is_valid(); }
 
-    [[nodiscard]]
-    constexpr Location get_view_projection_location() const noexcept {
+    [[nodiscard]] constexpr Location get_view_projection_location() const noexcept {
         return m_viewProjectionLocation.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_model_matrix_location() const noexcept {
+    [[nodiscard]] constexpr Location get_model_matrix_location() const noexcept {
         return m_modelMatrixLocation.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_pos_location() const noexcept {
-        return m_vertexLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_color_location() const noexcept {
-        return m_colorLocation.get_location();
-    }
-    [[nodiscard]]
-    constexpr Location get_pick_mode_location() const noexcept {
+    [[nodiscard]] constexpr Location get_pos_location() const noexcept { return m_vertexLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_color_location() const noexcept { return m_colorLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_pick_mode_location() const noexcept {
         return m_pickModeLocation.get_location();
     }
-    [[nodiscard]]
-    constexpr Location get_pick_color_location() const noexcept {
+    [[nodiscard]] constexpr Location get_pick_color_location() const noexcept {
         return m_pickColorLocation.get_location();
     }
 

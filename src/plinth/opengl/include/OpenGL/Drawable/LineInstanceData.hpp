@@ -3,11 +3,13 @@
 
 #include "OpenGL/Drawable/DrawableTransparencyInfo.hpp"
 #include "plinth/LineType.hpp"
+
+#include <linal/vec.hpp>
+
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <linal/vec.hpp>
 #include <span>
 #include <vector>
 
@@ -30,11 +32,20 @@ inline constexpr std::size_t kLineInstanceStrideBytes = kLineInstanceFloats * si
 
 // The shared unit quad expanded per instance. .x in {0,1} selects the endpoint (0 at p0, 1 at p1);
 // .y in {-0.5, 0.5} selects the side offset scaled by line width. Two triangles, 6 vertices.
-[[nodiscard]]
-inline std::array<float, 12> unit_quad_corners() noexcept {
+[[nodiscard]] inline std::array<float, 12> unit_quad_corners() noexcept {
     return {
-        0.0F, -0.5F, 1.0F, -0.5F, 1.0F, 0.5F, // triangle 1
-        0.0F, -0.5F, 1.0F, 0.5F,  0.0F, 0.5F, // triangle 2
+        0.0F,
+        -0.5F,
+        1.0F,
+        -0.5F,
+        1.0F,
+        0.5F, // triangle 1
+        0.0F,
+        -0.5F,
+        1.0F,
+        0.5F,
+        0.0F,
+        0.5F, // triangle 2
     };
 }
 
@@ -43,9 +54,8 @@ inline std::array<float, 12> unit_quad_corners() noexcept {
 //   lines      -> indices are already consecutive pairs.
 //   line_strip -> a running polyline: (i0,i1), (i1,i2), ...
 //   line_loop  -> like strip plus a closing segment (iLast, i0).
-[[nodiscard]]
-inline std::vector<std::uint32_t> expand_indices_to_segment_pairs(std::span<const std::uint32_t> indices,
-                                                                  const LineType& lineType) {
+[[nodiscard]] inline std::vector<std::uint32_t> expand_indices_to_segment_pairs(std::span<const std::uint32_t> indices,
+                                                                                const LineType& lineType) {
     std::vector<std::uint32_t> pairs;
     if (lineType.is_line_strip() || lineType.is_line_loop()) {
         if (indices.size() < 2) {
@@ -68,8 +78,7 @@ inline std::vector<std::uint32_t> expand_indices_to_segment_pairs(std::span<cons
     return pairs;
 }
 
-[[nodiscard]]
-inline float segment_length(const linal::float3& a, const linal::float3& b) noexcept {
+[[nodiscard]] inline float segment_length(const linal::float3& a, const linal::float3& b) noexcept {
     const float dx = b[0] - a[0];
     const float dy = b[1] - a[1];
     const float dz = b[2] - a[2];
@@ -81,10 +90,9 @@ inline float segment_length(const linal::float3& a, const linal::float3& b) noex
 //   line_strip -> running sum along the run.
 //   line_loop  -> running sum along the run; the closing segment continues from the last vertex.
 // Indexed by original vertex index (matching make_vertex_sort_positions / translucency flags).
-[[nodiscard]]
-inline std::vector<float> make_vertex_arc_lengths(std::span<const std::uint32_t> indices,
-                                                  std::span<const linal::float3> positions,
-                                                  const LineType& lineType) {
+[[nodiscard]] inline std::vector<float> make_vertex_arc_lengths(std::span<const std::uint32_t> indices,
+                                                                std::span<const linal::float3> positions,
+                                                                const LineType& lineType) {
     std::vector<float> arcLengths(positions.size(), 0.0F);
     if (positions.empty()) {
         return arcLengths;
@@ -126,10 +134,8 @@ inline std::vector<float> make_vertex_arc_lengths(std::span<const std::uint32_t>
     return arcLengths;
 }
 
-[[nodiscard]]
-inline std::array<float, 4> get_color_or_white(std::span<const float> colors,
-                                               std::int32_t colorDimension,
-                                               std::uint32_t index) noexcept {
+[[nodiscard]] inline std::array<float, 4>
+get_color_or_white(std::span<const float> colors, std::int32_t colorDimension, std::uint32_t index) noexcept {
     std::array<float, 4> color{1.0F, 1.0F, 1.0F, 1.0F};
     if (colorDimension < 1) {
         return color;
@@ -144,8 +150,7 @@ inline std::array<float, 4> get_color_or_white(std::span<const float> colors,
     return color;
 }
 
-[[nodiscard]]
-inline bool dash_flag_at(std::span<const std::uint8_t> dashFlags, std::uint32_t index) noexcept {
+[[nodiscard]] inline bool dash_flag_at(std::span<const std::uint8_t> dashFlags, std::uint32_t index) noexcept {
     const auto i = static_cast<std::size_t>(index);
     return i < dashFlags.size() && dashFlags[i] != 0U;
 }
@@ -159,10 +164,9 @@ struct SegmentNeighbours {
     std::vector<linal::float3> pNext;
 };
 
-[[nodiscard]]
-inline SegmentNeighbours make_segment_neighbours(std::span<const std::uint32_t> segmentPairs,
-                                                  std::span<const linal::float3> positions,
-                                                  const LineType& lineType) {
+[[nodiscard]] inline SegmentNeighbours make_segment_neighbours(std::span<const std::uint32_t> segmentPairs,
+                                                               std::span<const linal::float3> positions,
+                                                               const LineType& lineType) {
     const std::size_t segmentCount = segmentPairs.size() / 2U;
     SegmentNeighbours result;
     result.pPrev.reserve(segmentCount);
@@ -215,15 +219,14 @@ inline SegmentNeighbours make_segment_neighbours(std::span<const std::uint32_t> 
 //
 // neighbours carries the pPrev/pNext world positions for cap and join geometry. When empty,
 // sentinel values (pPrev == p0, pNext == p1) are used, meaning all endpoints are treated as caps.
-[[nodiscard]]
-inline std::vector<float> make_line_instance_data(std::span<const std::uint32_t> segmentPairs,
-                                                  std::span<const linal::float3> positions,
-                                                  std::span<const float> colors,
-                                                  std::int32_t colorDimension,
-                                                  std::span<const float> arcLengths,
-                                                  std::span<const std::uint8_t> dashFlags,
-                                                  bool independentArc0 = false,
-                                                  const SegmentNeighbours* neighbours = nullptr) {
+[[nodiscard]] inline std::vector<float> make_line_instance_data(std::span<const std::uint32_t> segmentPairs,
+                                                                std::span<const linal::float3> positions,
+                                                                std::span<const float> colors,
+                                                                std::int32_t colorDimension,
+                                                                std::span<const float> arcLengths,
+                                                                std::span<const std::uint8_t> dashFlags,
+                                                                bool independentArc0 = false,
+                                                                const SegmentNeighbours* neighbours = nullptr) {
     std::vector<float> data;
     const std::size_t segmentCount = segmentPairs.size() / 2U;
     data.reserve(segmentCount * kLineInstanceFloats);
@@ -241,12 +244,8 @@ inline std::vector<float> make_line_instance_data(std::span<const std::uint32_t>
         const std::array<float, 4> color1 = get_color_or_white(colors, colorDimension, i1);
 
         // Neighbour positions for cap/join geometry (sentinels == p0/p1 mean open endpoint).
-        const linal::float3 pPrev = (neighbours && segIdx < neighbours->pPrev.size())
-                                        ? neighbours->pPrev[segIdx]
-                                        : p0;
-        const linal::float3 pNext = (neighbours && segIdx < neighbours->pNext.size())
-                                        ? neighbours->pNext[segIdx]
-                                        : p1;
+        const linal::float3 pPrev = (neighbours && segIdx < neighbours->pPrev.size()) ? neighbours->pPrev[segIdx] : p0;
+        const linal::float3 pNext = (neighbours && segIdx < neighbours->pNext.size()) ? neighbours->pNext[segIdx] : p1;
 
         // a_p0 = (p0.xyz, dashedFlag)
         data.push_back(p0[0]);
@@ -284,8 +283,7 @@ inline std::vector<float> make_line_instance_data(std::span<const std::uint32_t>
 }
 
 // Flattens sortable segments back into flat index pairs (for translucent instance rebuilds).
-[[nodiscard]]
-inline std::vector<std::uint32_t> segments_to_index_pairs(std::span<const SortableLineSegment> segments) {
+[[nodiscard]] inline std::vector<std::uint32_t> segments_to_index_pairs(std::span<const SortableLineSegment> segments) {
     std::vector<std::uint32_t> pairs;
     pairs.reserve(segments.size() * 2U);
     for (const SortableLineSegment& segment: segments) {

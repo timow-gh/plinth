@@ -3,6 +3,7 @@
 
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/opengl_export.h"
+
 #include <optional>
 
 namespace opengl {
@@ -24,40 +25,28 @@ class OPENGL_EXPORT Framebuffer {
 
     ~Framebuffer();
 
-    [[nodiscard]]
-    static std::optional<Framebuffer> create(int width, int height, int samples, bool srgb);
+    [[nodiscard]] static std::optional<Framebuffer> create(int width, int height, int samples, bool srgb);
 
-    [[nodiscard]]
-    static std::optional<Framebuffer> create_hdr(const HdrConfig& config);
+    [[nodiscard]] static std::optional<Framebuffer> create_hdr(const HdrConfig& config);
 
-    [[nodiscard]]
-    static std::optional<Framebuffer> create_ldr_intermediate(int width, int height);
+    [[nodiscard]] static std::optional<Framebuffer> create_ldr_intermediate(int width, int height);
 
     void reset() noexcept;
 
-    [[nodiscard]]
-    bool resize(int width, int height);
+    [[nodiscard]] bool resize(int width, int height);
 
     void bind() const;
     static void unbind();
 
-    [[nodiscard]]
-    bool resolve_to(Framebuffer& destination, GLbitfield mask = GL_COLOR_BUFFER_BIT) const;
+    [[nodiscard]] bool resolve_to(Framebuffer& destination, GLbitfield mask = GL_COLOR_BUFFER_BIT) const;
 
-    [[nodiscard]]
-    bool is_valid() const noexcept;
-    [[nodiscard]]
-    GLuint get_id() const noexcept;
-    [[nodiscard]]
-    GLuint get_color_texture() const noexcept;
-    [[nodiscard]]
-    GLuint get_depth_texture() const noexcept;
-    [[nodiscard]]
-    int get_width() const noexcept;
-    [[nodiscard]]
-    int get_height() const noexcept;
-    [[nodiscard]]
-    int get_samples() const noexcept;
+    [[nodiscard]] bool is_valid() const noexcept;
+    [[nodiscard]] GLuint get_id() const noexcept;
+    [[nodiscard]] GLuint get_color_texture() const noexcept;
+    [[nodiscard]] GLuint get_depth_texture() const noexcept;
+    [[nodiscard]] int get_width() const noexcept;
+    [[nodiscard]] int get_height() const noexcept;
+    [[nodiscard]] int get_samples() const noexcept;
 
   private:
     enum class AttachmentLayout {
@@ -72,9 +61,17 @@ class OPENGL_EXPORT Framebuffer {
         bool useFloatDepth{false};
     };
 
-    Framebuffer(GLuint framebuffer, GLuint colorTexture, GLuint colorRenderbuffer,
-                 GLuint depthStencilRenderbuffer, GLuint depthTexture, bool hasDepthTexture,
-                 int width, int height, int samples, bool srgb, CreationDescriptor descriptor);
+    Framebuffer(GLuint framebuffer,
+                GLuint colorTexture,
+                GLuint colorRenderbuffer,
+                GLuint depthStencilRenderbuffer,
+                GLuint depthTexture,
+                bool hasDepthTexture,
+                int width,
+                int height,
+                int samples,
+                bool srgb,
+                CreationDescriptor descriptor);
 
     GLuint m_framebuffer{0};
     GLuint m_colorTexture{0};

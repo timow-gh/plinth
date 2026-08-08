@@ -12,6 +12,7 @@
 
 #include "plinth/Renderer.hpp"
 #include "plinth/WindowSettings.hpp"
+
 #include <array>
 #include <cstdint>
 
@@ -61,8 +62,8 @@ int main() {
     // With no overlay, mouse/key callbacks are forwarded unfiltered. Applications can also
     // read the raw window via renderer->window().get_native_handle() to install their own
     // GLFW callbacks for a bespoke toolkit.
-    const auto clickSubscription = renderer->add_mouse_button_callback(
-        [&renderer](int button, renderer::Action action, renderer::Mods /*mods*/) {
+    const auto clickSubscription =
+        renderer->add_mouse_button_callback([&renderer](int button, renderer::Action action, renderer::Mods /*mods*/) {
             if (button == 0 && action == renderer::Action::PRESS) {
                 const auto ray = renderer->compute_pick_ray(0.0, 0.0);
                 (void)ray;

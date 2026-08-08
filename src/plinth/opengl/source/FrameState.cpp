@@ -1,12 +1,10 @@
 #include "OpenGL/FrameState.hpp"
+
 #include "OpenGL/OpenGL.hpp"
 
 namespace opengl {
 
-void begin_frame(const ClearColor& clearColor,
-                 const ViewportRect& viewport,
-                 bool srgbFramebuffer,
-                 bool reversedDepth) {
+void begin_frame(const ClearColor& clearColor, const ViewportRect& viewport, bool srgbFramebuffer, bool reversedDepth) {
     if (srgbFramebuffer) {
         glEnable(GL_FRAMEBUFFER_SRGB);
     } else {

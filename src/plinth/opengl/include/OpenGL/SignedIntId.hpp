@@ -17,14 +17,8 @@ class OPENGL_EXPORT SignedIntId {
         RENDERER_ASSERT(id != -1);
     }
 
-    [[nodiscard]]
-    constexpr GLint get_value() const noexcept {
-        return m_id;
-    }
-    [[nodiscard]]
-    constexpr GLuint get_as_unsigned() const noexcept {
-        return static_cast<GLuint>(m_id);
-    }
+    [[nodiscard]] constexpr GLint get_value() const noexcept { return m_id; }
+    [[nodiscard]] constexpr GLuint get_as_unsigned() const noexcept { return static_cast<GLuint>(m_id); }
 };
 
 } // namespace opengl

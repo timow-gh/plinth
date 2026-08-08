@@ -21,11 +21,8 @@ namespace plinth_assert_detail {
 
 // The if-statement lives in a dedicated inline function rather than being expanded inline by
 // the macro so that callers do not accumulate cognitive complexity for every RENDERER_ASSERT.
-[[maybe_unused]] inline void assert_check(bool condition,
-                                          const char* file,
-                                          int line,
-                                          const char* func,
-                                          const char* expr) {
+[[maybe_unused]] inline void
+assert_check(bool condition, const char* file, int line, const char* func, const char* expr) {
     if (!condition) [[unlikely]] {
         std::string msg{file};
         msg += ":";
@@ -42,7 +39,7 @@ namespace plinth_assert_detail {
 
 } // namespace plinth_assert_detail
 
-#define RENDERER_ASSERT(...) \
+#define RENDERER_ASSERT(...)                                                                                           \
     plinth_assert_detail::assert_check((__VA_ARGS__), __FILE__, __LINE__, __func__, #__VA_ARGS__)
 
 #endif

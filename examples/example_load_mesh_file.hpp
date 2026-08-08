@@ -6,6 +6,7 @@
 #include "plinth/WindowSettings.hpp"
 #include "plinth/loader/MeshData.hpp"
 #include "plinth/loader/MeshLoader.hpp"
+
 #include <array>
 #include <cstdint>
 #include <filesystem>
@@ -18,10 +19,9 @@
 #include <vector>
 
 namespace mesh_example {
-inline renderer::TextureHandle load_texture_cached(
-    renderer::Renderer& renderer,
-    std::unordered_map<std::string, renderer::TextureHandle>& cache,
-    const std::string& path) {
+inline renderer::TextureHandle load_texture_cached(renderer::Renderer& renderer,
+                                                   std::unordered_map<std::string, renderer::TextureHandle>& cache,
+                                                   const std::string& path) {
     if (path.empty()) {
         return {};
     }
@@ -43,8 +43,8 @@ inline renderer::TextureHandle load_texture_cached(
         return {};
     }
 
-    const std::span<const std::uint8_t> rgba8{
-        pixels, static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4U};
+    const std::span<const std::uint8_t> rgba8{pixels,
+                                              static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4U};
     const renderer::TextureHandle handle = renderer.create_texture_2d({static_cast<std::uint32_t>(width),
                                                                        static_cast<std::uint32_t>(height),
                                                                        rgba8,
@@ -93,8 +93,7 @@ inline bool add_mesh(renderer::Renderer& renderer, const renderer::MeshData& mes
         const std::span<const std::uint32_t> subIndices{mesh.triangleIndices.data() + sub.indexOffset, sub.indexCount};
         const renderer::MeshData::Material* material = find_material(mesh, sub.materialName);
         if (material == nullptr) {
-            std::cerr << "Warning: OBJ material '" << sub.materialName
-                      << "' was not found; using default gray.\n";
+            std::cerr << "Warning: OBJ material '" << sub.materialName << "' was not found; using default gray.\n";
         }
 
         renderer::TextureHandle texture;
@@ -154,8 +153,8 @@ inline int run(const char* title, const std::filesystem::path& meshPath) {
     const renderer::MeshLoadOptions options{.shading = renderer::ShadingMode::Preserve};
     auto mesh = renderer::load_mesh(meshPath, options);
     if (!mesh) {
-        std::cerr << "Error: failed to load mesh '" << meshPath.string() << "': "
-                  << load_error_message(mesh.error()) << ".\n";
+        std::cerr << "Error: failed to load mesh '" << meshPath.string() << "': " << load_error_message(mesh.error())
+                  << ".\n";
         return 2;
     }
 

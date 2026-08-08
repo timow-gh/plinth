@@ -1,7 +1,9 @@
 #include "OpenGL/PostProcessingPass.hpp"
+
 #include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/Programs/CreateProgram.hpp"
 #include "OpenGL/ShaderSources.hpp"
+
 #include <array>
 #include <format>
 #include <utility>
@@ -59,13 +61,22 @@ class ScopedFullscreenState {
 
 } // namespace
 
-PostProcessingPass::PostProcessingPass(ProgramHandle program, GLuint vertexArray,
-                                       Uniform sceneColor, Uniform sceneDepth,
-                                       Uniform invProjection, Uniform reversedDepth,
-                                       Uniform fogEnabled, Uniform fogMode,
-                                       Uniform fogStart, Uniform fogEnd, Uniform fogDensity, Uniform fogColor,
-                                       Uniform exposureStops, Uniform toneMapMode,
-                                       Uniform visualizationMode, Uniform hdrDisplayMax,
+PostProcessingPass::PostProcessingPass(ProgramHandle program,
+                                       GLuint vertexArray,
+                                       Uniform sceneColor,
+                                       Uniform sceneDepth,
+                                       Uniform invProjection,
+                                       Uniform reversedDepth,
+                                       Uniform fogEnabled,
+                                       Uniform fogMode,
+                                       Uniform fogStart,
+                                       Uniform fogEnd,
+                                       Uniform fogDensity,
+                                       Uniform fogColor,
+                                       Uniform exposureStops,
+                                       Uniform toneMapMode,
+                                       Uniform visualizationMode,
+                                       Uniform hdrDisplayMax,
                                        Uniform grayscale) noexcept
     : m_program(std::move(program))
     , m_vertexArray(vertexArray)
@@ -168,32 +179,35 @@ std::optional<PostProcessingPass> PostProcessingPass::create() {
     Uniform hdrDisplayMax = make_uniform("u_hdrDisplayMax", pid);
     Uniform grayscale = make_uniform("u_grayscale", pid);
 
-    if (sceneColor.get_location().get_value() == -1 ||
-        sceneDepth.get_location().get_value() == -1 ||
-        invProjection.get_location().get_value() == -1 ||
-        reversedDepth.get_location().get_value() == -1 ||
-        fogEnabled.get_location().get_value() == -1 ||
-        fogMode.get_location().get_value() == -1 ||
-        fogStart.get_location().get_value() == -1 ||
-        fogEnd.get_location().get_value() == -1 ||
-        fogDensity.get_location().get_value() == -1 ||
-        fogColor.get_location().get_value() == -1 ||
-        exposureStops.get_location().get_value() == -1 ||
-        toneMapMode.get_location().get_value() == -1 ||
-        visualizationMode.get_location().get_value() == -1 ||
-        hdrDisplayMax.get_location().get_value() == -1 ||
+    if (sceneColor.get_location().get_value() == -1 || sceneDepth.get_location().get_value() == -1 ||
+        invProjection.get_location().get_value() == -1 || reversedDepth.get_location().get_value() == -1 ||
+        fogEnabled.get_location().get_value() == -1 || fogMode.get_location().get_value() == -1 ||
+        fogStart.get_location().get_value() == -1 || fogEnd.get_location().get_value() == -1 ||
+        fogDensity.get_location().get_value() == -1 || fogColor.get_location().get_value() == -1 ||
+        exposureStops.get_location().get_value() == -1 || toneMapMode.get_location().get_value() == -1 ||
+        visualizationMode.get_location().get_value() == -1 || hdrDisplayMax.get_location().get_value() == -1 ||
         grayscale.get_location().get_value() == -1) {
         glDeleteVertexArrays(1, &vertexArray);
         report_error("PostProcessingPass::create: one or more uniforms not found");
         return std::nullopt;
     }
 
-    return PostProcessingPass{std::move(*program), vertexArray,
-                              sceneColor, sceneDepth,
-                              invProjection, reversedDepth,
-                              fogEnabled, fogMode, fogStart, fogEnd, fogDensity, fogColor,
-                              exposureStops, toneMapMode,
-                              visualizationMode, hdrDisplayMax,
+    return PostProcessingPass{std::move(*program),
+                              vertexArray,
+                              sceneColor,
+                              sceneDepth,
+                              invProjection,
+                              reversedDepth,
+                              fogEnabled,
+                              fogMode,
+                              fogStart,
+                              fogEnd,
+                              fogDensity,
+                              fogColor,
+                              exposureStops,
+                              toneMapMode,
+                              visualizationMode,
+                              hdrDisplayMax,
                               grayscale};
 }
 

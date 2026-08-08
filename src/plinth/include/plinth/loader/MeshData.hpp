@@ -2,6 +2,7 @@
 #define RENDERER_LOADER_MESHDATA_HPP
 
 #include "plinth/plinth_export.h"
+
 #include <array>
 #include <cstdint>
 #include <string>
@@ -45,10 +46,7 @@ struct PLINTH_EXPORT MeshData {
     std::string materialLibrary;
     std::string sourceName;
 
-    [[nodiscard]]
-    bool empty() const {
-        return vertices.empty();
-    }
+    [[nodiscard]] bool empty() const { return vertices.empty(); }
 };
 
 } // namespace renderer

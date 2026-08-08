@@ -1,6 +1,8 @@
 #include "OpenGL/Programs/CreateProgram.hpp"
+
 #include "OpenGL/ErrorReporting.hpp"
 #include "ProgramOpenGL.hpp"
+
 #include <format>
 #include <utility>
 
@@ -10,13 +12,9 @@ namespace {
 
 class ProgramCreationErrorCategory : public std::error_category {
   public:
-    [[nodiscard]]
-    const char* name() const noexcept override {
-        return "opengl.program_creation";
-    }
+    [[nodiscard]] const char* name() const noexcept override { return "opengl.program_creation"; }
 
-    [[nodiscard]]
-    std::string message(int ev) const override {
+    [[nodiscard]] std::string message(int ev) const override {
         switch (static_cast<ProgramCreationFailureStage>(ev)) {
         case ProgramCreationFailureStage::Success:                   return "success";
         case ProgramCreationFailureStage::VertexShaderCreation:      return "vertex shader creation failed";
@@ -78,8 +76,8 @@ ProgramCreationResult create_program(const char* vertexShaderSource, const char*
     program_opengl::compile_shader(fragmentShader);
 
     if (!program_opengl::get_shader_compile_status(fragmentShader)) {
-        report_error(std::format("Fragment shader compilation failed: {}",
-                                 program_opengl::get_shader_info_log(fragmentShader)));
+        report_error(
+            std::format("Fragment shader compilation failed: {}", program_opengl::get_shader_info_log(fragmentShader)));
         return make_error_code(ProgramCreationFailureStage::FragmentShaderCompilation);
     }
 

@@ -1,4 +1,5 @@
 #include "Buffer.hpp"
+
 #include <cmath>
 #include <gtest/gtest.h>
 

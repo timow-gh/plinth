@@ -1,7 +1,9 @@
-#include <GLFW/glfw3.h>
+#include "OpenGL/PostProcessingPass.hpp"
+
 #include "OpenGL/Framebuffer.hpp"
 #include "OpenGL/OpenGL.hpp"
-#include "OpenGL/PostProcessingPass.hpp"
+
+#include <GLFW/glfw3.h>
 #include <array>
 #include <cmath>
 #include <gtest/gtest.h>
@@ -64,12 +66,7 @@ TEST_F(PostProcessingPassTest, ProcessesHdrToLdr) {
     ASSERT_TRUE(pass.has_value());
     ASSERT_TRUE(pass->is_valid());
 
-    float identity[16] = {
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1
-    };
+    float identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     pass->set_inv_projection(identity);
     pass->set_fog_enabled(false);
     pass->set_exposure_stops(0.0f);
@@ -114,12 +111,7 @@ TEST_F(PostProcessingPassTest, LinearLdrVisualizationBypassesSrgbEncoding) {
 
     auto pass = opengl::PostProcessingPass::create();
     ASSERT_TRUE(pass.has_value());
-    const float identity[16] = {
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1
-    };
+    const float identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     pass->set_inv_projection(identity);
     pass->set_fog_enabled(false);
     pass->set_exposure_stops(0.0F);
@@ -158,12 +150,7 @@ TEST_F(PostProcessingPassTest, FogSettingsAffectVisibleGeometry) {
 
     auto pass = opengl::PostProcessingPass::create();
     ASSERT_TRUE(pass.has_value());
-    const float identity[16] = {
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1
-    };
+    const float identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     pass->set_inv_projection(identity);
     pass->set_fog_enabled(true);
     pass->set_fog_mode(0);
@@ -201,12 +188,7 @@ TEST_F(PostProcessingPassTest, ExponentialFogMovesOutputTowardFogColor) {
 
     auto pass = opengl::PostProcessingPass::create();
     ASSERT_TRUE(pass.has_value());
-    const float identity[16] = {
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1
-    };
+    const float identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     pass->set_inv_projection(identity);
     pass->set_exposure_stops(0.0F);
     pass->set_tone_map_mode(0);
@@ -243,12 +225,7 @@ TEST_F(PostProcessingPassTest, ReversedDepthTreatsZeroAsBackgroundAndReconstruct
     ASSERT_TRUE(ldrFb.has_value());
     ASSERT_TRUE(pass.has_value());
 
-    const float identity[16] = {
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1
-    };
+    const float identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     pass->set_inv_projection(identity);
     pass->set_reversed_depth(true);
     pass->set_fog_enabled(true);
@@ -295,12 +272,7 @@ TEST_F(PostProcessingPassTest, VisualizationModesProduceDeterministicOutput) {
     ASSERT_TRUE(ldrFb.has_value());
     auto pass = opengl::PostProcessingPass::create();
     ASSERT_TRUE(pass.has_value());
-    const float identity[16] = {
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1
-    };
+    const float identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     pass->set_inv_projection(identity);
     pass->set_fog_enabled(false);
     pass->set_exposure_stops(0.0F);

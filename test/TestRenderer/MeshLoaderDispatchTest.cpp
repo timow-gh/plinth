@@ -1,12 +1,13 @@
 #include "plinth/loader/MeshLoader.hpp"
+
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <string>
 
 namespace {
 
-using renderer::LoadError;
 using renderer::load_mesh;
+using renderer::LoadError;
 
 TEST(MeshLoaderDispatchTest, DispatchesObjByExtension) {
     const auto mesh = load_mesh(".obj", "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n");

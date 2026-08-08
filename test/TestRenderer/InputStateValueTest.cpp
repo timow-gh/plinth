@@ -1,4 +1,5 @@
 #include "plinth/InputState.hpp"
+
 #include <gtest/gtest.h>
 
 using namespace renderer;

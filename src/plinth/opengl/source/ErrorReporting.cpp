@@ -1,5 +1,7 @@
 #include "OpenGL/ErrorReporting.hpp"
+
 #include "OpenGL/OpenGL.hpp"
+
 #include <format>
 #include <print>
 #include <utility>
@@ -48,8 +50,8 @@ void GLAPIENTRY on_gl_debug_message(GLenum /*source*/,
         return;
     }
     const ErrorSeverity mapped = (severity == GL_DEBUG_SEVERITY_HIGH || severity == GL_DEBUG_SEVERITY_MEDIUM)
-                                      ? ErrorSeverity::error
-                                      : ErrorSeverity::warning;
+                                     ? ErrorSeverity::error
+                                     : ErrorSeverity::warning;
     const std::string_view text{message, static_cast<std::size_t>(length)};
     if (mapped == ErrorSeverity::error) {
         report_error(std::format("[gl-debug type=0x{:04X}] {}", type, text));

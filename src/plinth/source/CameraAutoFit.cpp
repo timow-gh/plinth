@@ -1,4 +1,5 @@
 #include "plinth/CameraAutoFit.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -34,8 +35,7 @@ struct CameraSpaceBounds {
     linal::double3 worldMax{std::numeric_limits<double>::lowest()};
 };
 
-[[nodiscard]]
-CameraFrame make_camera_frame(const CameraAutoFitInput& input) {
+[[nodiscard]] CameraFrame make_camera_frame(const CameraAutoFitInput& input) {
     CameraFrame frame;
     frame.forward = linal::normalize(input.target - input.position);
     frame.right = linal::normalize(linal::cross(frame.forward, input.vertical));
@@ -80,10 +80,9 @@ void add_vertices_to_bounds(CameraSpaceBounds& bounds,
     }
 }
 
-[[nodiscard]]
-CameraSpaceBounds calculate_scene_bounds(std::span<const std::span<const float>> vertexPositionBuffers,
-                                         const CameraFrame& frame,
-                                         const linal::double3& cameraPosition) {
+[[nodiscard]] CameraSpaceBounds calculate_scene_bounds(std::span<const std::span<const float>> vertexPositionBuffers,
+                                                       const CameraFrame& frame,
+                                                       const linal::double3& cameraPosition) {
     CameraSpaceBounds bounds;
     for (const std::span<const float> vertices: vertexPositionBuffers) {
         add_vertices_to_bounds(bounds, frame, cameraPosition, vertices);
@@ -91,17 +90,15 @@ CameraSpaceBounds calculate_scene_bounds(std::span<const std::span<const float>>
     return bounds;
 }
 
-[[nodiscard]]
-double get_world_radius(const CameraSpaceBounds& bounds) {
+[[nodiscard]] double get_world_radius(const CameraSpaceBounds& bounds) {
     return linal::length(bounds.worldMax - bounds.worldMin) * halfScale;
 }
 
-[[nodiscard]]
-double get_perspective_required_delta(const CameraSpaceBounds& bounds,
-                                      double tanHalfVerticalFov,
-                                      double aspectRatio,
-                                      double padding,
-                                      double nearPlane) {
+[[nodiscard]] double get_perspective_required_delta(const CameraSpaceBounds& bounds,
+                                                    double tanHalfVerticalFov,
+                                                    double aspectRatio,
+                                                    double padding,
+                                                    double nearPlane) {
     const double tanHalfHorizontalFov = tanHalfVerticalFov * aspectRatio;
     const double maxAbsX = std::max(std::abs(bounds.minX), std::abs(bounds.maxX));
     const double maxAbsY = std::max(std::abs(bounds.minY), std::abs(bounds.maxY));
@@ -116,8 +113,8 @@ double get_perspective_required_delta(const CameraSpaceBounds& bounds,
     return std::max(0.0, requiredDelta);
 }
 
-[[nodiscard]]
-double get_perspective_occupancy(const CameraSpaceBounds& bounds, double tanHalfVerticalFov, double aspectRatio) {
+[[nodiscard]] double
+get_perspective_occupancy(const CameraSpaceBounds& bounds, double tanHalfVerticalFov, double aspectRatio) {
     const double minPositiveZ = std::max(bounds.minZ, epsilon);
     const double tanHalfHorizontalFov = tanHalfVerticalFov * aspectRatio;
     const double xOccupancy =
@@ -127,11 +124,10 @@ double get_perspective_occupancy(const CameraSpaceBounds& bounds, double tanHalf
     return std::max(xOccupancy, yOccupancy);
 }
 
-[[nodiscard]]
-double get_orthographic_occupancy(const CameraSpaceBounds& bounds,
-                                  double orthographicWidth,
-                                  double orthographicHeight,
-                                  double aspectRatio) {
+[[nodiscard]] double get_orthographic_occupancy(const CameraSpaceBounds& bounds,
+                                                double orthographicWidth,
+                                                double orthographicHeight,
+                                                double aspectRatio) {
     const double halfWidth = std::max(orthographicWidth * aspectRatio * halfScale, epsilon);
     const double halfHeight = std::max(orthographicHeight * halfScale, epsilon);
     const double xOccupancy = std::max(std::abs(bounds.minX), std::abs(bounds.maxX)) / halfWidth;
@@ -139,8 +135,8 @@ double get_orthographic_occupancy(const CameraSpaceBounds& bounds,
     return std::max(xOccupancy, yOccupancy);
 }
 
-[[nodiscard]]
-double get_required_orthographic_height(const CameraSpaceBounds& bounds, double aspectRatio, double padding) {
+[[nodiscard]] double
+get_required_orthographic_height(const CameraSpaceBounds& bounds, double aspectRatio, double padding) {
     const double maxAbsX = std::max(std::abs(bounds.minX), std::abs(bounds.maxX));
     const double maxAbsY = std::max(std::abs(bounds.minY), std::abs(bounds.maxY));
     return std::max(nearPlaneMultiplier * maxAbsY * padding, nearPlaneMultiplier * maxAbsX * padding / aspectRatio);
@@ -155,11 +151,10 @@ void pan_bounds_to_scene_center(CameraSpaceBounds& bounds) {
     bounds.maxY -= centerY;
 }
 
-[[nodiscard]]
-bool should_pan_to_scene_center(const CameraSpaceBounds& bounds,
-                                const CameraAutoFitInput& input,
-                                double requiredDeltaWithoutPan,
-                                double requiredDeltaWithPan) {
+[[nodiscard]] bool should_pan_to_scene_center(const CameraSpaceBounds& bounds,
+                                              const CameraAutoFitInput& input,
+                                              double requiredDeltaWithoutPan,
+                                              double requiredDeltaWithPan) {
     if (requiredDeltaWithoutPan <= epsilon) {
         return false;
     }
@@ -202,8 +197,8 @@ constexpr double sceneScaleNearFloorFraction = 1.0e-4;
 // near plane, which ratchets the near plane upward and clips close geometry
 // after a zoom-out/zoom-in cycle). \p absoluteMinimum is the smallest near
 // plane allowed regardless of scene scale.
-[[nodiscard]]
-double scene_scale_near_floor(const CameraSpaceBounds& bounds, double sceneRadius, double absoluteMinimum) {
+[[nodiscard]] double
+scene_scale_near_floor(const CameraSpaceBounds& bounds, double sceneRadius, double absoluteMinimum) {
     const double sceneScale = std::max(bounds.minZ, sceneRadius);
     return std::max(absoluteMinimum, sceneScale * sceneScaleNearFloorFraction);
 }
@@ -213,17 +208,15 @@ double scene_scale_near_floor(const CameraSpaceBounds& bounds, double sceneRadiu
 // camera-space depth (bounds.minZ + movementDelta); pull the plane a little
 // closer so surfaces exactly at that depth are not clipped, keep it ahead of
 // the scene-scale near floor, and cap the far/near ratio for depth precision.
-[[nodiscard]]
-double fit_near_plane(const CameraSpaceBounds& bounds,
-                      double movementDelta,
-                      double sceneRadius,
-                      double absoluteMinimum,
-                      double farPlane,
-                      bool useReversedDepth) {
+[[nodiscard]] double fit_near_plane(const CameraSpaceBounds& bounds,
+                                    double movementDelta,
+                                    double sceneRadius,
+                                    double absoluteMinimum,
+                                    double farPlane,
+                                    bool useReversedDepth) {
     const double frontDepth = bounds.minZ + movementDelta;
-    const double nearFloor = useReversedDepth
-                                 ? absoluteMinimum
-                                 : scene_scale_near_floor(bounds, sceneRadius, absoluteMinimum);
+    const double nearFloor =
+        useReversedDepth ? absoluteMinimum : scene_scale_near_floor(bounds, sceneRadius, absoluteMinimum);
     double nearPlane = std::max(nearFloor, frontDepth * (1.0 - halfScale * halfScale));
     if (!useReversedDepth) {
         nearPlane = std::max(nearPlane, farPlane / maxDepthRatio);
@@ -281,8 +274,8 @@ void apply_perspective_auto_fit(CameraAutoFitResult& result,
 
     result.position -= frame.forward * movementDelta;
     result.farPlane = std::max(input.nearPlane * nearPlaneMultiplier, bounds.maxZ + movementDelta + farPadding);
-    result.nearPlane = fit_near_plane(
-        bounds, movementDelta, sceneRadius, input.nearPlane, result.farPlane, input.useReversedDepth);
+    result.nearPlane =
+        fit_near_plane(bounds, movementDelta, sceneRadius, input.nearPlane, result.farPlane, input.useReversedDepth);
     result.viewportOccupancy = get_perspective_occupancy(bounds, tanHalfVerticalFov, input.aspectRatio);
 }
 
@@ -330,8 +323,8 @@ void apply_orthographic_auto_fit(CameraAutoFitResult& result,
     movementDelta = std::max(0.0, input.nearPlane - bounds.minZ + input.nearPlane);
     result.position -= frame.forward * movementDelta;
     result.farPlane = std::max(input.nearPlane * nearPlaneMultiplier, bounds.maxZ + movementDelta + farPadding);
-    result.nearPlane = fit_near_plane(
-        bounds, movementDelta, sceneRadius, input.nearPlane, result.farPlane, input.useReversedDepth);
+    result.nearPlane =
+        fit_near_plane(bounds, movementDelta, sceneRadius, input.nearPlane, result.farPlane, input.useReversedDepth);
     result.viewportOccupancy =
         get_orthographic_occupancy(bounds, result.orthographicWidth, result.orthographicHeight, input.aspectRatio);
 }
@@ -392,8 +385,8 @@ CameraClipPlanes calculate_clip_planes(std::span<const std::span<const float>> v
     const double sceneRadius = get_world_radius(bounds);
     const double farPadding = std::max(sceneRadius, 1.0) * input.farPlaneMultiplier;
     planes.farPlane = std::max(input.nearPlane * nearPlaneMultiplier, bounds.maxZ + farPadding);
-    planes.nearPlane = fit_near_plane(
-        bounds, 0.0, sceneRadius, input.nearPlane, planes.farPlane, input.useReversedDepth);
+    planes.nearPlane =
+        fit_near_plane(bounds, 0.0, sceneRadius, input.nearPlane, planes.farPlane, input.useReversedDepth);
     return planes;
 }
 

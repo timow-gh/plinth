@@ -1,4 +1,5 @@
 #include "ProgramOpenGL.hpp"
+
 #include "OpenGL/ErrorReporting.hpp"
 
 namespace opengl::program_opengl {

@@ -4,15 +4,17 @@
 // purpose is reliable thick lines in the core profile (where glLineWidth is unreliable).
 
 #include "CaptureFixture.hpp"
-#include <GLFW/glfw3.h>
 #include "OpenGL/Drawable/LineDrawable.hpp"
 #include "OpenGL/FrameState.hpp"
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/Programs/LineProgram.hpp"
-#include <cstdint>
-#include <gtest/gtest.h>
+
 #include <linal/hmat.hpp>
 #include <linal/vec.hpp>
+
+#include <GLFW/glfw3.h>
+#include <cstdint>
+#include <gtest/gtest.h>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -66,15 +68,15 @@ std::size_t render_vertical_line_width(opengl::LineProgram& program, float lineW
     const std::vector<std::uint32_t> indices = {0U, 1U};
 
     std::optional<opengl::LineDrawable> drawable = opengl::make_line_drawable(program,
-                                                                             vertices,
-                                                                             3,
-                                                                             indices,
-                                                                             colors,
-                                                                             4,
-                                                                             opengl::LineType::lines(),
-                                                                             lineWidth,
-                                                                             0.0F,
-                                                                             opengl::BufferAccessPattern::Static);
+                                                                              vertices,
+                                                                              3,
+                                                                              indices,
+                                                                              colors,
+                                                                              4,
+                                                                              opengl::LineType::lines(),
+                                                                              lineWidth,
+                                                                              0.0F,
+                                                                              opengl::BufferAccessPattern::Static);
     EXPECT_TRUE(drawable.has_value());
 
     const linal::hmatf identity = linal::hmatf::identity();

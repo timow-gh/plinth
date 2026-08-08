@@ -6,6 +6,7 @@
 #include "OpenGL/Programs/ProgramId.hpp"
 #include "OpenGL/opengl_export.h"
 #include "plinth/DLLWarnings.hpp"
+
 #include <string_view>
 
 namespace opengl {
@@ -20,14 +21,8 @@ class OPENGL_EXPORT Uniform {
     constexpr Uniform() noexcept = default;
     explicit Uniform(std::string_view name, Location location) noexcept;
 
-    [[nodiscard]]
-    constexpr Location get_location() const noexcept {
-        return m_location;
-    }
-    [[nodiscard]]
-    constexpr std::string_view get_name() const noexcept {
-        return m_name;
-    }
+    [[nodiscard]] constexpr Location get_location() const noexcept { return m_location; }
+    [[nodiscard]] constexpr std::string_view get_name() const noexcept { return m_name; }
 };
 
 RENDERER_SUPPRESS_STL_DLL_WARNINGS_END

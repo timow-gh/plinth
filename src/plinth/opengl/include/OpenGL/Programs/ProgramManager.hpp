@@ -25,29 +25,19 @@ class OPENGL_EXPORT ProgramManager {
     ProgramManager& operator=(ProgramManager&&) noexcept = default;
     ~ProgramManager() = default;
 
-    [[nodiscard]]
-    bool is_compiled() const {
+    [[nodiscard]] bool is_compiled() const {
         return m_lineProgram.is_valid() && m_pointProgram.is_valid() && m_meshProgram.is_valid();
     }
 
     void compile();
 
-    [[nodiscard]]
-    LineProgram& get_line_program() {
-        return m_lineProgram;
-    }
-    [[nodiscard]]
-    PointProgram& get_point_program() {
-        return m_pointProgram;
-    }
+    [[nodiscard]] LineProgram& get_line_program() { return m_lineProgram; }
+    [[nodiscard]] PointProgram& get_point_program() { return m_pointProgram; }
 
   private:
     friend class DrawablesManager;
 
-    [[nodiscard]]
-    MeshProgram& get_mesh_program() {
-        return m_meshProgram;
-    }
+    [[nodiscard]] MeshProgram& get_mesh_program() { return m_meshProgram; }
 };
 
 } // namespace opengl

@@ -1,5 +1,7 @@
 #include "OpenGL/Uniform.hpp"
+
 #include "plinth/Assert.hpp"
+
 #include <cstdlib>
 #include <print>
 

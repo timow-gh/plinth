@@ -2,6 +2,7 @@
 #define RENDERER_INPUTCAPTURESTATE_HPP
 
 #include "plinth/InputState.hpp"
+
 #include <cstdint>
 
 namespace renderer {
@@ -13,8 +14,7 @@ class InputCaptureState {
     std::uint32_t m_appOwnedMouseButtons{0};
 
   public:
-    [[nodiscard]]
-    bool should_forward_mouse_button(int button, Action action, bool guiWantsMouse) {
+    [[nodiscard]] bool should_forward_mouse_button(int button, Action action, bool guiWantsMouse) {
         const std::uint32_t mask = button_mask(button);
         if (mask == 0U) {
             return !guiWantsMouse;
@@ -48,8 +48,7 @@ class InputCaptureState {
         return !guiWantsMouse;
     }
 
-    [[nodiscard]]
-    bool should_forward_cursor_position(bool guiWantsMouse) const {
+    [[nodiscard]] bool should_forward_cursor_position(bool guiWantsMouse) const {
         if (m_appOwnedMouseButtons != 0U) {
             return true;
         }
@@ -59,19 +58,14 @@ class InputCaptureState {
         return !guiWantsMouse;
     }
 
-    [[nodiscard]]
-    bool should_forward_scroll(bool guiWantsMouse) const {
+    [[nodiscard]] bool should_forward_scroll(bool guiWantsMouse) const {
         return m_guiOwnedMouseButtons == 0U && !guiWantsMouse;
     }
 
-    [[nodiscard]]
-    static bool should_forward_key(bool guiWantsKeyboard) {
-        return !guiWantsKeyboard;
-    }
+    [[nodiscard]] static bool should_forward_key(bool guiWantsKeyboard) { return !guiWantsKeyboard; }
 
   private:
-    [[nodiscard]]
-    static std::uint32_t button_mask(int button) {
+    [[nodiscard]] static std::uint32_t button_mask(int button) {
         if (button < 0 || button >= maxTrackedMouseButtonCount) {
             return 0U;
         }

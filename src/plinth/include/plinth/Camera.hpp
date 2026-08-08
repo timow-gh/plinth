@@ -5,6 +5,7 @@
 #include "plinth/CameraProjectionType.hpp"
 #include "plinth/PickRay.hpp"
 #include "plinth/Viewport.hpp"
+
 #include <cmath>
 #include <cstdint>
 #include <glm/glm.hpp>
@@ -29,8 +30,7 @@ inline auto to_linal(const glm::vec3& vec) {
     return linal::float3{vec.x, vec.y, vec.z};
 }
 
-[[nodiscard]]
-inline linal::hmatf to_linal(const glm::dmat4& mat) {
+[[nodiscard]] inline linal::hmatf to_linal(const glm::dmat4& mat) {
     linal::hmatf result;
     using size_type = linal::hmatf::size_type;
     // glm is column-major (mat[col][row]); linal::hmatf is row-major (result(row,col)).
@@ -125,130 +125,65 @@ class Camera {
         }
     }
 
-    [[nodiscard]]
-    bool uses_reversed_z() const noexcept {
-        return m_reversedZ;
-    }
+    [[nodiscard]] bool uses_reversed_z() const noexcept { return m_reversedZ; }
 
     // Viewport accessors
-    [[nodiscard]]
-    const Viewport& get_viewport() const {
-        return m_viewport;
-    }
-    [[nodiscard]]
-    std::uint32_t get_viewport_xpos() const {
-        return m_viewport.get_xpos();
-    }
-    [[nodiscard]]
-    std::uint32_t get_viewport_ypos() const {
-        return m_viewport.get_ypos();
-    }
-    [[nodiscard]]
-    std::uint32_t get_viewport_width() const {
-        return m_viewport.get_width();
-    }
-    [[nodiscard]]
-    std::uint32_t get_viewport_height() const {
-        return m_viewport.get_height();
-    }
+    [[nodiscard]] const Viewport& get_viewport() const { return m_viewport; }
+    [[nodiscard]] std::uint32_t get_viewport_xpos() const { return m_viewport.get_xpos(); }
+    [[nodiscard]] std::uint32_t get_viewport_ypos() const { return m_viewport.get_ypos(); }
+    [[nodiscard]] std::uint32_t get_viewport_width() const { return m_viewport.get_width(); }
+    [[nodiscard]] std::uint32_t get_viewport_height() const { return m_viewport.get_height(); }
 
     // Camera position and orientation
-    [[nodiscard]]
-    glm::dvec3 get_position() const {
-        return m_position;
-    }
-    [[nodiscard]]
-    glm::dvec3 get_target() const {
-        return m_target;
-    }
-    [[nodiscard]]
-    glm::dvec3 get_vertical() const {
-        return m_vertical;
-    }
+    [[nodiscard]] glm::dvec3 get_position() const { return m_position; }
+    [[nodiscard]] glm::dvec3 get_target() const { return m_target; }
+    [[nodiscard]] glm::dvec3 get_vertical() const { return m_vertical; }
 
     // Projection parameters accessors
-    [[nodiscard]]
-    const PerspectiveParams& get_perspective_params() const {
-        return m_perspective;
-    }
-    [[nodiscard]]
-    const OrthographicParams& get_orthographic_params() const {
-        return m_orthographic;
-    }
-    [[nodiscard]]
-    CameraProjectionType get_projection_type() const {
-        return m_activeProjection;
-    }
+    [[nodiscard]] const PerspectiveParams& get_perspective_params() const { return m_perspective; }
+    [[nodiscard]] const OrthographicParams& get_orthographic_params() const { return m_orthographic; }
+    [[nodiscard]] CameraProjectionType get_projection_type() const { return m_activeProjection; }
 
     // Legacy accessors for backward compatibility
-    [[nodiscard]]
-    double get_fov() const {
-        return m_perspective.fov;
-    }
-    [[nodiscard]]
-    double get_near_plane() const {
+    [[nodiscard]] double get_fov() const { return m_perspective.fov; }
+    [[nodiscard]] double get_near_plane() const {
         return m_activeProjection == CameraProjectionType::PERSPECTIVE ? m_perspective.near_plane
                                                                        : m_orthographic.near_plane;
     }
-    [[nodiscard]]
-    double get_far_plane() const {
+    [[nodiscard]] double get_far_plane() const {
         return m_activeProjection == CameraProjectionType::PERSPECTIVE ? m_perspective.far_plane
                                                                        : m_orthographic.far_plane;
     }
 
     // Matrix accessors
-    [[nodiscard]]
-    glm::mat4 get_model_matrix() const {
-        return m_model;
-    }
-    [[nodiscard]]
-    glm::mat4 get_normal_matrix() const {
-        return glm::transpose(glm::inverse(glm::mat3(m_model)));
-    }
-    [[nodiscard]]
-    glm::mat4 get_view_matrix() const {
+    [[nodiscard]] glm::mat4 get_model_matrix() const { return m_model; }
+    [[nodiscard]] glm::mat4 get_normal_matrix() const { return glm::transpose(glm::inverse(glm::mat3(m_model))); }
+    [[nodiscard]] glm::mat4 get_view_matrix() const {
         update_view_matrix();
         return m_view;
     }
-    [[nodiscard]]
-    glm::mat4 get_perspective_matrix() const {
+    [[nodiscard]] glm::mat4 get_perspective_matrix() const {
         update_projection_matrix();
         return m_activeProjection == CameraProjectionType::PERSPECTIVE ? m_projection : compute_perspective_matrix();
     }
-    [[nodiscard]]
-    glm::mat4 get_ortho_projection_matrix() const {
+    [[nodiscard]] glm::mat4 get_ortho_projection_matrix() const {
         update_projection_matrix();
         return m_activeProjection == CameraProjectionType::ORTHOGRAPHIC ? m_projection : compute_orthographic_matrix();
     }
-    [[nodiscard]]
-    glm::mat4 get_projection_matrix() const {
+    [[nodiscard]] glm::mat4 get_projection_matrix() const {
         update_projection_matrix();
         return m_projection;
     }
-    [[nodiscard]]
-    glm::mat4 get_proj_mvp() const {
-        return get_perspective_matrix() * get_view_matrix() * m_model;
-    }
-    [[nodiscard]]
-    glm::mat4 get_ortho_mvp() const {
+    [[nodiscard]] glm::mat4 get_proj_mvp() const { return get_perspective_matrix() * get_view_matrix() * m_model; }
+    [[nodiscard]] glm::mat4 get_ortho_mvp() const {
         return get_ortho_projection_matrix() * get_view_matrix() * m_model;
     }
-    [[nodiscard]]
-    glm::mat4 get_mvp() const {
-        return get_projection_matrix() * get_view_matrix() * m_model;
-    }
+    [[nodiscard]] glm::mat4 get_mvp() const { return get_projection_matrix() * get_view_matrix() * m_model; }
 
     // Camera orientation helpers
-    [[nodiscard]]
-    glm::dvec3 right() const {
-        return glm::normalize(glm::cross(gaze(), get_vertical()));
-    }
-    [[nodiscard]]
-    glm::dvec3 up() const {
-        return glm::normalize(glm::cross(right(), gaze()));
-    }
-    [[nodiscard]]
-    glm::dvec3 gaze() const {
+    [[nodiscard]] glm::dvec3 right() const { return glm::normalize(glm::cross(gaze(), get_vertical())); }
+    [[nodiscard]] glm::dvec3 up() const { return glm::normalize(glm::cross(right(), gaze())); }
+    [[nodiscard]] glm::dvec3 gaze() const {
         RENDERER_ASSERT(m_target != m_position);
         return glm::normalize(m_target - m_position);
     }
@@ -467,8 +402,7 @@ class Camera {
      * @param screenY Screen Y coordinate (in pixels)
      * @return PickRay from camera through the specified screen point
      */
-    [[nodiscard]]
-    PickRay get_ray(double screenX, double screenY) const {
+    [[nodiscard]] PickRay get_ray(double screenX, double screenY) const {
         switch (m_activeProjection) {
         case CameraProjectionType::PERSPECTIVE:  return create_perspective_ray(screenX, screenY);
         case CameraProjectionType::ORTHOGRAPHIC: return create_orthographic_ray(screenX, screenY);
@@ -482,8 +416,7 @@ class Camera {
      * @param ndcY Normalized device coordinate Y [-1, +1]
      * @return PickRay from camera through the specified NDC point
      */
-    [[nodiscard]]
-    PickRay get_ray_from_ndc(double ndcX, double ndcY) const {
+    [[nodiscard]] PickRay get_ray_from_ndc(double ndcX, double ndcY) const {
         // Convert NDC back to screen coordinates
         const double screenX = (ndcX + 1.0) * static_cast<double>(m_viewport.get_width()) / 2.0;
         const double screenY = (ndcY + 1.0) * static_cast<double>(m_viewport.get_height()) / 2.0;
@@ -494,8 +427,7 @@ class Camera {
      *
      * @return PickRay from camera through the center of the screen
      */
-    [[nodiscard]]
-    PickRay get_center_ray() const {
+    [[nodiscard]] PickRay get_center_ray() const {
         const double centerX = static_cast<double>(m_viewport.get_width()) / 2.0;
         const double centerY = static_cast<double>(m_viewport.get_height()) / 2.0;
         return get_ray(centerX, centerY);
@@ -511,13 +443,12 @@ class Camera {
      * @param samplesY Number of samples in Y direction
      * @return Vector of PickRays covering the specified region
      */
-    [[nodiscard]]
-    std::vector<PickRay> get_rays_for_region(double startX,
-                                             double startY,
-                                             double endX,
-                                             double endY,
-                                             std::uint32_t samplesX = 3,
-                                             std::uint32_t samplesY = 3) const {
+    [[nodiscard]] std::vector<PickRay> get_rays_for_region(double startX,
+                                                           double startY,
+                                                           double endX,
+                                                           double endY,
+                                                           std::uint32_t samplesX = 3,
+                                                           std::uint32_t samplesY = 3) const {
         std::vector<PickRay> rays;
         rays.reserve(samplesX * samplesY);
 
@@ -542,8 +473,7 @@ class Camera {
      * @param screenY Screen Y coordinate (in pixels)
      * @return PickRay using perspective projection
      */
-    [[nodiscard]]
-    PickRay create_perspective_ray(double screenX, double screenY) const;
+    [[nodiscard]] PickRay create_perspective_ray(double screenX, double screenY) const;
 
     /** @brief Create an orthographic projection ray from screen coordinates.
      *
@@ -551,8 +481,7 @@ class Camera {
      * @param screenY Screen Y coordinate (in pixels)
      * @return PickRay using orthographic projection
      */
-    [[nodiscard]]
-    PickRay create_orthographic_ray(double screenX, double screenY) const;
+    [[nodiscard]] PickRay create_orthographic_ray(double screenX, double screenY) const;
 
     /** @brief Check if screen coordinates are within the viewport.
      *
@@ -560,8 +489,7 @@ class Camera {
      * @param screenY Screen Y coordinate
      * @return True if coordinates are within viewport bounds
      */
-    [[nodiscard]]
-    bool is_point_in_viewport(double screenX, double screenY) const {
+    [[nodiscard]] bool is_point_in_viewport(double screenX, double screenY) const {
         return screenX >= 0 && screenX < static_cast<double>(m_viewport.get_width()) && screenY >= 0 &&
                screenY < static_cast<double>(m_viewport.get_height());
     }
@@ -572,8 +500,7 @@ class Camera {
      * @param screenY Screen Y coordinate (in pixels)
      * @return std::pair<double, double> NDC coordinates (x, y) in range [-1, +1]
      */
-    [[nodiscard]]
-    std::pair<double, double> screen_to_ndc(double screenX, double screenY) const {
+    [[nodiscard]] std::pair<double, double> screen_to_ndc(double screenX, double screenY) const {
         const double ndcX = 2.0 * screenX / static_cast<double>(m_viewport.get_width()) - 1.0;
         const double ndcY = 2.0 * screenY / static_cast<double>(m_viewport.get_height()) - 1.0;
         return {ndcX, ndcY};
@@ -585,8 +512,7 @@ class Camera {
      * @param ndcY NDC Y coordinate [-1, +1]
      * @return std::pair<double, double> Screen coordinates (x, y) in pixels
      */
-    [[nodiscard]]
-    std::pair<double, double> ndc_to_screen(double ndcX, double ndcY) const {
+    [[nodiscard]] std::pair<double, double> ndc_to_screen(double ndcX, double ndcY) const {
         const double screenX = (ndcX + 1.0) * static_cast<double>(m_viewport.get_width()) / 2.0;
         const double screenY = (ndcY + 1.0) * static_cast<double>(m_viewport.get_height()) / 2.0;
         return {screenX, screenY};
@@ -611,14 +537,12 @@ class Camera {
         }
     }
 
-    [[nodiscard]]
-    glm::mat4 compute_perspective_matrix() const {
+    [[nodiscard]] glm::mat4 compute_perspective_matrix() const {
         if (m_reversedZ) {
             const float nearPlane = static_cast<float>(m_perspective.near_plane);
             const float farPlane = static_cast<float>(m_perspective.far_plane);
             const float aspectRatio = static_cast<float>(m_viewport.get_aspect_ratio());
-            const float tanHalfFov =
-                std::tan(glm::radians(static_cast<float>(m_perspective.fov)) / 2.0F);
+            const float tanHalfFov = std::tan(glm::radians(static_cast<float>(m_perspective.fov)) / 2.0F);
             const float depthRange = farPlane - nearPlane;
 
             // Right-handed, zero-to-one projection: after division by W, near maps to 1 and far
@@ -638,8 +562,7 @@ class Camera {
                                 m_perspective.far_plane);
     }
 
-    [[nodiscard]]
-    glm::mat4 compute_orthographic_matrix() const {
+    [[nodiscard]] glm::mat4 compute_orthographic_matrix() const {
         const double halfwidth = m_orthographic.width / 2.0 * m_viewport.get_aspect_ratio();
         const double halfheight = m_orthographic.height / 2.0;
         if (m_reversedZ) {

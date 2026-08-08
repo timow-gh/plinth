@@ -1,11 +1,12 @@
 #ifndef OPENGL_DRAWABLETRANSPARENCYINFO_HPP
 #define OPENGL_DRAWABLETRANSPARENCYINFO_HPP
 
+#include <linal/hmat.hpp>
+#include <linal/vec.hpp>
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <linal/hmat.hpp>
-#include <linal/vec.hpp>
 #include <span>
 #include <vector>
 
@@ -15,16 +16,15 @@ struct DrawableTransparencyInfo {
     bool isTranslucent{false};
     linal::float3 sortCenter{0.0F, 0.0F, 0.0F};
 
-    [[nodiscard]]
-    double distance_squared_to(const linal::double3& viewPosition) const noexcept {
+    [[nodiscard]] double distance_squared_to(const linal::double3& viewPosition) const noexcept {
         const double dx = static_cast<double>(sortCenter[0]) - viewPosition[0];
         const double dy = static_cast<double>(sortCenter[1]) - viewPosition[1];
         const double dz = static_cast<double>(sortCenter[2]) - viewPosition[2];
         return dx * dx + dy * dy + dz * dz;
     }
 
-    [[nodiscard]]
-    double distance_squared_to(const linal::double3& viewPosition, const linal::hmatf& transform) const noexcept {
+    [[nodiscard]] double distance_squared_to(const linal::double3& viewPosition,
+                                             const linal::hmatf& transform) const noexcept {
         const linal::float3 transformedCenter = linal::to_vec(transform * linal::to_hvec(sortCenter));
         const double dx = static_cast<double>(transformedCenter[0]) - viewPosition[0];
         const double dy = static_cast<double>(transformedCenter[1]) - viewPosition[1];
@@ -54,8 +54,8 @@ struct LineTransparencyIndexSplit {
     std::vector<SortableLineSegment> translucentSegments;
 };
 
-[[nodiscard]]
-inline bool contains_translucent_alpha(std::span<const float> colors, std::int32_t colorDimension) noexcept {
+[[nodiscard]] inline bool contains_translucent_alpha(std::span<const float> colors,
+                                                     std::int32_t colorDimension) noexcept {
     if (colorDimension < 4) {
         return false;
     }
@@ -70,9 +70,8 @@ inline bool contains_translucent_alpha(std::span<const float> colors, std::int32
     return false;
 }
 
-[[nodiscard]]
-inline std::vector<std::uint8_t> make_vertex_translucency_flags(std::span<const float> colors,
-                                                                std::int32_t colorDimension) {
+[[nodiscard]] inline std::vector<std::uint8_t> make_vertex_translucency_flags(std::span<const float> colors,
+                                                                              std::int32_t colorDimension) {
     std::vector<std::uint8_t> flags;
     if (colorDimension < 4) {
         return flags;
@@ -90,8 +89,8 @@ inline std::vector<std::uint8_t> make_vertex_translucency_flags(std::span<const 
     return flags;
 }
 
-[[nodiscard]]
-inline linal::float3 calc_sort_center(std::span<const float> vertices, std::int32_t vertexDimension) noexcept {
+[[nodiscard]] inline linal::float3 calc_sort_center(std::span<const float> vertices,
+                                                    std::int32_t vertexDimension) noexcept {
     if (vertexDimension < 3 || vertices.empty()) {
         return linal::float3{0.0F, 0.0F, 0.0F};
     }
@@ -116,9 +115,8 @@ inline linal::float3 calc_sort_center(std::span<const float> vertices, std::int3
     return center;
 }
 
-[[nodiscard]]
-inline std::vector<linal::float3> make_vertex_sort_positions(std::span<const float> vertices,
-                                                             std::int32_t vertexDimension) {
+[[nodiscard]] inline std::vector<linal::float3> make_vertex_sort_positions(std::span<const float> vertices,
+                                                                           std::int32_t vertexDimension) {
     std::vector<linal::float3> positions;
     if (vertexDimension < 3) {
         return positions;
@@ -136,9 +134,8 @@ inline std::vector<linal::float3> make_vertex_sort_positions(std::span<const flo
     return positions;
 }
 
-[[nodiscard]]
-inline linal::float3 get_sort_position_or_origin(std::span<const linal::float3> positions,
-                                                 std::uint32_t index) noexcept {
+[[nodiscard]] inline linal::float3 get_sort_position_or_origin(std::span<const linal::float3> positions,
+                                                               std::uint32_t index) noexcept {
     const auto positionIndex = static_cast<std::size_t>(index);
     if (positionIndex >= positions.size()) {
         return linal::float3{0.0F, 0.0F, 0.0F};
@@ -147,14 +144,13 @@ inline linal::float3 get_sort_position_or_origin(std::span<const linal::float3> 
     return *(positions.begin() + static_cast<std::ptrdiff_t>(positionIndex));
 }
 
-[[nodiscard]]
-inline bool is_vertex_translucent(std::span<const std::uint8_t> vertexTranslucency, std::uint32_t index) noexcept {
+[[nodiscard]] inline bool is_vertex_translucent(std::span<const std::uint8_t> vertexTranslucency,
+                                                std::uint32_t index) noexcept {
     const auto vertexIndex = static_cast<std::size_t>(index);
     return vertexIndex < vertexTranslucency.size() && vertexTranslucency[vertexIndex] != 0U;
 }
 
-[[nodiscard]]
-inline PointTransparencyIndexSplit
+[[nodiscard]] inline PointTransparencyIndexSplit
 split_point_indices_by_transparency(std::span<const std::uint32_t> indices,
                                     std::span<const linal::float3> positions,
                                     std::span<const std::uint8_t> vertexTranslucency) {
@@ -174,26 +170,25 @@ split_point_indices_by_transparency(std::span<const std::uint32_t> indices,
     return split;
 }
 
-[[nodiscard]]
-inline PointTransparencyIndexSplit split_point_indices_by_transparency(std::span<const std::uint32_t> indices,
-                                                                       std::span<const float> vertices,
-                                                                       std::int32_t vertexDimension,
-                                                                       std::span<const float> colors,
-                                                                       std::int32_t colorDimension) {
+[[nodiscard]] inline PointTransparencyIndexSplit
+split_point_indices_by_transparency(std::span<const std::uint32_t> indices,
+                                    std::span<const float> vertices,
+                                    std::int32_t vertexDimension,
+                                    std::span<const float> colors,
+                                    std::int32_t colorDimension) {
     return split_point_indices_by_transparency(indices,
                                                make_vertex_sort_positions(vertices, vertexDimension),
                                                make_vertex_translucency_flags(colors, colorDimension));
 }
 
-[[nodiscard]]
-inline linal::float3 calc_midpoint(const linal::float3& first, const linal::float3& second) noexcept {
+[[nodiscard]] inline linal::float3 calc_midpoint(const linal::float3& first, const linal::float3& second) noexcept {
     return linal::float3{(first[0] + second[0]) * 0.5F, (first[1] + second[1]) * 0.5F, (first[2] + second[2]) * 0.5F};
 }
 
-[[nodiscard]]
-inline LineTransparencyIndexSplit split_line_indices_by_transparency(std::span<const std::uint32_t> indices,
-                                                                     std::span<const linal::float3> positions,
-                                                                     std::span<const std::uint8_t> vertexTranslucency) {
+[[nodiscard]] inline LineTransparencyIndexSplit
+split_line_indices_by_transparency(std::span<const std::uint32_t> indices,
+                                   std::span<const linal::float3> positions,
+                                   std::span<const std::uint8_t> vertexTranslucency) {
     LineTransparencyIndexSplit split;
     split.opaqueIndices.reserve(indices.size());
     split.translucentSegments.reserve(indices.size() / 2U);
@@ -217,27 +212,27 @@ inline LineTransparencyIndexSplit split_line_indices_by_transparency(std::span<c
     return split;
 }
 
-[[nodiscard]]
-inline LineTransparencyIndexSplit split_line_indices_by_transparency(std::span<const std::uint32_t> indices,
-                                                                     std::span<const float> vertices,
-                                                                     std::int32_t vertexDimension,
-                                                                     std::span<const float> colors,
-                                                                     std::int32_t colorDimension) {
+[[nodiscard]] inline LineTransparencyIndexSplit
+split_line_indices_by_transparency(std::span<const std::uint32_t> indices,
+                                   std::span<const float> vertices,
+                                   std::int32_t vertexDimension,
+                                   std::span<const float> colors,
+                                   std::int32_t colorDimension) {
     return split_line_indices_by_transparency(indices,
                                               make_vertex_sort_positions(vertices, vertexDimension),
                                               make_vertex_translucency_flags(colors, colorDimension));
 }
 
-[[nodiscard]]
-inline double distance_squared_to(const linal::float3& sortCenter, const linal::double3& viewPosition) noexcept {
+[[nodiscard]] inline double distance_squared_to(const linal::float3& sortCenter,
+                                                const linal::double3& viewPosition) noexcept {
     const double dx = static_cast<double>(sortCenter[0]) - viewPosition[0];
     const double dy = static_cast<double>(sortCenter[1]) - viewPosition[1];
     const double dz = static_cast<double>(sortCenter[2]) - viewPosition[2];
     return dx * dx + dy * dy + dz * dz;
 }
 
-[[nodiscard]]
-inline std::vector<std::uint32_t> flatten_translucent_point_indices(std::span<const SortablePointIndex> indices) {
+[[nodiscard]] inline std::vector<std::uint32_t>
+flatten_translucent_point_indices(std::span<const SortablePointIndex> indices) {
     std::vector<std::uint32_t> flattened;
     flattened.reserve(indices.size());
     for (const SortablePointIndex& index: indices) {
@@ -246,8 +241,8 @@ inline std::vector<std::uint32_t> flatten_translucent_point_indices(std::span<co
     return flattened;
 }
 
-[[nodiscard]]
-inline std::vector<std::uint32_t> flatten_translucent_line_indices(std::span<const SortableLineSegment> segments) {
+[[nodiscard]] inline std::vector<std::uint32_t>
+flatten_translucent_line_indices(std::span<const SortableLineSegment> segments) {
     std::vector<std::uint32_t> flattened;
     flattened.reserve(segments.size() * 2U);
     for (const SortableLineSegment& segment: segments) {
@@ -257,8 +252,7 @@ inline std::vector<std::uint32_t> flatten_translucent_line_indices(std::span<con
     return flattened;
 }
 
-[[nodiscard]]
-inline std::vector<std::uint32_t>
+[[nodiscard]] inline std::vector<std::uint32_t>
 sort_translucent_point_indices_back_to_front(std::span<const SortablePointIndex> points,
                                              const linal::double3& viewPosition) {
     std::vector<SortablePointIndex> sortedPoints(points.begin(), points.end());
@@ -278,8 +272,7 @@ sort_translucent_point_indices_back_to_front(std::span<const SortablePointIndex>
     return sortedIndices;
 }
 
-[[nodiscard]]
-inline std::vector<std::uint32_t>
+[[nodiscard]] inline std::vector<std::uint32_t>
 sort_translucent_line_indices_back_to_front(std::span<const SortableLineSegment> segments,
                                             const linal::double3& viewPosition) {
     std::vector<SortableLineSegment> sortedSegments(segments.begin(), segments.end());
@@ -300,11 +293,10 @@ sort_translucent_line_indices_back_to_front(std::span<const SortableLineSegment>
     return sortedIndices;
 }
 
-[[nodiscard]]
-inline DrawableTransparencyInfo make_drawable_transparency_info(std::span<const float> vertices,
-                                                                std::int32_t vertexDimension,
-                                                                std::span<const float> colors,
-                                                                std::int32_t colorDimension) noexcept {
+[[nodiscard]] inline DrawableTransparencyInfo make_drawable_transparency_info(std::span<const float> vertices,
+                                                                              std::int32_t vertexDimension,
+                                                                              std::span<const float> colors,
+                                                                              std::int32_t colorDimension) noexcept {
     return DrawableTransparencyInfo{contains_translucent_alpha(colors, colorDimension),
                                     calc_sort_center(vertices, vertexDimension)};
 }

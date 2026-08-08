@@ -1,8 +1,10 @@
 #include "OpenGL/Programs/MeshProgram.hpp"
+
 #include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/Programs/CreateProgram.hpp"
 #include "OpenGL/ShaderSources.hpp"
 #include "plinth/Assert.hpp"
+
 #include <format>
 #include <utility>
 
@@ -44,23 +46,23 @@ MeshProgram make_mesh_program() {
                               .m_normalMatrix = make_uniform("u_normalMatrix", id),
                               .m_posLocation = make_attribute("a_vertex", id),
                               .m_colorLocation = make_attribute("a_color", id),
-                               .m_normalLocation = make_attribute("a_normal", id),
-                               .m_texCoordLocation = make_attribute("a_texCoord", id),
+                              .m_normalLocation = make_attribute("a_normal", id),
+                              .m_texCoordLocation = make_attribute("a_texCoord", id),
                               .m_lightPos = make_uniform("u_lightPos", id),
                               .viewPos = make_uniform("u_viewPos", id),
                               .lightColor = make_uniform("u_lightColor", id),
                               .fillLightDirection = make_uniform("u_fillLightDirection", id),
                               .fillLightColor = make_uniform("u_fillLightColor", id),
                               .ambientColor = make_uniform("u_ambientColor", id),
-                               .shininess = make_uniform("u_shininess", id),
-                               .hasAlbedoTexture = make_uniform("u_hasAlbedoTexture", id),
-                               .albedoTexture = make_uniform("u_albedoTexture", id),
-                               .lightAttenuation = make_uniform("u_lightAttenuation", id),
-                               .materialAmbient = make_uniform("u_materialAmbient", id),
-                               .materialDiffuse = make_uniform("u_materialDiffuse", id),
-                               .materialSpecular = make_uniform("u_materialSpecular", id),
-                               .m_pickMode = make_uniform("u_pickMode", id),
-                               .m_pickColor = make_uniform("u_pickColor", id)};
+                              .shininess = make_uniform("u_shininess", id),
+                              .hasAlbedoTexture = make_uniform("u_hasAlbedoTexture", id),
+                              .albedoTexture = make_uniform("u_albedoTexture", id),
+                              .lightAttenuation = make_uniform("u_lightAttenuation", id),
+                              .materialAmbient = make_uniform("u_materialAmbient", id),
+                              .materialDiffuse = make_uniform("u_materialDiffuse", id),
+                              .materialSpecular = make_uniform("u_materialSpecular", id),
+                              .m_pickMode = make_uniform("u_pickMode", id),
+                              .m_pickColor = make_uniform("u_pickColor", id)};
 
     return MeshProgram{std::move(program), input};
 }

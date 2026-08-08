@@ -9,7 +9,9 @@ int main() {
     renderer::LightingConfig lighting;
     (void)lighting.lightPosition[0];
     renderer::SceneViewport viewport =
-        renderer::Renderer::calculate_scene_viewport({800, 600}, {800, 600}, renderer::LogicalViewportRect{0.0, 0.0, 800.0, 600.0});
+        renderer::Renderer::calculate_scene_viewport({800, 600},
+                                                     {800, 600},
+                                                     renderer::LogicalViewportRect{0.0, 0.0, 800.0, 600.0});
     (void)viewport.framebuffer.width;
     return 0;
 }

@@ -10,9 +10,11 @@
 #include "OpenGL/VertexBuffer.hpp"
 #include "OpenGL/opengl_export.h"
 #include "plinth/Warnings.hpp"
+
+#include <linal/hmat.hpp>
+
 #include <array>
 #include <cstdint>
-#include <linal/hmat.hpp>
 #include <span>
 #include <utility>
 #include <vector>
@@ -80,30 +82,25 @@ class OPENGL_EXPORT PointDrawable {
     void draw_translucent(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const linal::double3& viewPosition);
 
     /** Draw all points (opaque and translucent) into a color-ID pick pass using a flat pickColor. */
-    void draw_pick(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const std::array<float, 3>& pickColor) const;
+    void
+    draw_pick(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const std::array<float, 3>& pickColor) const;
 
-    [[nodiscard]]
-    bool has_opaque_primitives() const noexcept {
+    [[nodiscard]] bool has_opaque_primitives() const noexcept {
         return m_opaquePointIndicesBuffer.get_index_count() > 0;
     }
 
-    [[nodiscard]]
-    bool has_translucent_primitives() const noexcept {
+    [[nodiscard]] bool has_translucent_primitives() const noexcept {
         return m_translucentPointIndicesBuffer.get_index_count() > 0;
     }
 
-    [[nodiscard]]
-    bool is_translucent() const noexcept {
-        return has_translucent_primitives();
-    }
+    [[nodiscard]] bool is_translucent() const noexcept { return has_translucent_primitives(); }
 
-    [[nodiscard]]
-    double distance_squared_to(const linal::double3& viewPosition) const noexcept {
+    [[nodiscard]] double distance_squared_to(const linal::double3& viewPosition) const noexcept {
         return m_transparencyInfo.distance_squared_to(viewPosition);
     }
 
-    [[nodiscard]]
-    double distance_squared_to(const linal::double3& viewPosition, const linal::hmatf& transform) const noexcept {
+    [[nodiscard]] double distance_squared_to(const linal::double3& viewPosition,
+                                             const linal::hmatf& transform) const noexcept {
         return m_transparencyInfo.distance_squared_to(viewPosition, transform);
     }
 
@@ -111,8 +108,7 @@ class OPENGL_EXPORT PointDrawable {
     // Flattens element-by-element rather than reinterpreting m_vertexPositions' memory directly -
     // linal::float3 is not guaranteed to be a tightly-packed 3-float struct (its policy-mixin base
     // classes can add padding/alignment), so a raw reinterpret_cast is not safe here.
-    [[nodiscard]]
-    std::span<const float> get_vertex_positions() const noexcept {
+    [[nodiscard]] std::span<const float> get_vertex_positions() const noexcept {
         m_vertexPositionsFlatCache.clear();
         m_vertexPositionsFlatCache.reserve(m_vertexPositions.size() * 3U);
         for (const auto& p: m_vertexPositions) {

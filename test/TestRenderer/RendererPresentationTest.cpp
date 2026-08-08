@@ -1,16 +1,17 @@
-#include <GLFW/glfw3.h>
 #include "OpenGL/OpenGL.hpp"
+#include "plinth/Renderer.hpp"
+#include "plinth/WindowSettings.hpp"
+
+#include <GLFW/glfw3.h>
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <gtest/gtest.h>
-#include <memory>
 #include <limits>
+#include <memory>
 #include <optional>
-#include "plinth/Renderer.hpp"
-#include "plinth/WindowSettings.hpp"
 #include <sstream>
 #include <string>
 #include <utility>
@@ -117,8 +118,7 @@ ResizeResult wait_for_stable_resize(renderer::Renderer& renderer,
         retain_unique_transition(result, snapshot);
 
         const bool candidate = snapshot.logical == requestedLogical && snapshot.framebuffer.first > 0 &&
-                               snapshot.framebuffer.second > 0 &&
-                               snapshot.framebuffer != preceding.framebuffer;
+                               snapshot.framebuffer.second > 0 && snapshot.framebuffer != preceding.framebuffer;
         const bool changed = !previous.has_value() || previous->logical != snapshot.logical ||
                              previous->framebuffer != snapshot.framebuffer;
         if (!candidate) {
@@ -136,27 +136,24 @@ ResizeResult wait_for_stable_resize(renderer::Renderer& renderer,
 
 std::string describe_sizes(const SizeSnapshot& snapshot) {
     std::ostringstream output;
-    output << "logical=" << snapshot.logical.first << 'x' << snapshot.logical.second << ", framebuffer="
-           << snapshot.framebuffer.first << 'x' << snapshot.framebuffer.second;
+    output << "logical=" << snapshot.logical.first << 'x' << snapshot.logical.second
+           << ", framebuffer=" << snapshot.framebuffer.first << 'x' << snapshot.framebuffer.second;
     return output.str();
 }
 
-std::string describe_resize(const ResizeResult& result,
-                            SizePair requestedLogical,
-                            const SizeSnapshot& preceding) {
+std::string describe_resize(const ResizeResult& result, SizePair requestedLogical, const SizeSnapshot& preceding) {
     std::ostringstream output;
-    output << "requested logical=" << requestedLogical.first << 'x' << requestedLogical.second
-           << ", previous " << describe_sizes(preceding) << ", final logical=" << result.finalLogical.first << 'x'
+    output << "requested logical=" << requestedLogical.first << 'x' << requestedLogical.second << ", previous "
+           << describe_sizes(preceding) << ", final logical=" << result.finalLogical.first << 'x'
            << result.finalLogical.second << ", final framebuffer=" << result.finalFramebuffer.first << 'x'
-           << result.finalFramebuffer.second
-           << ", transitions=[";
+           << result.finalFramebuffer.second << ", transitions=[";
     for (std::size_t index = 0; index < result.transitionCount; ++index) {
         if (index != 0) {
             output << ", ";
         }
         const auto& transition = result.transitions[index];
-        output << transition.logical.first << 'x' << transition.logical.second << '/'
-               << transition.framebuffer.first << 'x' << transition.framebuffer.second;
+        output << transition.logical.first << 'x' << transition.logical.second << '/' << transition.framebuffer.first
+               << 'x' << transition.framebuffer.second;
     }
     output << ']';
     if (result.overflow) {
@@ -165,8 +162,10 @@ std::string describe_resize(const ResizeResult& result,
     return output.str();
 }
 
-ReadCoordinates calculate_read_coordinates(const SizeSnapshot& snapshot, const renderer::LogicalViewportRect& sceneRect) {
-    const auto viewport = renderer::Renderer::calculate_scene_viewport(snapshot.logical, snapshot.framebuffer, sceneRect);
+ReadCoordinates calculate_read_coordinates(const SizeSnapshot& snapshot,
+                                           const renderer::LogicalViewportRect& sceneRect) {
+    const auto viewport =
+        renderer::Renderer::calculate_scene_viewport(snapshot.logical, snapshot.framebuffer, sceneRect);
     const int edgeInset = std::max(16, snapshot.framebuffer.first / 64);
     return {{viewport.framebuffer.x + viewport.framebuffer.width / 2,
              viewport.framebuffer.y + viewport.framebuffer.height / 2},
@@ -175,18 +174,17 @@ ReadCoordinates calculate_read_coordinates(const SizeSnapshot& snapshot, const r
             {snapshot.framebuffer.first - edgeInset, snapshot.framebuffer.second / 4}};
 }
 
-testing::AssertionResult pixel_near(SizePair coordinate,
-                                    const std::array<std::uint8_t, 4>& actual,
-                                    const std::array<int, 4>& expected) {
+testing::AssertionResult
+pixel_near(SizePair coordinate, const std::array<std::uint8_t, 4>& actual, const std::array<int, 4>& expected) {
     constexpr int tolerance = 5;
     for (std::size_t channel = 0; channel < actual.size(); ++channel) {
         if (std::abs(static_cast<int>(actual[channel]) - expected[channel]) > tolerance) {
             return testing::AssertionFailure()
                    << "pixel at (" << coordinate.first << ", " << coordinate.second << ") was RGBA("
                    << static_cast<int>(actual[0]) << ", " << static_cast<int>(actual[1]) << ", "
-                   << static_cast<int>(actual[2]) << ", " << static_cast<int>(actual[3])
-                   << "), expected RGBA(" << expected[0] << ", " << expected[1] << ", " << expected[2] << ", "
-                   << expected[3] << ") within " << tolerance;
+                   << static_cast<int>(actual[2]) << ", " << static_cast<int>(actual[3]) << "), expected RGBA("
+                   << expected[0] << ", " << expected[1] << ", " << expected[2] << ", " << expected[3] << ") within "
+                   << tolerance;
         }
     }
     return testing::AssertionSuccess();
@@ -329,11 +327,9 @@ class RendererPresentationTest : public ::testing::Test {
             if (samples == 1) {
                 ASSERT_EQ(0, frame.sampleBuffers)
                     << "Single-sample scene framebuffer must not provide a multisample buffer";
-                ASSERT_EQ(0, frame.activeSamples)
-                    << "Single-sample scene framebuffer must report zero active samples";
+                ASSERT_EQ(0, frame.activeSamples) << "Single-sample scene framebuffer must report zero active samples";
             } else {
-                ASSERT_GE(frame.sampleBuffers, 1)
-                    << "Renderer scene framebuffer must provide a multisample buffer";
+                ASSERT_GE(frame.sampleBuffers, 1) << "Renderer scene framebuffer must provide a multisample buffer";
                 ASSERT_EQ(std::min(samples, maxSamples), frame.activeSamples)
                     << "Renderer scene framebuffer must honor the requested sample count subject to the GL limit";
             }
@@ -375,7 +371,7 @@ class RendererPresentationTest : public ::testing::Test {
 
         const SteadyResult steady = pump_events_while_steady(*instance, shrunken);
         ASSERT_TRUE(steady.stable) << "size changed during 16ms steady event pump; expected "
-                                  << describe_sizes(shrunken) << ", got " << describe_sizes(steady.last);
+                                   << describe_sizes(shrunken) << ", got " << describe_sizes(steady.last);
 
         const ResizeResult regrow = wait_for_stable_resize(*instance, window, maximumLogical, shrunken);
         ASSERT_TRUE(regrow.stable) << describe_resize(regrow, maximumLogical, shrunken);
@@ -391,8 +387,7 @@ class RendererPresentationTest : public ::testing::Test {
                 sceneViewport.framebuffer.y + sceneViewport.framebuffer.height / 2};
     }
 
-    static void expect_pixel_near(const std::array<std::uint8_t, 4>& pixel,
-                                  const std::array<int, 4>& expected) {
+    static void expect_pixel_near(const std::array<std::uint8_t, 4>& pixel, const std::array<int, 4>& expected) {
         constexpr int tolerance = 5;
         EXPECT_NEAR(expected[0], static_cast<int>(pixel[0]), tolerance);
         EXPECT_NEAR(expected[1], static_cast<int>(pixel[1]), tolerance);
@@ -508,10 +503,11 @@ TEST_F(RendererPresentationTest, InvalidPublicPostProcessingValuesPreservePresen
     instance->set_fxaa_subpixel_amount(nan);
     instance->set_fxaa_subpixel_amount(1.01F);
 
-    expect_pixel_near(render(), {static_cast<int>(baseline[0]),
-                                  static_cast<int>(baseline[1]),
-                                  static_cast<int>(baseline[2]),
-                                  static_cast<int>(baseline[3])});
+    expect_pixel_near(render(),
+                      {static_cast<int>(baseline[0]),
+                       static_cast<int>(baseline[1]),
+                       static_cast<int>(baseline[2]),
+                       static_cast<int>(baseline[3])});
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
@@ -590,8 +586,10 @@ TEST_F(RendererPresentationTest, ReservedSceneViewportPresentsBesideBandInsteadO
     const auto [winWidth, winHeight] = instance->window().get_window_size();
     constexpr double reserved = 128.0;
     ASSERT_GT(winWidth, reserved);
-    instance->set_scene_viewport(renderer::LogicalViewportRect{
-        reserved, 0.0, static_cast<double>(winWidth) - reserved, static_cast<double>(winHeight)});
+    instance->set_scene_viewport(renderer::LogicalViewportRect{reserved,
+                                                               0.0,
+                                                               static_cast<double>(winWidth) - reserved,
+                                                               static_cast<double>(winHeight)});
 
     // A single point at the world origin sits at the center of the scene viewport (the camera
     // frames the scene rect), so it lands in the presented scene interior and never in the band.
@@ -620,11 +618,10 @@ TEST_F(RendererPresentationTest, ReservedSceneViewportPresentsBesideBandInsteadO
     const int bandX = sceneViewport.framebuffer.x / 2;
     const int bandY = fbHeight / 2;
     ASSERT_LT(bandX, fbWidth);
-    const std::array<int, 4> defaultBand{
-        static_cast<int>(renderer::Renderer::defaultClearColor.r * 255.0F + 0.5F),
-        static_cast<int>(renderer::Renderer::defaultClearColor.g * 255.0F + 0.5F),
-        static_cast<int>(renderer::Renderer::defaultClearColor.b * 255.0F + 0.5F),
-        255};
+    const std::array<int, 4> defaultBand{static_cast<int>(renderer::Renderer::defaultClearColor.r * 255.0F + 0.5F),
+                                         static_cast<int>(renderer::Renderer::defaultClearColor.g * 255.0F + 0.5F),
+                                         static_cast<int>(renderer::Renderer::defaultClearColor.b * 255.0F + 0.5F),
+                                         255};
     expect_pixel_near(read_front_pixel(bandX, bandY), defaultBand);
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }

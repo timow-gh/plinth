@@ -1,7 +1,10 @@
 #include "OpenGL/Drawable/DrawableTransparencyInfo.hpp"
+
 #include "OpenGL/Drawable/LineInstanceData.hpp"
-#include <gtest/gtest.h>
+
 #include <linal/hmat.hpp>
+
+#include <gtest/gtest.h>
 #include <vector>
 
 namespace {
@@ -169,13 +172,13 @@ TEST(LineInstanceDataTest, IndependentArc0ForcesPerSegmentStart) {
     const std::vector<float> lineData =
         opengl::make_line_instance_data(pairs, positions, {}, 0, arcLengths, {}, /*independentArc0=*/true);
     ASSERT_EQ(2U * opengl::kLineInstanceFloats, lineData.size());
-    EXPECT_FLOAT_EQ(0.0F, lineData[7]);                              // segment 0 arc0
+    EXPECT_FLOAT_EQ(0.0F, lineData[7]);                               // segment 0 arc0
     EXPECT_FLOAT_EQ(0.0F, lineData[opengl::kLineInstanceFloats + 7]); // segment 1 arc0
 
     // Without it (strips), arc0 comes from the per-vertex arc buffer.
     const std::vector<float> stripData =
         opengl::make_line_instance_data(pairs, positions, {}, 0, arcLengths, {}, /*independentArc0=*/false);
-    EXPECT_FLOAT_EQ(0.0F, stripData[7]);                                // arcLengths[0]
+    EXPECT_FLOAT_EQ(0.0F, stripData[7]);                                 // arcLengths[0]
     EXPECT_FLOAT_EQ(100.0F, stripData[opengl::kLineInstanceFloats + 7]); // arcLengths[2]
 }
 
@@ -185,15 +188,20 @@ TEST(LineInstanceDataTest, BuildsInterleavedInstanceBlobWithDashAndColors) {
         linal::float3{3.0F, 0.0F, 0.0F},
     };
     const std::vector<float> colors = {
-        1.0F, 0.0F, 0.0F, 1.0F, // vertex 0 red
-        0.0F, 1.0F, 0.0F, 0.5F, // vertex 1 translucent green
+        1.0F,
+        0.0F,
+        0.0F,
+        1.0F, // vertex 0 red
+        0.0F,
+        1.0F,
+        0.0F,
+        0.5F, // vertex 1 translucent green
     };
     const std::vector<float> arcLengths = {0.0F, 3.0F};
     const std::vector<std::uint8_t> dashFlags = {1U, 0U}; // segment dashed because one endpoint is flagged
 
     const std::vector<std::uint32_t> pairs = {0U, 1U};
-    const std::vector<float> blob =
-        opengl::make_line_instance_data(pairs, positions, colors, 4, arcLengths, dashFlags);
+    const std::vector<float> blob = opengl::make_line_instance_data(pairs, positions, colors, 4, arcLengths, dashFlags);
 
     ASSERT_EQ(opengl::kLineInstanceFloats, blob.size());
     // a_p0 = (p0.xyz, dashedFlag)

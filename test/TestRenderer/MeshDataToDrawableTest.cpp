@@ -1,9 +1,10 @@
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include <gtest/gtest.h>
 #include "plinth/Renderer.hpp"
 #include "plinth/WindowSettings.hpp"
 #include "plinth/loader/MeshData.hpp"
+
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <gtest/gtest.h>
 #include <memory>
 
 namespace {

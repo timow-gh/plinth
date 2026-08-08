@@ -3,21 +3,22 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
-
 #include "CaptureFixture.hpp"
-#include <GLFW/glfw3.h>
 #include "OpenGL/Drawable/PointDrawable.hpp"
 #include "OpenGL/FrameState.hpp"
 #include "OpenGL/OpenGL.hpp"
+
+#include <linal/hmat.hpp>
+
+#include <GLFW/glfw3.h>
 #include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <gtest/gtest.h>
-#include <linal/hmat.hpp>
 #include <memory>
 #include <optional>
+#include <stb_image_write.h>
 
 namespace {
 
@@ -63,7 +64,7 @@ TEST_F(GoldenImageTest, PointSceneMatchesGolden) {
                                                                                 4,
                                                                                 indices,
                                                                                 largePointSize,
-                                                                                 opengl::BufferAccessPattern::Static);
+                                                                                opengl::BufferAccessPattern::Static);
     ASSERT_TRUE(drawable.has_value());
 
     linal::hmatf identity = linal::hmatf::identity();
@@ -128,5 +129,5 @@ TEST_F(GoldenImageTest, PointSceneMatchesGolden) {
     stbi_image_free(decoded);
 
     EXPECT_FALSE(mismatchFound) << "Golden image mismatch: max per-channel delta = " << maxDelta
-                                 << ", first differing pixel at (" << mismatchX << ", " << mismatchY << ")";
+                                << ", first differing pixel at (" << mismatchX << ", " << mismatchY << ")";
 }

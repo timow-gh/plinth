@@ -4,6 +4,7 @@
 #include "plinth/CameraProjectionType.hpp"
 #include "plinth/InputState.hpp"
 #include "plinth/LogicalViewportRect.hpp"
+
 #include <cstdint>
 #include <optional>
 
@@ -52,18 +53,12 @@ class IOverlay {
     // --- Input arbitration ---
     // The handle_* methods return true when the event should be forwarded to the
     // camera/application callbacks, and false when the overlay consumed it.
-    [[nodiscard]]
-    virtual bool wants_mouse() const = 0;
-    [[nodiscard]]
-    virtual bool wants_keyboard() const = 0;
-    [[nodiscard]]
-    virtual bool handle_cursor_position(double xpos, double ypos) = 0;
-    [[nodiscard]]
-    virtual bool handle_mouse_button(int button, Action action, Mods mods) = 0;
-    [[nodiscard]]
-    virtual bool handle_scroll(double xoffset, double yoffset) = 0;
-    [[nodiscard]]
-    virtual bool handle_key(Key key, Scancode scancode, Action action, Mods mods) = 0;
+    [[nodiscard]] virtual bool wants_mouse() const = 0;
+    [[nodiscard]] virtual bool wants_keyboard() const = 0;
+    [[nodiscard]] virtual bool handle_cursor_position(double xpos, double ypos) = 0;
+    [[nodiscard]] virtual bool handle_mouse_button(int button, Action action, Mods mods) = 0;
+    [[nodiscard]] virtual bool handle_scroll(double xoffset, double yoffset) = 0;
+    [[nodiscard]] virtual bool handle_key(Key key, Scancode scancode, Action action, Mods mods) = 0;
     virtual void handle_char(std::uint32_t codepoint) = 0;
 };
 

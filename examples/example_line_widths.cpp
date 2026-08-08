@@ -4,6 +4,7 @@
 #include "plinth/Renderer.hpp"
 #include "plinth/StrokeStyle.hpp"
 #include "plinth/WindowSettings.hpp"
+
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -14,10 +15,10 @@
 
 namespace {
 
-constexpr std::uint32_t kWindowWidth  = 1280;
+constexpr std::uint32_t kWindowWidth = 1280;
 constexpr std::uint32_t kWindowHeight = 900;
 
-constexpr float kHalfLen    = 3.5F;  // half-length of each demonstration line
+constexpr float kHalfLen = 3.5F;     // half-length of each demonstration line
 constexpr float kRowSpacing = 0.55F; // vertical spacing between rows
 
 // Flat xyz triplet for a horizontal segment at height y.
@@ -28,11 +29,21 @@ std::array<float, 6> hline(float y) {
 // Five-vertex zigzag strip (for join demonstrations): starts at left, zigzags to right.
 std::vector<float> zigzag(float y, float amplitude = 0.18F) {
     return {
-        -kHalfLen,         y,             0.0F,
-        -kHalfLen * 0.5F,  y + amplitude, 0.0F,
-         0.0F,             y - amplitude, 0.0F,
-         kHalfLen * 0.5F,  y + amplitude, 0.0F,
-         kHalfLen,         y,             0.0F,
+        -kHalfLen,
+        y,
+        0.0F,
+        -kHalfLen * 0.5F,
+        y + amplitude,
+        0.0F,
+        0.0F,
+        y - amplitude,
+        0.0F,
+        kHalfLen * 0.5F,
+        y + amplitude,
+        0.0F,
+        kHalfLen,
+        y,
+        0.0F,
     };
 }
 
@@ -40,10 +51,18 @@ std::vector<float> zigzag(float y, float amplitude = 0.18F) {
 std::vector<float> square_loop(float cx, float cy, float side) {
     const float h = side * 0.5F;
     return {
-        cx - h, cy - h, 0.0F,
-        cx + h, cy - h, 0.0F,
-        cx + h, cy + h, 0.0F,
-        cx - h, cy + h, 0.0F,
+        cx - h,
+        cy - h,
+        0.0F,
+        cx + h,
+        cy - h,
+        0.0F,
+        cx + h,
+        cy + h,
+        0.0F,
+        cx - h,
+        cy + h,
+        0.0F,
     };
 }
 
@@ -55,8 +74,8 @@ std::array<float, 4> rgba(float r, float g, float b, float a = 1.0F) {
 
 int main() {
     renderer::WindowSettings settings;
-    settings.title  = "line widths, caps, joins, and dashing";
-    settings.width  = kWindowWidth;
+    settings.title = "line widths, caps, joins, and dashing";
+    settings.width = kWindowWidth;
     settings.height = kWindowHeight;
 
     auto renderer = renderer::Renderer::create(settings);
@@ -65,27 +84,27 @@ int main() {
     }
 
     // Color palette
-    const auto cyan    = rgba(0.2F, 0.9F, 1.0F);
-    const auto orange  = rgba(1.0F, 0.6F, 0.1F);
-    const auto green   = rgba(0.3F, 1.0F, 0.4F);
-    const auto pink    = rgba(1.0F, 0.4F, 0.7F);
-    const auto yellow  = rgba(1.0F, 0.9F, 0.2F);
-    const auto violet  = rgba(0.7F, 0.4F, 1.0F);
-    const auto white   = rgba(0.9F, 0.9F, 0.9F);
-    const auto teal    = rgba(0.2F, 0.8F, 0.7F);
-    const auto red     = rgba(1.0F, 0.3F, 0.3F);
+    const auto cyan = rgba(0.2F, 0.9F, 1.0F);
+    const auto orange = rgba(1.0F, 0.6F, 0.1F);
+    const auto green = rgba(0.3F, 1.0F, 0.4F);
+    const auto pink = rgba(1.0F, 0.4F, 0.7F);
+    const auto yellow = rgba(1.0F, 0.9F, 0.2F);
+    const auto violet = rgba(0.7F, 0.4F, 1.0F);
+    const auto white = rgba(0.9F, 0.9F, 0.9F);
+    const auto teal = rgba(0.2F, 0.8F, 0.7F);
+    const auto red = rgba(1.0F, 0.3F, 0.3F);
 
-    const std::array<std::uint32_t, 2>  seg2{0U, 1U};
-    const std::array<std::uint32_t, 5>  strip5{0U, 1U, 2U, 3U, 4U};
-    const std::array<std::uint32_t, 4>  loop4{0U, 1U, 2U, 3U};
+    const std::array<std::uint32_t, 2> seg2{0U, 1U};
+    const std::array<std::uint32_t, 5> strip5{0U, 1U, 2U, 3U, 4U};
+    const std::array<std::uint32_t, 4> loop4{0U, 1U, 2U, 3U};
 
     float row = 0.0F;
 
     // ── Row 0: Varying widths, butt cap (baseline) ──────────────────────────────
     constexpr std::array<float, 5> widths{1.0F, 2.0F, 4.0F, 8.0F, 16.0F};
     for (std::size_t i = 0; i < widths.size(); ++i) {
-        const float y     = row - (static_cast<float>(i) * 0.28F);
-        const auto  verts = hline(y);
+        const float y = row - (static_cast<float>(i) * 0.28F);
+        const auto verts = hline(y);
         renderer::StrokeStyle s;
         s.lineWidth = widths[i];
         renderer->add_line_drawable(verts, seg2, cyan, renderer::LineType::lines(), s);
@@ -97,7 +116,7 @@ int main() {
         const auto verts = hline(row);
         renderer::StrokeStyle s;
         s.lineWidth = 12.0F;
-        s.cap       = renderer::LineCap::Round;
+        s.cap = renderer::LineCap::Round;
         renderer->add_line_drawable(verts, seg2, green, renderer::LineType::lines(), s);
         row -= kRowSpacing;
     }
@@ -107,7 +126,7 @@ int main() {
         const auto verts = hline(row);
         renderer::StrokeStyle s;
         s.lineWidth = 12.0F;
-        s.cap       = renderer::LineCap::Square;
+        s.cap = renderer::LineCap::Square;
         renderer->add_line_drawable(verts, seg2, yellow, renderer::LineType::lines(), s);
         row -= kRowSpacing;
     }
@@ -117,8 +136,8 @@ int main() {
         const auto verts = zigzag(row);
         renderer::StrokeStyle s;
         s.lineWidth = 10.0F;
-        s.join      = renderer::LineJoin::Round;
-        s.cap       = renderer::LineCap::Butt;
+        s.join = renderer::LineJoin::Round;
+        s.cap = renderer::LineCap::Butt;
         renderer->add_line_drawable(verts, strip5, orange, renderer::LineType::line_strip(), s);
         row -= kRowSpacing;
     }
@@ -128,8 +147,8 @@ int main() {
         const auto verts = zigzag(row);
         renderer::StrokeStyle s;
         s.lineWidth = 10.0F;
-        s.cap       = renderer::LineCap::Round;
-        s.join      = renderer::LineJoin::Round;
+        s.cap = renderer::LineCap::Round;
+        s.join = renderer::LineJoin::Round;
         renderer->add_line_drawable(verts, strip5, pink, renderer::LineType::line_strip(), s);
         row -= kRowSpacing;
     }
@@ -138,9 +157,9 @@ int main() {
     {
         const auto verts = hline(row);
         renderer::StrokeStyle s;
-        s.lineWidth   = 8.0F;
+        s.lineWidth = 8.0F;
         s.dashPattern = {0.4F, 0.2F};
-        s.dashSpace   = renderer::DashSpace::World;
+        s.dashSpace = renderer::DashSpace::World;
         renderer->add_line_drawable(verts, seg2, white, renderer::LineType::lines(), s);
         row -= kRowSpacing;
     }
@@ -149,10 +168,10 @@ int main() {
     {
         const auto verts = hline(row);
         renderer::StrokeStyle s;
-        s.lineWidth   = 8.0F;
-        s.cap         = renderer::LineCap::Round;
+        s.lineWidth = 8.0F;
+        s.cap = renderer::LineCap::Round;
         s.dashPattern = {0.3F, 0.25F};
-        s.dashSpace   = renderer::DashSpace::World;
+        s.dashSpace = renderer::DashSpace::World;
         renderer->add_line_drawable(verts, seg2, teal, renderer::LineType::lines(), s);
         row -= kRowSpacing;
     }
@@ -161,9 +180,9 @@ int main() {
     {
         const auto verts = hline(row);
         renderer::StrokeStyle s;
-        s.lineWidth   = 6.0F;
+        s.lineWidth = 6.0F;
         s.dashPattern = {0.35F, 0.1F, 0.07F, 0.1F};
-        s.dashSpace   = renderer::DashSpace::World;
+        s.dashSpace = renderer::DashSpace::World;
         renderer->add_line_drawable(verts, seg2, violet, renderer::LineType::lines(), s);
         row -= kRowSpacing;
     }
@@ -172,10 +191,10 @@ int main() {
     {
         const auto verts = hline(row);
         renderer::StrokeStyle s;
-        s.lineWidth   = 6.0F;
-        s.cap         = renderer::LineCap::Round;
+        s.lineWidth = 6.0F;
+        s.cap = renderer::LineCap::Round;
         s.dashPattern = {0.35F, 0.1F, 0.07F, 0.1F};
-        s.dashSpace   = renderer::DashSpace::World;
+        s.dashSpace = renderer::DashSpace::World;
         renderer->add_line_drawable(verts, seg2, red, renderer::LineType::lines(), s);
         row -= kRowSpacing;
     }
@@ -184,9 +203,9 @@ int main() {
     {
         const auto verts = hline(row);
         renderer::StrokeStyle s;
-        s.lineWidth   = 8.0F;
+        s.lineWidth = 8.0F;
         s.dashPattern = {20.0F, 10.0F};
-        s.dashSpace   = renderer::DashSpace::Screen;
+        s.dashSpace = renderer::DashSpace::Screen;
         renderer->add_line_drawable(verts, seg2, yellow, renderer::LineType::lines(), s);
         row -= kRowSpacing;
     }
@@ -196,10 +215,10 @@ int main() {
     {
         const auto verts = hline(row);
         renderer::StrokeStyle s;
-        s.lineWidth   = 8.0F;
-        s.cap         = renderer::LineCap::Round;
+        s.lineWidth = 8.0F;
+        s.cap = renderer::LineCap::Round;
         s.dashPattern = {0.3F, 0.2F};
-        s.dashSpace   = renderer::DashSpace::World;
+        s.dashSpace = renderer::DashSpace::World;
         antLine = renderer->add_line_drawable(verts, seg2, orange, renderer::LineType::lines(), s);
         row -= kRowSpacing;
     }
@@ -209,8 +228,8 @@ int main() {
         const auto verts = square_loop(0.0F, row - 0.2F, 0.7F);
         renderer::StrokeStyle s;
         s.lineWidth = 8.0F;
-        s.cap       = renderer::LineCap::Round;
-        s.join      = renderer::LineJoin::Round;
+        s.cap = renderer::LineCap::Round;
+        s.join = renderer::LineJoin::Round;
         renderer->add_line_drawable(verts, loop4, green, renderer::LineType::line_loop(), s);
     }
 
@@ -222,8 +241,7 @@ int main() {
             break;
         }
 
-        const float elapsed =
-            std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
+        const float elapsed = std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
         renderer->set_line_dash_phase(antLine, elapsed * 0.5F);
 
         renderer->begin_frame();

@@ -4,6 +4,7 @@
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/opengl_export.h"
 #include "plinth/Texture.hpp"
+
 #include <optional>
 
 namespace opengl {
@@ -16,7 +17,8 @@ class OPENGL_EXPORT Texture2D {
     Texture2D& operator=(Texture2D&& other) noexcept;
     ~Texture2D();
 
-    [[nodiscard]] static std::optional<Texture2D> create(const renderer::TextureData& data, int maxTextureSize, int maxAnisotropy = 1);
+    [[nodiscard]] static std::optional<Texture2D>
+    create(const renderer::TextureData& data, int maxTextureSize, int maxAnisotropy = 1);
     void reset() noexcept;
     void bind(GLuint unit) const;
     [[nodiscard]] bool is_valid() const noexcept;
@@ -25,7 +27,10 @@ class OPENGL_EXPORT Texture2D {
     [[nodiscard]] int get_height() const noexcept;
 
   private:
-    Texture2D(GLuint id, int width, int height) : m_id(id), m_width(width), m_height(height) {}
+    Texture2D(GLuint id, int width, int height)
+        : m_id(id)
+        , m_width(width)
+        , m_height(height) {}
     GLuint m_id{0};
     int m_width{0};
     int m_height{0};

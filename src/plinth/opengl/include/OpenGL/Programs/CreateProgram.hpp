@@ -3,6 +3,7 @@
 
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/Programs/ProgramId.hpp"
+
 #include <string>
 #include <system_error>
 #include <type_traits>
@@ -35,57 +36,21 @@ struct ProgramCreationResult {
     ProgramCreationResult(std::error_code error) noexcept
         : result{error} {}
 
-    [[nodiscard]]
-    bool has_value() const noexcept {
-        return std::holds_alternative<ProgramHandle>(result);
-    }
-    [[nodiscard]]
-    explicit operator bool() const noexcept {
-        return has_value();
-    }
+    [[nodiscard]] bool has_value() const noexcept { return std::holds_alternative<ProgramHandle>(result); }
+    [[nodiscard]] explicit operator bool() const noexcept { return has_value(); }
 
-    [[nodiscard]]
-    ProgramHandle& value() & {
-        return std::get<ProgramHandle>(result);
-    }
-    [[nodiscard]]
-    const ProgramHandle& value() const& {
-        return std::get<ProgramHandle>(result);
-    }
-    [[nodiscard]]
-    ProgramHandle&& value() && {
-        return std::move(std::get<ProgramHandle>(result));
-    }
+    [[nodiscard]] ProgramHandle& value() & { return std::get<ProgramHandle>(result); }
+    [[nodiscard]] const ProgramHandle& value() const& { return std::get<ProgramHandle>(result); }
+    [[nodiscard]] ProgramHandle&& value() && { return std::move(std::get<ProgramHandle>(result)); }
 
-    [[nodiscard]]
-    std::error_code& error() & {
-        return std::get<std::error_code>(result);
-    }
-    [[nodiscard]]
-    const std::error_code& error() const& {
-        return std::get<std::error_code>(result);
-    }
+    [[nodiscard]] std::error_code& error() & { return std::get<std::error_code>(result); }
+    [[nodiscard]] const std::error_code& error() const& { return std::get<std::error_code>(result); }
 
-    [[nodiscard]]
-    ProgramHandle* operator->() {
-        return &value();
-    }
-    [[nodiscard]]
-    const ProgramHandle* operator->() const {
-        return &value();
-    }
-    [[nodiscard]]
-    ProgramHandle& operator*() & {
-        return value();
-    }
-    [[nodiscard]]
-    const ProgramHandle& operator*() const& {
-        return value();
-    }
-    [[nodiscard]]
-    ProgramHandle&& operator*() && {
-        return std::move(value());
-    }
+    [[nodiscard]] ProgramHandle* operator->() { return &value(); }
+    [[nodiscard]] const ProgramHandle* operator->() const { return &value(); }
+    [[nodiscard]] ProgramHandle& operator*() & { return value(); }
+    [[nodiscard]] const ProgramHandle& operator*() const& { return value(); }
+    [[nodiscard]] ProgramHandle&& operator*() && { return std::move(value()); }
 };
 
 OPENGL_EXPORT ProgramCreationResult create_program(const char* vertexShaderSource, const char* fragmentShaderSource);

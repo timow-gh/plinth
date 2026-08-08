@@ -1,6 +1,8 @@
-#include <GLFW/glfw3.h>
 #include "OpenGL/GpuCapabilities.hpp"
+
 #include "OpenGL/OpenGL.hpp"
+
+#include <GLFW/glfw3.h>
 #include <gtest/gtest.h>
 
 namespace {

@@ -1,6 +1,8 @@
-#include <GLFW/glfw3.h>
 #include "OpenGL/Framebuffer.hpp"
+
 #include "OpenGL/OpenGL.hpp"
+
+#include <GLFW/glfw3.h>
 #include <algorithm>
 #include <array>
 #include <cmath>

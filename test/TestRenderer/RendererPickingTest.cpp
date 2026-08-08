@@ -2,6 +2,7 @@
 #include "plinth/CameraProjectionType.hpp"
 #include "plinth/Renderer.hpp"
 #include "plinth/WindowSettings.hpp"
+
 #include <array>
 #include <cstdint>
 #include <gtest/gtest.h>
@@ -54,8 +55,8 @@ TEST_F(RendererPickingTest, PicksMeshDrawableUnderCursorCenter) {
     ASSERT_NE(nullptr, instance);
 
     // A quad on the z=0 plane centered at the origin, facing +z (CCW winding) toward the camera.
-    constexpr std::array<float, 12> vertices{-1.0F, -1.0F, 0.0F, 1.0F, -1.0F, 0.0F,
-                                             1.0F,  1.0F,  0.0F, -1.0F, 1.0F, 0.0F};
+    constexpr std::array<float, 12>
+        vertices{-1.0F, -1.0F, 0.0F, 1.0F, -1.0F, 0.0F, 1.0F, 1.0F, 0.0F, -1.0F, 1.0F, 0.0F};
     constexpr std::array<std::uint32_t, 6> indices{0U, 1U, 2U, 0U, 2U, 3U};
     constexpr std::array<float, 4> color{1.0F, 0.5F, 0.25F, 1.0F};
     const renderer::DrawableHandle handle =
@@ -106,8 +107,8 @@ TEST_F(RendererPickingTest, ReturnsEmptyOverBackground) {
     ASSERT_NE(nullptr, instance);
 
     // Small quad at the origin; a corner of the scene viewport should miss it entirely.
-    constexpr std::array<float, 12> vertices{-0.2F, -0.2F, 0.0F, 0.2F, -0.2F, 0.0F,
-                                             0.2F,  0.2F,  0.0F, -0.2F, 0.2F, 0.0F};
+    constexpr std::array<float, 12>
+        vertices{-0.2F, -0.2F, 0.0F, 0.2F, -0.2F, 0.0F, 0.2F, 0.2F, 0.0F, -0.2F, 0.2F, 0.0F};
     constexpr std::array<std::uint32_t, 6> indices{0U, 1U, 2U, 0U, 2U, 3U};
     constexpr std::array<float, 4> color{0.2F, 0.8F, 0.4F, 1.0F};
     const renderer::DrawableHandle handle =

@@ -3,6 +3,7 @@
 
 #include "plinth/loader/MeshData.hpp"
 #include "plinth/plinth_export.h"
+
 #include <expected>
 #include <filesystem>
 #include <optional>
@@ -57,14 +58,12 @@ struct MeshLoadOptions {
     std::optional<SourceUpAxis> upAxis{};
 };
 
-[[nodiscard]]
-PLINTH_EXPORT std::expected<MeshData, LoadError>
-load_mesh(const std::filesystem::path& path, MeshLoadOptions options = {});
+[[nodiscard]] PLINTH_EXPORT std::expected<MeshData, LoadError> load_mesh(const std::filesystem::path& path,
+                                                                         MeshLoadOptions options = {});
 
 /// Parses in-memory file contents, choosing a parser by \p extension (e.g.
 /// ".obj"). \p contents holds the raw bytes of the file (text or binary).
-[[nodiscard]]
-PLINTH_EXPORT std::expected<MeshData, LoadError>
+[[nodiscard]] PLINTH_EXPORT std::expected<MeshData, LoadError>
 load_mesh(std::string_view extension, const std::string& contents, MeshLoadOptions options = {});
 
 } // namespace renderer

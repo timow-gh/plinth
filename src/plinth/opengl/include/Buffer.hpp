@@ -2,6 +2,7 @@
 #define BUFFER_HPP
 
 #include "plinth/Assert.hpp"
+
 #include <cstring>
 #include <memory>
 #include <span>
@@ -20,8 +21,7 @@ class Buffer {
     using iterator = value_type*;
     using const_iterator = const value_type*;
 
-    [[nodiscard]]
-    static Buffer create_from(const Buffer& other, size_type additionalCapacity) {
+    [[nodiscard]] static Buffer create_from(const Buffer& other, size_type additionalCapacity) {
         auto newBuffer = Buffer(other.capacity() + additionalCapacity);
         RENDERER_ASSERT(newBuffer.capacity() == other.capacity() + additionalCapacity);
         RENDERER_ASSERT(newBuffer.is_empty());
@@ -44,93 +44,45 @@ class Buffer {
     Buffer& operator=(Buffer&&) = default;
     ~Buffer() = default;
 
-    [[nodiscard]]
-    std::span<const value_type> get_as_span() const {
+    [[nodiscard]] std::span<const value_type> get_as_span() const {
         return std::span<const value_type>(m_data.get(), m_pos);
     }
-    [[nodiscard]]
-    std::span<value_type> get_as_span() {
-        return std::span<value_type>(m_data.get(), m_pos);
-    }
+    [[nodiscard]] std::span<value_type> get_as_span() { return std::span<value_type>(m_data.get(), m_pos); }
 
-    [[nodiscard]]
-    value_type* data() {
-        return m_data.get();
-    }
-    [[nodiscard]]
-    const value_type* data() const {
-        return m_data.get();
-    }
+    [[nodiscard]] value_type* data() { return m_data.get(); }
+    [[nodiscard]] const value_type* data() const { return m_data.get(); }
 
-    [[nodiscard]]
-    iterator begin() {
-        return m_data.get();
-    }
-    [[nodiscard]]
-    iterator end() {
-        return m_data.get() + m_pos;
-    }
+    [[nodiscard]] iterator begin() { return m_data.get(); }
+    [[nodiscard]] iterator end() { return m_data.get() + m_pos; }
 
-    [[nodiscard]]
-    const_iterator begin() const {
-        return m_data.get();
-    }
-    [[nodiscard]]
-    const_iterator end() const {
-        return m_data.get() + m_pos;
-    }
+    [[nodiscard]] const_iterator begin() const { return m_data.get(); }
+    [[nodiscard]] const_iterator end() const { return m_data.get() + m_pos; }
 
-    [[nodiscard]]
-    const_iterator cbegin() const {
-        return m_data.get();
-    }
-    [[nodiscard]]
-    const_iterator cend() const {
-        return m_data.get() + m_pos;
-    }
+    [[nodiscard]] const_iterator cbegin() const { return m_data.get(); }
+    [[nodiscard]] const_iterator cend() const { return m_data.get() + m_pos; }
 
-    [[nodiscard]]
-    reference operator[](size_type index) {
+    [[nodiscard]] reference operator[](size_type index) {
         RENDERER_ASSERT(index < m_pos);
         return m_data[index];
     }
 
-    [[nodiscard]]
-    const_reference operator[](size_type index) const {
+    [[nodiscard]] const_reference operator[](size_type index) const {
         RENDERER_ASSERT(index < m_pos);
         return m_data[index];
     }
 
     // Size of the buffer (number of elements currently stored)
-    [[nodiscard]]
-    size_type size() const {
-        return m_pos;
-    }
+    [[nodiscard]] size_type size() const { return m_pos; }
 
     // Maximum number of elements the buffer can hold
-    [[nodiscard]]
-    size_type capacity() const {
-        return m_capacity;
-    }
+    [[nodiscard]] size_type capacity() const { return m_capacity; }
     // Number of free elements in the buffer
-    [[nodiscard]]
-    size_type free_capacity() const {
-        return m_capacity - m_pos;
-    }
-    [[nodiscard]]
-    bool is_full() const {
-        return m_pos == m_capacity;
-    }
-    [[nodiscard]]
-    bool is_empty() const {
-        return m_pos == 0;
-    }
+    [[nodiscard]] size_type free_capacity() const { return m_capacity - m_pos; }
+    [[nodiscard]] bool is_full() const { return m_pos == m_capacity; }
+    [[nodiscard]] bool is_empty() const { return m_pos == 0; }
 
     // Check if the buffer has enough space for the given number of elements
-    [[nodiscard]]
-    bool has_space_for(size_type count) const {
-        return count <= free_capacity();
-    }
+    [[nodiscard]] bool has_space_for(size_type count) const { return count <= free_capacity(); }
 
     constexpr void push_back(const value_type& value) noexcept {
         RENDERER_ASSERT(m_pos < m_capacity);

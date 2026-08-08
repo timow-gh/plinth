@@ -2,6 +2,7 @@
 #define RENDERER_COLORCONVERSION_HPP
 
 #include "plinth/Color.hpp"
+
 #include <cmath>
 #include <cstddef>
 #include <span>

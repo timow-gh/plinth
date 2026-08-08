@@ -1,7 +1,9 @@
 #include "plinth/loader/MeshShading.hpp"
+
+#include <linal/vec.hpp>
+
 #include <array>
 #include <cstdint>
-#include <linal/vec.hpp>
 #include <unordered_map>
 #include <vector>
 
@@ -150,7 +152,7 @@ constexpr float kEpsilon = 1.0e-6F;
         out.triangleIndices.push_back(w2);
     }
 
-    for (const linal::float3& n : accum) {
+    for (const linal::float3& n: accum) {
         push_normal(out, safe_normalize(n));
     }
 

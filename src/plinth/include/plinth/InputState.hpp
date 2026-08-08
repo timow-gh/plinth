@@ -2,10 +2,12 @@
 #define RENDERER_INPUTSTATE_HPP
 
 #include "plinth/Assert.hpp"
+
+#include <linal/linal.hpp>
+
 #include <compare>
 #include <cstdint>
 #include <functional>
-#include <linal/linal.hpp>
 
 namespace renderer {
 
@@ -141,13 +143,13 @@ enum class Key {
 };
 
 enum class Mods {
-    NONE = 0,               //!< No modifier keys pressed
-    SHIFT = 0x0001,         //!< Shift key pressed
-    CONTROL = 0x0002,       //!< Control key pressed
-    ALT = 0x0004,           //!< Alt key pressed
-    SUPER = 0x0008,         //!< Super key pressed (Windows key on Windows, Command key on macOS)
-    CAPS_LOCK = 0x0010,     //!< Caps Lock key pressed
-    NUM_LOCK = 0x0020       //!< Num Lock key pressed
+    NONE = 0,           //!< No modifier keys pressed
+    SHIFT = 0x0001,     //!< Shift key pressed
+    CONTROL = 0x0002,   //!< Control key pressed
+    ALT = 0x0004,       //!< Alt key pressed
+    SUPER = 0x0008,     //!< Super key pressed (Windows key on Windows, Command key on macOS)
+    CAPS_LOCK = 0x0010, //!< Caps Lock key pressed
+    NUM_LOCK = 0x0020   //!< Num Lock key pressed
 };
 
 class Scancode {

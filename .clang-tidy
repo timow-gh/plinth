@@ -1,7 +1,7 @@
 Checks: '-*,
 clang-diagnostic-*,
 bugprone-,
-llvm-*,
+llvm-*,-llvm-include-order,
 cppcoreguidelines-avoid-capturing-lambda-coroutines,
 cppcoreguidelines-avoid-const-or-ref-data-members,
 cppcoreguidelines-avoid-goto,

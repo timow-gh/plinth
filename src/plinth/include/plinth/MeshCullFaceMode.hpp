@@ -4,9 +4,9 @@
 namespace renderer {
 
 enum class MeshCullFaceMode {
-    BACK,   // default: cull back faces (GL_BACK)
-    FRONT,  // cull front faces (GL_FRONT)
-    NONE,   // disable culling (draw both sides)
+    BACK,  // default: cull back faces (GL_BACK)
+    FRONT, // cull front faces (GL_FRONT)
+    NONE,  // disable culling (draw both sides)
 };
 
 } // namespace renderer

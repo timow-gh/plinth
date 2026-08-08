@@ -1,8 +1,10 @@
-#include <GLFW/glfw3.h>
-#include "OpenGL/OpenGL.hpp"
 #include "OpenGL/FrameState.hpp"
-#include <gtest/gtest.h>
+
+#include "OpenGL/OpenGL.hpp"
 #include "plinth/WindowSettings.hpp"
+
+#include <GLFW/glfw3.h>
+#include <gtest/gtest.h>
 
 namespace {
 

@@ -3,6 +3,7 @@
 
 #include "plinth/loader/MeshData.hpp"
 #include "plinth/loader/MeshLoader.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <concepts>
@@ -25,16 +26,14 @@ struct MeshLoaderList {};
 
 namespace detail {
 
-[[nodiscard]]
-inline bool extension_matches(std::string_view claimed, std::string_view actual) {
+[[nodiscard]] inline bool extension_matches(std::string_view claimed, std::string_view actual) {
     return std::ranges::equal(claimed, actual, [](char lhs, char rhs) {
         return std::tolower(static_cast<unsigned char>(lhs)) == std::tolower(static_cast<unsigned char>(rhs));
     });
 }
 
 template <MeshFormatLoader Loader>
-[[nodiscard]]
-bool loader_claims(std::string_view extension) {
+[[nodiscard]] bool loader_claims(std::string_view extension) {
     for (const std::string_view claimed: Loader::extensions()) {
         if (extension_matches(claimed, extension)) {
             return true;
@@ -50,8 +49,7 @@ bool loader_claims(std::string_view extension) {
 /// The fold over the parameter pack is the dispatch: no runtime registry, no
 /// virtual calls, and unlisted formats are a compile-time-closed set.
 template <MeshFormatLoader... Loaders>
-[[nodiscard]]
-std::expected<MeshData, LoadError>
+[[nodiscard]] std::expected<MeshData, LoadError>
 load_mesh_with(MeshLoaderList<Loaders...> /*loaders*/, std::string_view extension, std::string_view rawContents) {
     std::expected<MeshData, LoadError> result = std::unexpected(LoadError::unsupportedFormat);
     // Short-circuiting fold: stop at the first loader that claims the extension.

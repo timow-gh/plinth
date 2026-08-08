@@ -1,3 +1,16 @@
+IncludeCategories:
+  - Regex: '^".*"'
+    Priority: 1
+  - Regex: '^"OpenGL/.*"'
+    Priority: 2
+  - Regex: '^<linal/.*>'
+    Priority: 2
+  - Regex: '^<.*>'
+    Priority: 3
+
+IncludeBlocks: Regroup
+SortIncludes: CaseSensitive
+
 ColumnLimit: '120'
 IndentWidth: '4'
 Language: Cpp
@@ -7,7 +20,7 @@ ReflowComments: true
 AllowAllArgumentsOnNextLine: false
 AlwaysBreakBeforeMultilineStrings: true
 AlwaysBreakTemplateDeclarations: 'Yes'
-BreakAfterAttributes: Always
+BreakAfterAttributes: Never
 PackConstructorInitializers: Never
 PenaltyBreakBeforeFirstCallParameter: 0
 BinPackArguments: false
@@ -25,7 +38,7 @@ AllowShortFunctionsOnASingleLine: InlineOnly
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLambdasOnASingleLine: All
 AllowShortLoopsOnASingleLine: false
-AlwaysBreakAfterReturnType: None
+BreakAfterReturnType: None
 BreakBeforeBraces: Custom
 BraceWrapping:
   AfterCaseLabel: false
@@ -50,8 +63,6 @@ CompactNamespaces: false
 EmptyLineAfterAccessModifier: Never
 EmptyLineBeforeAccessModifier: Always
 FixNamespaceComments: true
-IncludeBlocks: Merge
-SortIncludes: CaseSensitive
 PointerAlignment: Left
 ReferenceAlignment: Left
 RequiresClausePosition: OwnLine

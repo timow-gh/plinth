@@ -5,6 +5,7 @@
 #include "plinth/BufferAccessPattern.hpp"
 #include "plinth/CameraAutoFit.hpp"
 #include "plinth/CameraInteractor.hpp"
+#include "plinth/DashSpace.hpp"
 #include "plinth/FrameState.hpp"
 #include "plinth/GlfwWindow.hpp"
 #include "plinth/IOverlay.hpp"
@@ -14,6 +15,7 @@
 #include "plinth/LogicalViewportRect.hpp"
 #include "plinth/MeshCullFaceMode.hpp"
 #include "plinth/PostProcessingEnums.hpp"
+#include "plinth/StrokeStyle.hpp"
 #include "plinth/Texture.hpp"
 #include "plinth/WindowSettings.hpp"
 #include "plinth/loader/MeshData.hpp"
@@ -140,24 +142,25 @@ class Renderer {
                                       BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
     DrawableHandle add_line_drawable(std::span<const float> vertices,
-                                     std::array<float, 4> color,
-                                     renderer::LineType lineType,
-                                     float lineWidth = 2.0F,
-                                     float pointSize = 0.0F,
-                                     BufferAccessPattern accessPattern = BufferAccessPattern::Static);
-
-    DrawableHandle add_line_drawable(std::span<const float> vertices,
-                                     std::span<const float> color,
-                                     renderer::LineType lineType,
-                                     float lineWidth = 2.0F,
-                                     float pointSize = 0.0F,
-                                     BufferAccessPattern accessPattern = BufferAccessPattern::Static);
-
-    DrawableHandle add_line_drawable(std::span<const float> vertices,
                                      std::span<const std::uint32_t> indices,
                                      std::span<const float> colors,
                                      renderer::LineType lineType,
-                                     float lineWidth = 2.0F,
+                                     const renderer::StrokeStyle& style = {},
+                                     float pointSize = 0.0F,
+                                     BufferAccessPattern accessPattern = BufferAccessPattern::Static,
+                                     std::span<const std::uint8_t> perVertexDashFlags = {});
+
+    DrawableHandle add_line_drawable(std::span<const float> vertices,
+                                     std::array<float, 4> color,
+                                     renderer::LineType lineType,
+                                     const renderer::StrokeStyle& style = {},
+                                     float pointSize = 0.0F,
+                                     BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
+    DrawableHandle add_line_drawable(std::span<const float> vertices,
+                                     std::span<const float> colors,
+                                     renderer::LineType lineType,
+                                     const renderer::StrokeStyle& style = {},
                                      float pointSize = 0.0F,
                                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
@@ -217,6 +220,22 @@ class Renderer {
     [[nodiscard]]
     std::optional<linal::hmatf> get_drawable_transform(DrawableHandle handle) const;
     bool reset_drawable_transform(DrawableHandle handle);
+
+    /// Line style controls. Return false for invalid, foreign, removed, non-line, or stale handles.
+    bool set_line_cap(DrawableHandle handle, renderer::LineCap cap);
+    bool set_line_join(DrawableHandle handle, renderer::LineJoin join);
+    /// Replaces the full stroke style (width, cap, join, dash pattern, phase, space).
+    bool set_line_stroke_style(DrawableHandle handle, const renderer::StrokeStyle& style);
+
+    /// Dash controls. dashPattern uses SVG stroke-dasharray semantics: alternating on/off lengths.
+    /// Empty pattern = solid. The phase animates "marching ants" when advanced over time.
+    bool set_line_dash_pattern(DrawableHandle handle, std::span<const float> pattern);
+    bool set_line_dash_phase(DrawableHandle handle, float phase);
+    bool set_line_dash_space(DrawableHandle handle, renderer::DashSpace space);
+
+    /// Convenience shims for backward compatibility.
+    bool set_line_dash_enabled(DrawableHandle handle, bool enabled);
+    bool set_line_dash(DrawableHandle handle, float dashSize, float gapSize);
 
     /// Updates affect the most recently added drawable of that kind. If none
     /// exists, the call is ignored. Input spans are copied during the call.

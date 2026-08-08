@@ -165,8 +165,14 @@ int main() {
                 c[0], c[1], c[2], c[3],
                 c[0], c[1], c[2], c[3],
             };
+            renderer::StrokeStyle axisStyle;
+            axisStyle.lineWidth = axisLineWidth;
+            axisStyle.cap = renderer::LineCap::Round;
+            axisStyle.join = renderer::LineJoin::Round;
+            // NOLINTNEXTLINE(readability-magic-numbers)
+            axisStyle.dashPattern = {0.2F, 0.1F}; // dash/gap lengths in world units
             return renderer->add_line_drawable(
-                lineVertices, segmentIndices, colors, renderer::LineType::lines(), axisLineWidth);
+                lineVertices, segmentIndices, colors, renderer::LineType::lines(), axisStyle);
         };
         const renderer::DrawableHandle handle = rebuild(color);
         scene.push_back({handle, label, color, std::move(rebuild)});

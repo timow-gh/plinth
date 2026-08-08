@@ -137,7 +137,9 @@ int main() {
         0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F, // Z: blue
     };
     const std::array<std::uint32_t, 6> lineIndices{0U, 1U, 2U, 3U, 4U, 5U};
-    renderer->add_line_drawable(lineVertices, lineIndices, lineColors, renderer::LineType::lines(), axisLineWidth);
+    renderer::StrokeStyle axisStyle;
+    axisStyle.lineWidth = axisLineWidth;
+    renderer->add_line_drawable(lineVertices, lineIndices, lineColors, renderer::LineType::lines(), axisStyle);
 
     // --- Points: yellow markers at the axis tips -----------------------------------------
     const std::array<float, 9> pointVertices{

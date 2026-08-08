@@ -1,8 +1,10 @@
+#include "plinth/DashSpace.hpp"
 #include "plinth/ImGuiOverlay.hpp"
 #include "plinth/Renderer.hpp"
 #include "plinth/UiMode.hpp"
 #include "plinth/WindowSettings.hpp"
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 
@@ -82,18 +84,34 @@ int main() {
     const std::array<float, 16>
         lineColors{1.0F, 0.0F, 0.0F, 1.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F};
     const std::array<std::uint32_t, 4> lineIndices{0, 1, 2, 3};
-    renderer->add_line_drawable(lineVertices,
-                                lineIndices,
-                                lineColors,
-                                renderer::LineType::lines(),
-                                standaloneLineWidth);
+    {
+        renderer::StrokeStyle crossStyle;
+        crossStyle.lineWidth = standaloneLineWidth;
+        renderer->add_line_drawable(lineVertices, lineIndices, lineColors,
+                                    renderer::LineType::lines(), crossStyle);
+    }
+
+    // A dashed cross above the solid one; the handle is kept so dashPhase can be animated.
+    const std::array<float, 12> dashedLineVertices{
+        -1.0F, 1.5F, 0.0F, 1.0F, 1.5F, 0.0F, 0.0F, 0.5F, 0.0F, 0.0F, 2.5F, 0.0F};
+    const std::array<float, 4> magenta{1.0F, 0.0F, 1.0F, 1.0F};
+    renderer::StrokeStyle dashedStyle;
+    dashedStyle.lineWidth   = standaloneLineWidth;
+    // NOLINTNEXTLINE(readability-magic-numbers)
+    dashedStyle.dashPattern = {0.2F, 0.15F};
+    dashedStyle.dashSpace   = renderer::DashSpace::World;
+    const renderer::DrawableHandle dashedLines =
+        renderer->add_line_drawable(dashedLineVertices, lineIndices, magenta,
+                                    renderer::LineType::lines(), dashedStyle);
 
     // Add a rectangle
     const std::array<float, 4> darkBlue{0.0F, 0.0F, 0.5F, 1.0F};
     const std::array<float, 12>
         rectangleVertices{0.0F, 0.0F, 0.0F, 3.0F, 0.0F, 0.0F, 3.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F};
+    renderer::StrokeStyle rectangleStyle;
+    rectangleStyle.lineWidth = standaloneLineWidth;
     auto rectangleLines =
-        renderer->add_line_drawable(rectangleVertices, darkBlue, renderer::LineType::line_loop(), standaloneLineWidth);
+        renderer->add_line_drawable(rectangleVertices, darkBlue, renderer::LineType::line_loop(), rectangleStyle);
 
     const std::array<float, 4> lightBlue{0.0F, 0.5F, 1.0F, 1.0F};
     const std::array<std::uint32_t, 6> triangleIndices{0, 1, 2, 0, 2, 3};
@@ -138,11 +156,19 @@ int main() {
     // to whatever geometry currently exists in the scene.
     const auto presetViewSubscription = add_preset_view_callback(*renderer);
 
+    const auto startTime = std::chrono::steady_clock::now();
+
     while (!renderer->should_close()) {
         renderer::Renderer::poll_events();
         if (renderer->is_escape_pressed()) {
             break;
         }
+
+        // Advance the dash phase over time for a "marching ants" effect.
+        const float elapsedSeconds =
+            std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
+        renderer->set_line_dash_phase(dashedLines, elapsedSeconds * 0.5F); // NOLINT(readability-magic-numbers)
+
         renderer->begin_frame();
         renderer->draw();
         // This overload retains the renderer-owned Auto Zoom state across frames.

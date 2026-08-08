@@ -264,7 +264,7 @@ TEST_F(RendererTest, AddLineDrawableReturnsValidHandle) {
     };
 
     const renderer::DrawableHandle handle =
-        m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), 2.0F);
+        m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), renderer::StrokeStyle{.lineWidth = 2.0F});
 
     EXPECT_TRUE(handle.is_valid());
     EXPECT_EQ(renderer::DrawableKind::line, handle.kind);
@@ -345,7 +345,7 @@ TEST_F(RendererTest, LineTypesCreateLineDrawablesWithoutGlErrors) {
     for (const renderer::LineType lineType:
          {renderer::LineType::lines(), renderer::LineType::line_strip(), renderer::LineType::line_loop()}) {
         while (glGetError() != GL_NO_ERROR) {}
-        EXPECT_TRUE(m_renderer->add_line_drawable(vertices, indices, colors, lineType, 2.0F).is_valid());
+        EXPECT_TRUE(m_renderer->add_line_drawable(vertices, indices, colors, lineType, renderer::StrokeStyle{.lineWidth = 2.0F}).is_valid());
         EXPECT_EQ(GL_NO_ERROR, glGetError());
     }
 
@@ -771,7 +771,7 @@ TEST_F(RendererTest, ClearDrawablesEmptiesState) {
     };
 
     m_renderer->add_point_drawable(vertices, indices, colors, 1.0F);
-    m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), 2.0F);
+    m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), renderer::StrokeStyle{.lineWidth = 2.0F});
     m_renderer->add_mesh_drawable(vertices, indices, normals, colors);
 
     EXPECT_TRUE(m_renderer->has_point_drawables());
@@ -917,7 +917,7 @@ TEST_F(RendererTest, DrawableKindsSupportTransformAndRemoval) {
 
     const std::array handles = {
         m_renderer->add_point_drawable(vertices, indices, colors, 1.0F),
-        m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), 1.0F),
+        m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), renderer::StrokeStyle{.lineWidth = 1.0F}),
         m_renderer->add_mesh_drawable(vertices, indices, normals, colors),
     };
 
@@ -1055,7 +1055,7 @@ TEST_F(RendererTest, FrameLoopWithDrawablesDoesNotCrash) {
     };
 
     m_renderer->add_point_drawable(vertices, indices, colors, 1.0F);
-    m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), 2.0F);
+    m_renderer->add_line_drawable(vertices, indices, colors, renderer::LineType::lines(), renderer::StrokeStyle{.lineWidth = 2.0F});
     m_renderer->add_mesh_drawable(vertices, indices, normals, colors);
 
     m_renderer->begin_frame();

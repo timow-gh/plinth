@@ -3,38 +3,203 @@
 namespace opengl {
 std::string line_vertex_shader_source() {
     return
-        R"(#version 330
+        R"(#version 330 core
 
-uniform mat4 u_viewProjection;
-uniform mat4 u_model;
+uniform mat4  u_viewProjection;
+uniform mat4  u_model;
+uniform vec2  u_viewportSize;
+uniform float u_lineWidth;
+uniform int   u_dashSpace;    // 0 = World, 1 = Screen
+uniform int   u_capStyle;     // 0 = Butt, 1 = Square, 2 = Round
+uniform int   u_joinStyle;    // 0 = Miter, 1 = Bevel, 2 = Round
 
-in vec3 a_vertex;
-in vec4 a_color;
+// Shared unit quad (divisor 0): x in {0,1} selects endpoint, y in {-0.5,0.5} selects side.
+in vec2 a_corner;
+// Per-instance segment data (divisor 1).
+in vec4 a_p0;    // (p0.xyz,    dashedFlag)
+in vec4 a_p1;    // (p1.xyz,    arc0)
+in vec4 a_color0;
+in vec4 a_color1;
+in vec4 a_pPrev; // (pPrev.xyz, 0) — world pos before p0; == p0 when no predecessor
+in vec4 a_pNext; // (pNext.xyz, 0) — world pos after  p1; == p1 when no successor
 
-out vec4 v_color;
+out vec4  v_color;
+out float v_arcLen;
+out float v_dashedFlag;
+out vec2  v_s0;
+out vec2  v_s1;
+out vec2  v_fragPos;
+out vec2  v_dirPrev;
+out vec2  v_dirNext;
+out float v_halfWidth;
 
 void main() {
-    gl_Position = u_viewProjection * u_model * vec4(a_vertex, 1.0);
-    v_color = a_color;
+    vec3  p0         = a_p0.xyz;
+    vec3  p1         = a_p1.xyz;
+    float dashedFlag = a_p0.w;
+    float arc0       = a_p1.w;
+
+    vec4 clip0    = u_viewProjection * u_model * vec4(p0,         1.0);
+    vec4 clip1    = u_viewProjection * u_model * vec4(p1,         1.0);
+    vec4 clipPrev = u_viewProjection * u_model * vec4(a_pPrev.xyz, 1.0);
+    vec4 clipNext = u_viewProjection * u_model * vec4(a_pNext.xyz, 1.0);
+
+    vec2 s0    = (clip0.xy    / clip0.w)    * 0.5 * u_viewportSize;
+    vec2 s1    = (clip1.xy    / clip1.w)    * 0.5 * u_viewportSize;
+    vec2 sPrev = (clipPrev.xy / clipPrev.w) * 0.5 * u_viewportSize;
+    vec2 sNext = (clipNext.xy / clipNext.w) * 0.5 * u_viewportSize;
+
+    vec2  dir       = s1 - s0;
+    float screenLen = length(dir);
+    dir = screenLen > 0.001 ? dir / screenLen : vec2(1.0, 0.0);
+    vec2 nrm = vec2(-dir.y, dir.x);
+
+    float halfW = u_lineWidth * 0.5;
+
+    bool hasPrev = length(sPrev - s0) > 0.5;
+    bool hasNext = length(sNext - s1) > 0.5;
+
+    // Extend the quad past each endpoint for cap or round join coverage.
+    float extendStart = 0.0;
+    float extendEnd   = 0.0;
+    if (!hasPrev && (u_capStyle == 1 || u_capStyle == 2)) extendStart = halfW;
+    if (!hasNext && (u_capStyle == 1 || u_capStyle == 2)) extendEnd   = halfW;
+    if ( hasPrev &&  u_joinStyle == 2)                    extendStart = halfW;
+    if ( hasNext &&  u_joinStyle == 2)                    extendEnd   = halfW;
+
+    float t    = a_corner.x;
+    vec4  clip = mix(clip0, clip1, t);
+
+    // Extension along the segment direction combined with perpendicular side offset.
+    vec2 alongDir    = (t < 0.5) ? -dir * extendStart : dir * extendEnd;
+    vec2 sideNrm     = nrm * (a_corner.y * u_lineWidth);
+    vec2 totalOffset = alongDir + sideNrm;
+    vec2 ndcOffset   = totalOffset / (0.5 * u_viewportSize);
+    clip.xy += ndcOffset * clip.w;
+    gl_Position = clip;
+
+    float worldArc1 = arc0 + distance(p0, p1);
+    float worldArc  = mix(arc0, worldArc1, t);
+    float screenArc = mix(0.0, screenLen, t);
+    v_arcLen     = (u_dashSpace == 1) ? screenArc : worldArc;
+    v_color      = mix(a_color0, a_color1, t);
+    v_dashedFlag = dashedFlag;
+
+    // Screen-pixel position of this quad vertex, interpolated per-fragment for SDF.
+    vec2 sBase = mix(s0, s1, t);
+    v_fragPos   = sBase + totalOffset;
+    v_s0        = s0;
+    v_s1        = s1;
+    v_halfWidth = halfW;
+    v_dirPrev   = hasPrev ? normalize(s0 - sPrev) : vec2(0.0);
+    v_dirNext   = hasNext ? normalize(sNext - s1)  : vec2(0.0);
 })";
 }
 
 std::string line_fragment_shader_source() {
     return
-        R"(#version 330
+        R"(#version 330 core
 
-in vec4 v_color;
+in vec4  v_color;
+in float v_arcLen;
+in float v_dashedFlag;
+in vec2  v_s0;
+in vec2  v_s1;
+in vec2  v_fragPos;
+in vec2  v_dirPrev;
+in vec2  v_dirNext;
+in float v_halfWidth;
 
-uniform bool u_pickMode;
-uniform vec3 u_pickColor;
+uniform bool  u_pickMode;
+uniform vec3  u_pickColor;
+
+// Dash pattern (replaces u_dashEnabled / u_dashSize / u_gapSize).
+// u_dashPatternCount == 0 means solid. Alternating on/off lengths.
+#define DASH_PATTERN_MAX 16
+uniform int   u_dashPatternCount;
+uniform float u_dashPattern[DASH_PATTERN_MAX];
+uniform float u_dashPhase;
+uniform int   u_dashSpace;
+
+uniform int   u_capStyle;    // 0 = Butt, 1 = Square, 2 = Round
+uniform int   u_joinStyle;   // 0 = Miter, 1 = Bevel, 2 = Round
 
 out vec4 FragColor;
 
 void main() {
     if (u_pickMode) {
+        // Picking ignores dashing and SDF so the whole quad footprint stays selectable.
         FragColor = vec4(u_pickColor, 1.0);
         return;
     }
+
+    // --- Dash discard ---
+    if (u_dashPatternCount > 0 && v_dashedFlag > 0.5) {
+        float period = 0.0;
+        for (int i = 0; i < u_dashPatternCount; ++i) {
+            period += u_dashPattern[i];
+        }
+        period = max(period, 1e-6);
+
+        float pos = mod(v_arcLen - u_dashPhase, period);
+        if (pos < 0.0) pos += period;
+
+        float acc  = 0.0;
+        bool inGap = false;
+        for (int i = 0; i < u_dashPatternCount; ++i) {
+            acc += u_dashPattern[i];
+            if (pos < acc) {
+                inGap = (i % 2 == 1);
+                break;
+            }
+        }
+        if (inGap) discard;
+    }
+
+    // --- SDF geometry clip ---
+    vec2  p      = v_fragPos;
+    vec2  seg    = v_s1 - v_s0;
+    float segLen = length(seg);
+    vec2  segDir = segLen > 0.001 ? seg / segLen : vec2(1.0, 0.0);
+    vec2  segNrm = vec2(-segDir.y, segDir.x);
+    vec2  toP    = p - v_s0;
+    float tAlong = dot(toP, segDir);
+    float tPerp  = dot(toP, segNrm);
+
+    // Reject fragments outside the line width on either side (always).
+    if (abs(tPerp) > v_halfWidth) discard;
+
+    bool hasPrev = length(v_dirPrev) > 0.5;
+    bool hasNext = length(v_dirNext) > 0.5;
+
+    // Start region (before p0).
+    if (tAlong < 0.0) {
+        if (!hasPrev) {
+            // Open endpoint — apply cap.
+            if (u_capStyle == 0) discard;
+            if (u_capStyle == 1 && tAlong < -v_halfWidth) discard;
+            if (u_capStyle == 2 && length(p - v_s0) > v_halfWidth) discard;
+        } else {
+            // Interior join at p0.
+            if (u_joinStyle != 2) discard;
+            if (length(p - v_s0) > v_halfWidth) discard;
+        }
+    }
+
+    // End region (past p1).
+    if (tAlong > segLen) {
+        if (!hasNext) {
+            // Open endpoint — apply cap.
+            if (u_capStyle == 0) discard;
+            if (u_capStyle == 1 && tAlong > segLen + v_halfWidth) discard;
+            if (u_capStyle == 2 && length(p - v_s1) > v_halfWidth) discard;
+        } else {
+            // Interior join at p1.
+            if (u_joinStyle != 2) discard;
+            if (length(p - v_s1) > v_halfWidth) discard;
+        }
+    }
+
     FragColor = v_color;
 }
 )";

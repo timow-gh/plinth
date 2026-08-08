@@ -3,6 +3,7 @@
 # reported when tests repeatedly create and destroy hidden OpenGL contexts.
 leak:extensionSupportedGLX
 leak:opengl::PointDrawable::draw_index_buffer
+leak:opengl::LineDrawable::draw_instances
 leak:opengl::LineDrawable::draw_index_buffer
 leak:opengl::MeshDrawable::draw
 leak:opengl::Framebuffer::resolve_to

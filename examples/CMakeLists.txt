@@ -53,6 +53,7 @@ set(plinth_examples
     example_load_mesh_in_memory
     example_load_mesh_low_poly_tree
     example_load_mesh_plant
+    example_line_widths
     example_mesh
     example_picking
     example_renderer_standalone

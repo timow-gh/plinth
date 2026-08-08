@@ -53,6 +53,10 @@ linal::hmatf matrix() {
     return result;
 }
 
+linal::float2 viewport() {
+    return linal::float2{800.0F, 600.0F};
+}
+
 linal::hmatf make_translation(float x, float y, float z) {
     linal::hmatf result = linal::hmatf::identity();
     result.set_translation(linal::vec3<float>{x, y, z});
@@ -321,7 +325,7 @@ TEST_F(OpenGLDrawableTest, LineDrawableUpdatesDrawsWithoutPointPassAndMoveAssign
                                   opengl::BufferAccessPattern::Dynamic);
     EXPECT_FALSE(drawable.has_opaque_primitives());
     EXPECT_FALSE(drawable.has_translucent_primitives());
-    drawable.draw_opaque(matrix(), linal::hmatf::identity());
+    drawable.draw_opaque(matrix(), linal::hmatf::identity(), viewport());
 
     const std::vector<std::uint32_t> translucentIndices = {2U, 3U};
     drawable.update_line_drawable(updatedVertices,
@@ -330,8 +334,8 @@ TEST_F(OpenGLDrawableTest, LineDrawableUpdatesDrawsWithoutPointPassAndMoveAssign
                                   opengl::BufferAccessPattern::Dynamic);
     EXPECT_FALSE(drawable.has_opaque_primitives());
     EXPECT_TRUE(drawable.has_translucent_primitives());
-    drawable.draw(matrix(), linal::hmatf::identity());
-    drawable.draw_translucent(matrix(), linal::hmatf::identity(), linal::double3{0.0, 0.0, 2.0});
+    drawable.draw(matrix(), linal::hmatf::identity(), viewport());
+    drawable.draw_translucent(matrix(), linal::hmatf::identity(), viewport(), linal::double3{0.0, 0.0, 2.0});
 
     opengl::LineDrawable destination = make_line_drawable_with_alpha(program, opaqueColors, 0.0F);
     destination = std::move(drawable);
@@ -522,10 +526,10 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerUpdatesClearsAndDrawsTransparentPoint
     EXPECT_FALSE(manager->has_mesh_drawables());
 
     manager->draw_points(matrix());
-    manager->draw_lines(matrix());
+    manager->draw_lines(matrix(), viewport());
 
     glDepthMask(GL_TRUE);
-    manager->draw_lines_and_points(matrix(), linal::double3{0.0, 0.0, 0.0});
+    manager->draw_lines_and_points(matrix(), viewport(), linal::double3{0.0, 0.0, 0.0});
     GLboolean depthMask = GL_FALSE;
     glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
     EXPECT_EQ(GL_TRUE, depthMask);
@@ -723,9 +727,9 @@ TEST_F(OpenGLDrawableTest, PointAndLineDrawableDrawWithNonIdentityModelMatrix) {
     pointDrawable.draw_opaque(matrix(), translation);
     pointDrawable.draw_translucent(matrix(), translation, linal::double3{0.0, 0.0, 5.0});
 
-    lineDrawable.draw(matrix(), translation);
-    lineDrawable.draw_opaque(matrix(), translation);
-    lineDrawable.draw_translucent(matrix(), translation, linal::double3{0.0, 0.0, 5.0});
+    lineDrawable.draw(matrix(), translation, viewport());
+    lineDrawable.draw_opaque(matrix(), translation, viewport());
+    lineDrawable.draw_translucent(matrix(), translation, viewport(), linal::double3{0.0, 0.0, 5.0});
 }
 
 TEST_F(OpenGLDrawableTest, MeshDrawableDrawsWithNonIdentityModelMatrix) {

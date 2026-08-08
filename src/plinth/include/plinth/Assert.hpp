@@ -16,22 +16,35 @@
 #if defined(NDEBUG) && NDEBUG
 #define RENDERER_ASSERT(...)
 #else
-#define RENDERER_ASSERT(...)                                                                                           \
-    do {                                                                                                               \
-        if (__VA_ARGS__) [[likely]] {                                                                                  \
-        } else {                                                                                                       \
-            std::string _renderer_assert_msg{__FILE__};                                                                \
-            _renderer_assert_msg += ":";                                                                               \
-            _renderer_assert_msg += std::to_string(__LINE__);                                                          \
-            _renderer_assert_msg += ": internal check failed in '";                                                    \
-            _renderer_assert_msg += __func__;                                                                          \
-            _renderer_assert_msg += "': '";                                                                            \
-            _renderer_assert_msg += #__VA_ARGS__;                                                                      \
-            _renderer_assert_msg += "'\n";                                                                             \
-            std::fputs(_renderer_assert_msg.c_str(), stderr);                                                          \
-            RENDERER_ASSERT_TRAP();                                                                                    \
-        }                                                                                                              \
-    } while (false)
+
+namespace plinth_assert_detail {
+
+// The if-statement lives in a dedicated inline function rather than being expanded inline by
+// the macro so that callers do not accumulate cognitive complexity for every RENDERER_ASSERT.
+[[maybe_unused]] inline void assert_check(bool condition,
+                                          const char* file,
+                                          int line,
+                                          const char* func,
+                                          const char* expr) {
+    if (!condition) [[unlikely]] {
+        std::string msg{file};
+        msg += ":";
+        msg += std::to_string(line);
+        msg += ": internal check failed in '";
+        msg += func;
+        msg += "': '";
+        msg += expr;
+        msg += "'\n";
+        std::fputs(msg.c_str(), stderr);
+        RENDERER_ASSERT_TRAP();
+    }
+}
+
+} // namespace plinth_assert_detail
+
+#define RENDERER_ASSERT(...) \
+    plinth_assert_detail::assert_check((__VA_ARGS__), __FILE__, __LINE__, __func__, #__VA_ARGS__)
+
 #endif
 
 #endif // RENDERER_ASSERT_HPP

@@ -526,7 +526,11 @@ TEST_F(SphereImpostorRendererTest, SphereOccludesCoplanarMeshAtCenter) {
     const std::vector<float> center{0.0F, 0.0F, 0.0F};
     const std::vector<float> radius{0.5F};
     const std::vector<float> color{1.0F, 0.0F, 0.0F, 1.0F};
-    ASSERT_TRUE(instance->add_sphere_point_drawable(center, radius, color).is_valid());
+    ASSERT_TRUE(instance->add_sphere_point_drawable(center,
+                                                     radius,
+                                                     color,
+                                                     renderer::SphereStyle{renderer::SphereSizeSpace::World})
+                    .is_valid());
 
     instance->begin_frame({0.0F, 0.0F, 0.2F, 1.0F});
     instance->draw();
@@ -558,7 +562,11 @@ TEST_F(SphereImpostorRendererTest, OffAxisSphereIsVisibleAtProjectedPosition) {
     const std::vector<float> center{0.6F, 0.0F, 0.0F};
     const std::vector<float> radius{0.3F};
     const std::array<float, 4> red{0.8F, 0.1F, 0.1F, 1.0F};
-    ASSERT_TRUE(instance->add_sphere_point_drawable(center, radius, red).is_valid());
+    ASSERT_TRUE(instance->add_sphere_point_drawable(center,
+                                                     radius,
+                                                     red,
+                                                     renderer::SphereStyle{renderer::SphereSizeSpace::World})
+                    .is_valid());
 
     instance->begin_frame({0.0F, 0.0F, 0.2F, 1.0F});
     instance->draw();
@@ -609,7 +617,10 @@ TEST_F(SphereImpostorRendererTest, PerspectiveBillboardContainsLargeSphereSilhou
     const std::vector<float> center{0.0F, 0.0F, 0.0F};
     const std::vector<float> radius{sphereRadius};
     const std::array<float, 4> red{0.8F, 0.1F, 0.1F, 1.0F};
-    const auto handle = instance->add_sphere_point_drawable(center, radius, red);
+    const auto handle = instance->add_sphere_point_drawable(center,
+                                                           radius,
+                                                           red,
+                                                           renderer::SphereStyle{renderer::SphereSizeSpace::World});
     ASSERT_TRUE(handle.is_valid());
     render_one_frame(*instance);
 
@@ -672,7 +683,11 @@ TEST_F(SphereImpostorRendererTest, MultipleOffAxisSphereInstancesAreVisible) {
     const std::vector<float> centers{-0.8F, 0.0F, 0.0F, 0.8F, 0.0F, 0.0F};
     const std::vector<float> radii{0.3F, 0.3F};
     const std::vector<float> colors{0.8F, 0.1F, 0.1F, 1.0F, 0.1F, 0.8F, 0.1F, 1.0F};
-    ASSERT_TRUE(instance->add_sphere_point_drawable(centers, radii, colors).is_valid());
+    ASSERT_TRUE(instance->add_sphere_point_drawable(centers,
+                                                     radii,
+                                                     colors,
+                                                     renderer::SphereStyle{renderer::SphereSizeSpace::World})
+                    .is_valid());
 
     instance->begin_frame({0.0F, 0.0F, 0.2F, 1.0F});
     instance->draw();
@@ -721,7 +736,10 @@ TEST_F(SphereImpostorRendererTest, OffAxisSphereIsVisibleAndPickableWithOrthogra
     const std::vector<float> center{1.0F, 0.0F, 0.0F};
     const std::vector<float> radius{0.5F};
     const std::array<float, 4> red{0.8F, 0.1F, 0.1F, 1.0F};
-    const auto handle = instance->add_sphere_point_drawable(center, radius, red);
+    const auto handle = instance->add_sphere_point_drawable(center,
+                                                           radius,
+                                                           red,
+                                                           renderer::SphereStyle{renderer::SphereSizeSpace::World});
     ASSERT_TRUE(handle.is_valid());
 
     render_one_frame(*instance);
@@ -753,8 +771,9 @@ TEST_F(SphereImpostorRendererTest, NonUniformTransformScalesRenderedAndPickedSph
     camera->look_at({0.0, 0.0, 5.0}, {0.0, 0.0, 0.0}, {0.0, 1.0, 0.0});
 
     const auto handle = instance->add_sphere_point_drawable(std::vector<float>{0.0F, 0.0F, 0.0F},
-                                                            std::vector<float>{0.5F},
-                                                            std::array<float, 4>{0.8F, 0.1F, 0.1F, 1.0F});
+                                                             std::vector<float>{0.5F},
+                                                             std::array<float, 4>{0.8F, 0.1F, 0.1F, 1.0F},
+                                                             renderer::SphereStyle{renderer::SphereSizeSpace::World});
     ASSERT_TRUE(handle.is_valid());
     linal::hmatf transform = linal::hmatf::identity();
     transform(0, 0) = 3.0F;

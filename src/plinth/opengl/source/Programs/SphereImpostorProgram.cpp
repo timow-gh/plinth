@@ -15,6 +15,8 @@ SphereImpostorProgram::SphereImpostorProgram(ProgramHandle program,
                                              Uniform modelMatrixLocation,
                                              Uniform viewMatrixLocation,
                                              Uniform projectionMatrixLocation,
+                                             Uniform inverseModelViewMatrixLocation,
+                                             Uniform normalMatrixLocation,
                                              Uniform invProjectionLocation,
                                              Uniform viewportSizeLocation,
                                              Uniform zeroToOneDepthLocation,
@@ -36,6 +38,8 @@ SphereImpostorProgram::SphereImpostorProgram(ProgramHandle program,
     , m_modelMatrixLocation{modelMatrixLocation}
     , m_viewMatrixLocation{viewMatrixLocation}
     , m_projectionMatrixLocation{projectionMatrixLocation}
+    , m_inverseModelViewMatrixLocation{inverseModelViewMatrixLocation}
+    , m_normalMatrixLocation{normalMatrixLocation}
     , m_invProjectionLocation{invProjectionLocation}
     , m_viewportSizeLocation{viewportSizeLocation}
     , m_zeroToOneDepthLocation{zeroToOneDepthLocation}
@@ -57,6 +61,8 @@ SphereImpostorProgram::SphereImpostorProgram(ProgramHandle program,
     RENDERER_ASSERT(modelMatrixLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(viewMatrixLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(projectionMatrixLocation.get_location().get_value() != -1);
+    RENDERER_ASSERT(inverseModelViewMatrixLocation.get_location().get_value() != -1);
+    RENDERER_ASSERT(normalMatrixLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(invProjectionLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(viewportSizeLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(zeroToOneDepthLocation.get_location().get_value() != -1);
@@ -96,32 +102,36 @@ SphereImpostorProgram make_sphere_impostor_program() {
     ProgramId id = program->get_id();
     RENDERER_ASSERT(id.get_value() != 0);
 
-    Uniform modelMatrixLocation       = make_uniform("u_model",              id);
-    Uniform viewMatrixLocation        = make_uniform("u_view",               id);
-    Uniform projectionMatrixLocation  = make_uniform("u_projection",         id);
-    Uniform invProjectionLocation     = make_uniform("u_invProjection",      id);
-    Uniform viewportSizeLocation      = make_uniform("u_viewportSize",       id);
-    Uniform zeroToOneDepthLocation    = make_uniform("u_zeroToOneDepth",     id);
-    Uniform lightPosLocation          = make_uniform("u_lightPos",           id);
-    Uniform lightColorLocation        = make_uniform("u_lightColor",         id);
+    Uniform modelMatrixLocation = make_uniform("u_model", id);
+    Uniform viewMatrixLocation = make_uniform("u_view", id);
+    Uniform projectionMatrixLocation = make_uniform("u_projection", id);
+    Uniform inverseModelViewMatrixLocation = make_uniform("u_inverseModelView", id);
+    Uniform normalMatrixLocation = make_uniform("u_normalMatrix", id);
+    Uniform invProjectionLocation = make_uniform("u_invProjection", id);
+    Uniform viewportSizeLocation = make_uniform("u_viewportSize", id);
+    Uniform zeroToOneDepthLocation = make_uniform("u_zeroToOneDepth", id);
+    Uniform lightPosLocation = make_uniform("u_lightPos", id);
+    Uniform lightColorLocation = make_uniform("u_lightColor", id);
     Uniform fillLightDirectionLocation = make_uniform("u_fillLightDirection", id);
-    Uniform fillLightColorLocation    = make_uniform("u_fillLightColor",     id);
-    Uniform ambientColorLocation      = make_uniform("u_ambientColor",       id);
-    Uniform shininessLocation         = make_uniform("u_shininess",          id);
-    Uniform lightAttenuationLocation  = make_uniform("u_lightAttenuation",   id);
-    Uniform materialAmbientLocation   = make_uniform("u_materialAmbient",    id);
-    Uniform materialDiffuseLocation   = make_uniform("u_materialDiffuse",    id);
-    Uniform materialSpecularLocation  = make_uniform("u_materialSpecular",   id);
-    Uniform pickModeLocation          = make_uniform("u_pickMode",           id);
-    Uniform pickColorLocation         = make_uniform("u_pickColor",          id);
+    Uniform fillLightColorLocation = make_uniform("u_fillLightColor", id);
+    Uniform ambientColorLocation = make_uniform("u_ambientColor", id);
+    Uniform shininessLocation = make_uniform("u_shininess", id);
+    Uniform lightAttenuationLocation = make_uniform("u_lightAttenuation", id);
+    Uniform materialAmbientLocation = make_uniform("u_materialAmbient", id);
+    Uniform materialDiffuseLocation = make_uniform("u_materialDiffuse", id);
+    Uniform materialSpecularLocation = make_uniform("u_materialSpecular", id);
+    Uniform pickModeLocation = make_uniform("u_pickMode", id);
+    Uniform pickColorLocation = make_uniform("u_pickColor", id);
 
     Attribute sphereLocation = make_attribute("a_sphere", id);
-    Attribute colorLocation  = make_attribute("a_color",  id);
+    Attribute colorLocation = make_attribute("a_color", id);
 
     return SphereImpostorProgram{std::move(*program),
                                  modelMatrixLocation,
                                  viewMatrixLocation,
                                  projectionMatrixLocation,
+                                 inverseModelViewMatrixLocation,
+                                 normalMatrixLocation,
                                  invProjectionLocation,
                                  viewportSizeLocation,
                                  zeroToOneDepthLocation,

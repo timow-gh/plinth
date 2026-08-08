@@ -16,8 +16,8 @@ namespace opengl {
  *
  * Each sphere is drawn as one instance of a hard-coded 2-triangle quad (6 vertices derived from
  * gl_VertexID). The vertex shader expands the sphere center to a screen-aligned billboard; the
- * fragment shader performs a view-space ray-sphere intersection, writes gl_FragDepth for correct
- * occlusion, and computes Blinn-Phong shading.
+ * fragment shader transforms the view ray into sphere-local space, writes gl_FragDepth for correct
+ * occlusion, and computes Blinn-Phong shading in view space.
  */
 class OPENGL_EXPORT SphereImpostorProgram {
     ProgramHandle m_program;
@@ -26,6 +26,8 @@ class OPENGL_EXPORT SphereImpostorProgram {
     Uniform m_modelMatrixLocation;
     Uniform m_viewMatrixLocation;
     Uniform m_projectionMatrixLocation;
+    Uniform m_inverseModelViewMatrixLocation;
+    Uniform m_normalMatrixLocation;
 
     // Fragment uniforms
     Uniform m_invProjectionLocation;
@@ -54,6 +56,8 @@ class OPENGL_EXPORT SphereImpostorProgram {
                           Uniform modelMatrixLocation,
                           Uniform viewMatrixLocation,
                           Uniform projectionMatrixLocation,
+                          Uniform inverseModelViewMatrixLocation,
+                          Uniform normalMatrixLocation,
                           Uniform invProjectionLocation,
                           Uniform viewportSizeLocation,
                           Uniform zeroToOneDepthLocation,
@@ -93,6 +97,12 @@ class OPENGL_EXPORT SphereImpostorProgram {
     }
     [[nodiscard]] constexpr Location get_projection_matrix_location() const noexcept {
         return m_projectionMatrixLocation.get_location();
+    }
+    [[nodiscard]] constexpr Location get_inverse_model_view_matrix_location() const noexcept {
+        return m_inverseModelViewMatrixLocation.get_location();
+    }
+    [[nodiscard]] constexpr Location get_normal_matrix_location() const noexcept {
+        return m_normalMatrixLocation.get_location();
     }
     [[nodiscard]] constexpr Location get_inv_projection_location() const noexcept {
         return m_invProjectionLocation.get_location();
@@ -139,12 +149,8 @@ class OPENGL_EXPORT SphereImpostorProgram {
     [[nodiscard]] constexpr Location get_pick_color_location() const noexcept {
         return m_pickColorLocation.get_location();
     }
-    [[nodiscard]] constexpr Location get_sphere_location() const noexcept {
-        return m_sphereLocation.get_location();
-    }
-    [[nodiscard]] constexpr Location get_color_location() const noexcept {
-        return m_colorLocation.get_location();
-    }
+    [[nodiscard]] constexpr Location get_sphere_location() const noexcept { return m_sphereLocation.get_location(); }
+    [[nodiscard]] constexpr Location get_color_location() const noexcept { return m_colorLocation.get_location(); }
 
     void use() const;
 
@@ -154,6 +160,8 @@ class OPENGL_EXPORT SphereImpostorProgram {
         m_modelMatrixLocation = std::move(other.m_modelMatrixLocation);
         m_viewMatrixLocation = std::move(other.m_viewMatrixLocation);
         m_projectionMatrixLocation = std::move(other.m_projectionMatrixLocation);
+        m_inverseModelViewMatrixLocation = std::move(other.m_inverseModelViewMatrixLocation);
+        m_normalMatrixLocation = std::move(other.m_normalMatrixLocation);
         m_invProjectionLocation = std::move(other.m_invProjectionLocation);
         m_viewportSizeLocation = std::move(other.m_viewportSizeLocation);
         m_zeroToOneDepthLocation = std::move(other.m_zeroToOneDepthLocation);

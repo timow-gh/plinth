@@ -8,10 +8,33 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <glm/gtc/matrix_inverse.hpp>
 #include <utility>
 #include <vector>
 
 namespace opengl {
+
+namespace {
+
+[[nodiscard]] linal::hmatf inverse_matrix(const linal::hmatf& matrix) {
+    glm::mat4 glmMatrix{0.0F};
+    for (linal::hmatf::size_type row = 0; row < 4; ++row) {
+        for (linal::hmatf::size_type column = 0; column < 4; ++column) {
+            glmMatrix[column][row] = matrix(row, column);
+        }
+    }
+
+    const glm::mat4 glmInverse = glm::inverse(glmMatrix);
+    linal::hmatf inverse;
+    for (linal::hmatf::size_type row = 0; row < 4; ++row) {
+        for (linal::hmatf::size_type column = 0; column < 4; ++column) {
+            inverse(row, column) = glmInverse[column][row];
+        }
+    }
+    return inverse;
+}
+
+} // namespace
 
 SphereImpostorDrawable::SphereImpostorDrawable(SphereImpostorProgram& program,
                                                VertexArray vertexArray,
@@ -26,7 +49,8 @@ SphereImpostorDrawable::SphereImpostorDrawable(SphereImpostorProgram& program,
     , m_translucentInstanceBuffer{std::move(translucentInstanceBuffer)}
     , m_transparencyInfo{transparencyInfo}
     , m_translucentSpheres{std::move(translucentSpheres)}
-    , m_centers{std::move(centers)} {}
+    , m_centers{std::move(centers)} {
+}
 
 SphereImpostorDrawable::SphereImpostorDrawable(SphereImpostorDrawable&& other) noexcept
     : m_program{other.m_program}
@@ -54,40 +78,72 @@ SphereImpostorDrawable& SphereImpostorDrawable::operator=(SphereImpostorDrawable
 }
 
 void SphereImpostorDrawable::set_common_uniforms(const linal::hmatf& viewMatrix,
-                                                  const linal::hmatf& projectionMatrix,
-                                                  const linal::hmatf& inverseProjectionMatrix,
-                                                  const linal::hmatf& modelMatrix,
-                                                  const linal::float2& viewportSize,
-                                                  bool zeroToOneDepth,
-                                                  const LightingConfig& lighting) const {
+                                                 const linal::hmatf& projectionMatrix,
+                                                 const linal::hmatf& inverseProjectionMatrix,
+                                                 const linal::hmatf& modelMatrix,
+                                                 const linal::float2& viewportSize,
+                                                 bool zeroToOneDepth,
+                                                 const LightingConfig& lighting) const {
+    const linal::hmatf modelViewMatrix = viewMatrix * modelMatrix;
+    const linal::hmatf inverseModelViewMatrix = inverse_matrix(modelViewMatrix);
+    const linal::hmatf normalMatrix = inverseModelViewMatrix.transpose();
+    const linal::float3 lightPositionView = linal::to_vec(viewMatrix * linal::to_hvec(lighting.lightPosition));
+    const linal::float3 fillLightDirectionView =
+        linal::to_vec(viewMatrix * linal::to_hvec(lighting.fillLightDir, 0.0F));
+
     // Matrices: linal is row-major; GL expects column-major → GL_TRUE transposes on upload.
     glUniformMatrix4fv(m_program->get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
     glUniformMatrix4fv(m_program->get_view_matrix_location().get_value(), 1, GL_TRUE, viewMatrix.data());
     glUniformMatrix4fv(m_program->get_projection_matrix_location().get_value(), 1, GL_TRUE, projectionMatrix.data());
-    glUniformMatrix4fv(
-        m_program->get_inv_projection_location().get_value(), 1, GL_TRUE, inverseProjectionMatrix.data());
+    glUniformMatrix4fv(m_program->get_inverse_model_view_matrix_location().get_value(),
+                       1,
+                       GL_TRUE,
+                       inverseModelViewMatrix.data());
+    glUniformMatrix4fv(m_program->get_normal_matrix_location().get_value(), 1, GL_TRUE, normalMatrix.data());
+    glUniformMatrix4fv(m_program->get_inv_projection_location().get_value(),
+                       1,
+                       GL_TRUE,
+                       inverseProjectionMatrix.data());
     glUniform2f(m_program->get_viewport_size_location().get_value(), viewportSize[0], viewportSize[1]);
     glUniform1i(m_program->get_zero_to_one_depth_location().get_value(), zeroToOneDepth ? 1 : 0);
 
     glUniform3f(m_program->get_light_pos_location().get_value(),
-                lighting.lightPosition[0], lighting.lightPosition[1], lighting.lightPosition[2]);
+                lightPositionView[0],
+                lightPositionView[1],
+                lightPositionView[2]);
     glUniform3f(m_program->get_light_color_location().get_value(),
-                lighting.lightColor[0], lighting.lightColor[1], lighting.lightColor[2]);
+                lighting.lightColor[0],
+                lighting.lightColor[1],
+                lighting.lightColor[2]);
     glUniform3f(m_program->get_fill_light_direction_location().get_value(),
-                lighting.fillLightDir[0], lighting.fillLightDir[1], lighting.fillLightDir[2]);
+                fillLightDirectionView[0],
+                fillLightDirectionView[1],
+                fillLightDirectionView[2]);
     glUniform3f(m_program->get_fill_light_color_location().get_value(),
-                lighting.fillLightColor[0], lighting.fillLightColor[1], lighting.fillLightColor[2]);
+                lighting.fillLightColor[0],
+                lighting.fillLightColor[1],
+                lighting.fillLightColor[2]);
     glUniform3f(m_program->get_ambient_color_location().get_value(),
-                lighting.ambientColor[0], lighting.ambientColor[1], lighting.ambientColor[2]);
+                lighting.ambientColor[0],
+                lighting.ambientColor[1],
+                lighting.ambientColor[2]);
     glUniform1f(m_program->get_shininess_location().get_value(), lighting.shininess);
     glUniform3f(m_program->get_light_attenuation_location().get_value(),
-                lighting.lightAttenuation[0], lighting.lightAttenuation[1], lighting.lightAttenuation[2]);
+                lighting.lightAttenuation[0],
+                lighting.lightAttenuation[1],
+                lighting.lightAttenuation[2]);
     glUniform3f(m_program->get_material_ambient_location().get_value(),
-                lighting.materialAmbient[0], lighting.materialAmbient[1], lighting.materialAmbient[2]);
+                lighting.materialAmbient[0],
+                lighting.materialAmbient[1],
+                lighting.materialAmbient[2]);
     glUniform3f(m_program->get_material_diffuse_location().get_value(),
-                lighting.materialDiffuse[0], lighting.materialDiffuse[1], lighting.materialDiffuse[2]);
+                lighting.materialDiffuse[0],
+                lighting.materialDiffuse[1],
+                lighting.materialDiffuse[2]);
     glUniform3f(m_program->get_material_specular_location().get_value(),
-                lighting.materialSpecular[0], lighting.materialSpecular[1], lighting.materialSpecular[2]);
+                lighting.materialSpecular[0],
+                lighting.materialSpecular[1],
+                lighting.materialSpecular[2]);
 
     glUniform1i(m_program->get_pick_mode_location().get_value(), 0);
 }
@@ -105,12 +161,12 @@ void SphereImpostorDrawable::draw_instances(const InstanceBuffer& instanceBuffer
 }
 
 void SphereImpostorDrawable::draw(const linal::hmatf& viewMatrix,
-                                   const linal::hmatf& projectionMatrix,
-                                   const linal::hmatf& inverseProjectionMatrix,
-                                   const linal::hmatf& modelMatrix,
-                                   const linal::float2& viewportSize,
-                                   bool zeroToOneDepth,
-                                   const LightingConfig& lighting) const {
+                                  const linal::hmatf& projectionMatrix,
+                                  const linal::hmatf& inverseProjectionMatrix,
+                                  const linal::hmatf& modelMatrix,
+                                  const linal::float2& viewportSize,
+                                  bool zeroToOneDepth,
+                                  const LightingConfig& lighting) const {
     m_program->use();
     set_common_uniforms(viewMatrix,
                         projectionMatrix,
@@ -124,12 +180,12 @@ void SphereImpostorDrawable::draw(const linal::hmatf& viewMatrix,
 }
 
 void SphereImpostorDrawable::draw_opaque(const linal::hmatf& viewMatrix,
-                                          const linal::hmatf& projectionMatrix,
-                                          const linal::hmatf& inverseProjectionMatrix,
-                                          const linal::hmatf& modelMatrix,
-                                          const linal::float2& viewportSize,
-                                          bool zeroToOneDepth,
-                                          const LightingConfig& lighting) const {
+                                         const linal::hmatf& projectionMatrix,
+                                         const linal::hmatf& inverseProjectionMatrix,
+                                         const linal::hmatf& modelMatrix,
+                                         const linal::float2& viewportSize,
+                                         bool zeroToOneDepth,
+                                         const LightingConfig& lighting) const {
     if (!has_opaque_primitives()) {
         return;
     }
@@ -145,31 +201,39 @@ void SphereImpostorDrawable::draw_opaque(const linal::hmatf& viewMatrix,
 }
 
 void SphereImpostorDrawable::draw_translucent(const linal::hmatf& viewMatrix,
-                                               const linal::hmatf& projectionMatrix,
-                                               const linal::hmatf& inverseProjectionMatrix,
-                                               const linal::hmatf& modelMatrix,
-                                               const linal::float2& viewportSize,
-                                               bool zeroToOneDepth,
-                                               const LightingConfig& lighting,
-                                               const linal::double3& viewPosition) {
+                                              const linal::hmatf& projectionMatrix,
+                                              const linal::hmatf& inverseProjectionMatrix,
+                                              const linal::hmatf& modelMatrix,
+                                              const linal::float2& viewportSize,
+                                              bool zeroToOneDepth,
+                                              const LightingConfig& lighting,
+                                              const linal::double3& viewPosition) {
     if (!has_translucent_primitives()) {
         return;
     }
 
-    // Re-sort translucent spheres back-to-front for correct alpha blending.
-    std::vector<SortableSphereInstance> sorted = m_translucentSpheres;
-    std::sort(sorted.begin(),
-              sorted.end(),
-              [&viewPosition](const SortableSphereInstance& lhs, const SortableSphereInstance& rhs) {
-                  return opengl::distance_squared_to(lhs.sortCenter, viewPosition) >
-                         opengl::distance_squared_to(rhs.sortCenter, viewPosition);
-              });
+    // Re-sort translucent spheres back-to-front in world space. The stored centers are local to
+    // the drawable, so the model transform must be applied before comparing with the world-space
+    // camera position.
+    struct SortedSphere {
+        const SortableSphereInstance* sphere{nullptr};
+        double distanceSquared{0.0};
+    };
+    std::vector<SortedSphere> sorted;
+    sorted.reserve(m_translucentSpheres.size());
+    for (const auto& sphere: m_translucentSpheres) {
+        const linal::float3 worldCenter = linal::to_vec(modelMatrix * linal::to_hvec(sphere.sortCenter));
+        sorted.push_back(SortedSphere{&sphere, opengl::distance_squared_to(worldCenter, viewPosition)});
+    }
+    std::sort(sorted.begin(), sorted.end(), [](const SortedSphere& lhs, const SortedSphere& rhs) {
+        return lhs.distanceSquared > rhs.distanceSquared;
+    });
 
     // Build a sorted flat instance blob and re-upload.
     std::vector<float> sortedData;
     sortedData.reserve(sorted.size() * kSphereInstanceFloats);
-    for (const auto& sphere: sorted) {
-        sortedData.insert(sortedData.end(), sphere.data.begin(), sphere.data.end());
+    for (const auto& sortedSphere: sorted) {
+        sortedData.insert(sortedData.end(), sortedSphere.sphere->data.begin(), sortedSphere.sphere->data.end());
     }
 
     m_translucentInstanceBuffer.update(sortedData, BufferAccessPattern::Stream);
@@ -186,12 +250,12 @@ void SphereImpostorDrawable::draw_translucent(const linal::hmatf& viewMatrix,
 }
 
 void SphereImpostorDrawable::draw_pick(const linal::hmatf& viewMatrix,
-                                        const linal::hmatf& projectionMatrix,
-                                        const linal::hmatf& inverseProjectionMatrix,
-                                        const linal::hmatf& modelMatrix,
-                                        const linal::float2& viewportSize,
-                                        bool zeroToOneDepth,
-                                        const std::array<float, 3>& pickColor) const {
+                                       const linal::hmatf& projectionMatrix,
+                                       const linal::hmatf& inverseProjectionMatrix,
+                                       const linal::hmatf& modelMatrix,
+                                       const linal::float2& viewportSize,
+                                       bool zeroToOneDepth,
+                                       const std::array<float, 3>& pickColor) const {
     const GLsizei opaqueCount = m_opaqueInstanceBuffer.get_instance_count();
     const GLsizei translucentCount = m_translucentInstanceBuffer.get_instance_count();
     if (opaqueCount == 0 && translucentCount == 0) {
@@ -205,8 +269,15 @@ void SphereImpostorDrawable::draw_pick(const linal::hmatf& viewMatrix,
     glUniformMatrix4fv(m_program->get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
     glUniformMatrix4fv(m_program->get_view_matrix_location().get_value(), 1, GL_TRUE, viewMatrix.data());
     glUniformMatrix4fv(m_program->get_projection_matrix_location().get_value(), 1, GL_TRUE, projectionMatrix.data());
-    glUniformMatrix4fv(
-        m_program->get_inv_projection_location().get_value(), 1, GL_TRUE, inverseProjectionMatrix.data());
+    const linal::hmatf inverseModelViewMatrix = inverse_matrix(viewMatrix * modelMatrix);
+    glUniformMatrix4fv(m_program->get_inverse_model_view_matrix_location().get_value(),
+                       1,
+                       GL_TRUE,
+                       inverseModelViewMatrix.data());
+    glUniformMatrix4fv(m_program->get_inv_projection_location().get_value(),
+                       1,
+                       GL_TRUE,
+                       inverseProjectionMatrix.data());
     glUniform2f(m_program->get_viewport_size_location().get_value(), viewportSize[0], viewportSize[1]);
     glUniform1i(m_program->get_zero_to_one_depth_location().get_value(), zeroToOneDepth ? 1 : 0);
 
@@ -229,12 +300,11 @@ void SphereImpostorDrawable::draw_pick(const linal::hmatf& viewMatrix,
     draw_instances(m_translucentInstanceBuffer);
 }
 
-std::optional<SphereImpostorDrawable>
-make_sphere_impostor_drawable(SphereImpostorProgram& program,
-                               std::span<const float> centers,
-                               std::span<const float> radii,
-                               std::span<const float> colors,
-                               BufferAccessPattern accessPattern) {
+std::optional<SphereImpostorDrawable> make_sphere_impostor_drawable(SphereImpostorProgram& program,
+                                                                    std::span<const float> centers,
+                                                                    std::span<const float> radii,
+                                                                    std::span<const float> colors,
+                                                                    BufferAccessPattern accessPattern) {
     if (centers.size() % 3 != 0 || colors.size() % 4 != 0) {
         return std::nullopt;
     }
@@ -265,11 +335,9 @@ make_sphere_impostor_drawable(SphereImpostorProgram& program,
                                   alpha};
         if (alpha < 1.0F) {
             translucentData.insert(translucentData.end(), inst.begin(), inst.end());
-            translucentSpheres.push_back(
-                SphereImpostorDrawable::SortableSphereInstance{inst,
-                                                               linal::float3{centers[i * 3U],
-                                                                             centers[i * 3U + 1U],
-                                                                             centers[i * 3U + 2U]}});
+            translucentSpheres.push_back(SphereImpostorDrawable::SortableSphereInstance{
+                inst,
+                linal::float3{centers[i * 3U], centers[i * 3U + 1U], centers[i * 3U + 2U]}});
         } else {
             opaqueData.insert(opaqueData.end(), inst.begin(), inst.end());
         }
@@ -282,19 +350,19 @@ make_sphere_impostor_drawable(SphereImpostorProgram& program,
     vertexArray->bind();
 
     // Create opaque buffer (may be empty — create with a placeholder to keep the VAO consistent).
-    const std::span<const float> opaqueSpan = opaqueData.empty()
-        ? std::span<const float>{}
-        : std::span<const float>{opaqueData};
+    const std::span<const float> opaqueSpan =
+        opaqueData.empty() ? std::span<const float>{} : std::span<const float>{opaqueData};
     auto opaqueBuffer = InstanceBuffer::create(opaqueSpan, kSphereInstanceStride, attribs, accessPattern);
     if (!opaqueBuffer) {
         vertexArray->unbind();
         return std::nullopt;
     }
 
-    const std::span<const float> translucentSpan = translucentData.empty()
-        ? std::span<const float>{}
-        : std::span<const float>{translucentData};
-    auto translucentBuffer = InstanceBuffer::create(translucentSpan, kSphereInstanceStride, attribs,
+    const std::span<const float> translucentSpan =
+        translucentData.empty() ? std::span<const float>{} : std::span<const float>{translucentData};
+    auto translucentBuffer = InstanceBuffer::create(translucentSpan,
+                                                    kSphereInstanceStride,
+                                                    attribs,
                                                     hasTranslucent ? BufferAccessPattern::Stream : accessPattern);
     if (!translucentBuffer) {
         vertexArray->unbind();
@@ -304,8 +372,7 @@ make_sphere_impostor_drawable(SphereImpostorProgram& program,
     vertexArray->unbind();
 
     // Build DrawableTransparencyInfo using centers as the vertex array.
-    const DrawableTransparencyInfo transparencyInfo =
-        make_drawable_transparency_info(centers, 3, colors, 4);
+    const DrawableTransparencyInfo transparencyInfo = make_drawable_transparency_info(centers, 3, colors, 4);
 
     // Collect all sphere centers for get_vertex_positions().
     std::vector<linal::float3> centerVec;

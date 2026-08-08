@@ -365,7 +365,7 @@ uniform mat4 u_projection;
 uniform vec2 u_viewportSize;
 
 out vec4  v_color;
-out vec3  v_sphereCenterView;
+out vec3  v_sphereCenterLocal;
 out float v_radius;
 
 // Unit quad corners: two counter-clockwise triangles
@@ -384,6 +384,21 @@ void main() {
     vec4  centerView      = u_view * vec4(centerWorld, 1.0);
     vec4  centerClip      = u_projection * centerView;
 
+    // Intersections happen in local space, so affine model transforms are exact there. Use a
+    // conservative upper bound on the model-view scale for the screen-space proxy. This is exact
+    // for axis-aligned scale and may only add harmless overdraw for rotations and shears.
+    mat3 modelViewLinear = mat3(u_view * u_model);
+    mat3 absoluteLinear  = mat3(abs(modelViewLinear[0]),
+                                abs(modelViewLinear[1]),
+                                abs(modelViewLinear[2]));
+    float oneNorm = max(dot(absoluteLinear[0], vec3(1.0)),
+                        max(dot(absoluteLinear[1], vec3(1.0)),
+                            dot(absoluteLinear[2], vec3(1.0))));
+    float infinityNorm = max(absoluteLinear[0].x + absoluteLinear[1].x + absoluteLinear[2].x,
+                             max(absoluteLinear[0].y + absoluteLinear[1].y + absoluteLinear[2].y,
+                                 absoluteLinear[0].z + absoluteLinear[1].z + absoluteLinear[2].z));
+    float viewRadius = abs(radius) * sqrt(oneNorm * infinityNorm);
+
     // Compute a conservative axis-aligned screen-space bound for the projected sphere.
     // Projecting center +/- radius at the center depth under-bounds a perspective sphere:
     // its silhouette is defined by tangent rays, not by points on that depth plane.
@@ -392,12 +407,12 @@ void main() {
     bool orthographic = abs(u_projection[3][3]) > 0.5;
     if (orthographic) {
         vec2 centerNdc = centerClip.xy / centerClip.w;
-        vec2 halfExtent = vec2(abs(u_projection[0][0]), abs(u_projection[1][1])) * radius;
+        vec2 halfExtent = vec2(abs(u_projection[0][0]), abs(u_projection[1][1])) * viewRadius;
         boundsMin = centerNdc - halfExtent;
         boundsMax = centerNdc + halfExtent;
     } else {
         float z = centerView.z;
-        float denominator = z * z - radius * radius;
+        float denominator = z * z - viewRadius * viewRadius;
         if (denominator <= 0.0) {
             // The sphere reaches the camera plane. A full-screen proxy is conservative and
             // lets the fragment intersection determine which rays really hit it.
@@ -406,10 +421,10 @@ void main() {
         } else {
             float xRoot = sqrt(max(centerView.x * centerView.x + denominator, 0.0));
             float yRoot = sqrt(max(centerView.y * centerView.y + denominator, 0.0));
-            vec2 lowerSlope = vec2(-centerView.x * z - radius * xRoot,
-                                   -centerView.y * z - radius * yRoot) / denominator;
-            vec2 upperSlope = vec2(-centerView.x * z + radius * xRoot,
-                                   -centerView.y * z + radius * yRoot) / denominator;
+            vec2 lowerSlope = vec2(-centerView.x * z - viewRadius * xRoot,
+                                   -centerView.y * z - viewRadius * yRoot) / denominator;
+            vec2 upperSlope = vec2(-centerView.x * z + viewRadius * xRoot,
+                                   -centerView.y * z + viewRadius * yRoot) / denominator;
             vec2 projectionScale = vec2(u_projection[0][0], u_projection[1][1]);
             vec2 projected0 = projectionScale * lowerSlope;
             vec2 projected1 = projectionScale * upperSlope;
@@ -429,9 +444,9 @@ void main() {
     // actual surface depth. Using z=0 also keeps spheres crossing the near plane rasterizable.
     gl_Position = vec4(cornerNdc, 0.0, 1.0);
 
-    v_sphereCenterView = centerView.xyz;
-    v_radius           = radius;
-    v_color            = a_color;
+    v_sphereCenterLocal = a_sphere.xyz;
+    v_radius            = abs(radius);
+    v_color             = a_color;
 })";
 }
 
@@ -440,10 +455,14 @@ std::string sphere_impostor_fragment_shader_source() {
         R"(#version 330 core
 
 in vec4  v_color;
-in vec3  v_sphereCenterView;
+in vec3  v_sphereCenterLocal;
 in float v_radius;
 
+uniform mat4  u_model;
+uniform mat4  u_view;
 uniform mat4  u_projection;
+uniform mat4  u_inverseModelView;
+uniform mat4  u_normalMatrix;
 uniform mat4  u_invProjection;
 uniform vec2  u_viewportSize;
 uniform bool  u_zeroToOneDepth;
@@ -476,12 +495,13 @@ void main() {
     vec3  rayOrigin = nearViewH.xyz / nearViewH.w;
     vec3  rayDir    = normalize(farViewH.xyz / farViewH.w - rayOrigin);
 
-    // Ray-sphere intersection in view space.
-    // Starting the ray at the unprojected near plane works for both perspective
-    // and orthographic projections.
-    vec3  oc = rayOrigin - v_sphereCenterView;
-    float a  = dot(rayDir, rayDir);
-    float b  = 2.0 * dot(rayDir, oc);
+    // Transform the view ray into local space. Intersecting there applies the complete model
+    // transform, including uniform/non-uniform scale and shear.
+    vec3 sphereCenterView = vec3(u_view * u_model * vec4(v_sphereCenterLocal, 1.0));
+    vec3 oc               = mat3(u_inverseModelView) * (rayOrigin - sphereCenterView);
+    vec3 rayDirLocal      = mat3(u_inverseModelView) * rayDir;
+    float a             = dot(rayDirLocal, rayDirLocal);
+    float b             = 2.0 * dot(rayDirLocal, oc);
     float c  = dot(oc, oc) - v_radius * v_radius;
     float discriminant = b * b - 4.0 * a * c;
     if (discriminant < 0.0) {
@@ -495,7 +515,9 @@ void main() {
     if (t < 0.0) {
         discard;
     }
-    vec3 hitView = rayOrigin + t * rayDir;
+    vec3 hitLocal = v_sphereCenterLocal + oc + t * rayDirLocal;
+    vec3 hitWorld = vec3(u_model * vec4(hitLocal, 1.0));
+    vec3 hitView  = vec3(u_view * vec4(hitWorld, 1.0));
 
     // Write corrected depth so the sphere occludes geometry properly.
     // u_projection encodes the depth direction. Only the legacy [-1,1] clip-depth
@@ -509,48 +531,16 @@ void main() {
         return;
     }
 
-    // Per-pixel Phong lighting in world space.
-    // Reconstruct the world-space hit position and normal from view-space hit.
-    // Normal points outward from sphere center.
-    vec3 normal   = normalize(hitView - v_sphereCenterView);
-    // The normal is in view space; to transform to world space we need the view inverse.
-    // Instead, compute diffuse/specular in view space where the camera is at the origin.
+    // Perform lighting in view space. The inverse-transpose model-view matrix keeps normals
+    // correct under non-uniform scaling, and the CPU uploads both lights in this same space.
+    vec3 normal   = normalize(mat3(u_normalMatrix) * (hitLocal - v_sphereCenterLocal));
     vec3 viewDir  = normalize(-hitView); // direction toward camera from hit point
 
     vec3 albedo = v_color.rgb;
+    vec3 lightDir = normalize(u_lightPos - hitView);
 
-    // Point light: transform light position to view space via the same view matrix
-    // that the vertex shader used. We re-derive it from the world-space uniforms.
-    // (We do Phong in view space to avoid an additional uniform matrix.)
-    // u_lightPos and u_viewPos are world-space; we use the view-space hit directly.
-    // For a simple and consistent result, compute lighting in view space:
-    //   light direction = normalize(lightViewPos - hitView)
-    // But we only have u_lightPos in world space and no view matrix in the fragment shader.
-    // Use world-space approximation: v_sphereCenterView gives us the sphere position.
-    // Reconstruct world-space hit from viewspace via an approximation using the direction.
-    // Since this is impostor rendering we approximate: use v_color for pure albedo shading
-    // driven by the view-space normal and a hardcoded fill, then add the world-space point light.
-    //
-    // The cleanest approach: do all lighting in view space.
-    // We pass u_lightPos and u_viewPos in world space; the vertex shader must transform them.
-    // Fragment only has view-space data. We compute the world-space position from the
-    // view-space hit using the inverse-view matrix — but that would need another uniform.
-    //
-    // Practical solution: approximate world-space position from view-space hit.
-    // This is accurate because hitView is the actual intersection point in view space.
-    // We pass u_lightPos and u_viewPos in world space; the world-space hit is not available here.
-    // To keep the shader self-contained without an inverse-view matrix, perform lighting
-    // purely in view space using a view-space light position approximation.
-    //
-    // For the fill light (directional), we only need the view-space normal, which we have.
-    // For the point light, we approximate: transform u_lightPos to view space would require
-    // uploading u_lightPosView. Instead, treat the point light as a distant directional light
-    // pointing from u_lightPos toward the sphere center (this is the standard impostor trick).
-    vec3 approxLightDir = normalize(u_lightPos - v_sphereCenterView);
-    vec3 approxViewDir  = normalize(-hitView);
-
-    // Point light attenuation based on approximate distance.
-    float lightDist    = length(u_lightPos - v_sphereCenterView);
+    // Point light attenuation based on the exact surface hit.
+    float lightDist    = length(u_lightPos - hitView);
     float attenuation  = 1.0 / (u_lightAttenuation.x +
                                 u_lightAttenuation.y * lightDist +
                                 u_lightAttenuation.z * lightDist * lightDist);
@@ -559,7 +549,7 @@ void main() {
     vec3 ambient = u_materialAmbient * u_ambientColor * albedo;
 
     // Diffuse (point light)
-    float diff   = max(dot(normal, approxLightDir), 0.0);
+    float diff   = max(dot(normal, lightDir), 0.0);
     vec3 diffuse = u_materialDiffuse * u_lightColor * diff * albedo * attenuation;
 
     // Fill light (directional)
@@ -569,7 +559,7 @@ void main() {
     vec3  fillDiffuse   = u_fillLightColor * fillDiff * albedo;
 
     // Specular (Blinn-Phong)
-    vec3  halfwayDir = normalize(approxLightDir + approxViewDir);
+    vec3  halfwayDir = normalize(lightDir + viewDir);
     float spec       = pow(max(dot(normal, halfwayDir), 0.0), u_shininess);
     float specNorm   = (u_shininess + 8.0) / 8.0;
     vec3  specular   = u_materialSpecular * u_lightColor * spec * specNorm * diff * attenuation;

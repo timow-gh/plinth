@@ -2,9 +2,9 @@
 #include "plinth/Renderer.hpp"
 #include "plinth/WindowSettings.hpp"
 
-#include <linal/vec.hpp>
-
 #include <glad/glad.h>
+
+#include <linal/vec.hpp>
 
 #include <algorithm>
 #include <array>
@@ -19,24 +19,24 @@
 
 namespace {
 
-const std::vector<float> kCenters{0.0F, 0.0F, 0.0F,  1.0F, 0.0F, 0.0F};
+const std::vector<float> kCenters{0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F};
 const std::vector<float> kRadii{0.5F, 0.5F};
-const std::vector<float> kColors{1.0F, 0.0F, 0.0F, 1.0F,  0.0F, 1.0F, 0.0F, 1.0F};
-const std::vector<float> kTranslucentColors{1.0F, 0.0F, 0.0F, 0.5F,  0.0F, 1.0F, 0.0F, 0.5F};
+const std::vector<float> kColors{1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F};
+const std::vector<float> kTranslucentColors{1.0F, 0.0F, 0.0F, 0.5F, 0.0F, 1.0F, 0.0F, 0.5F};
 constexpr std::array<float, 4> kUniformColor{0.5F, 0.5F, 0.5F, 1.0F};
 
 class SphereImpostorRendererTest : public ::testing::Test {
   protected:
     static std::unique_ptr<renderer::Renderer> create_renderer() {
         renderer::WindowSettings settings;
-        settings.title  = "sphere impostor renderer test";
-        settings.width  = 256U;
+        settings.title = "sphere impostor renderer test";
+        settings.width = 256U;
         settings.height = 256U;
-        settings.visible       = false;
-        settings.resizable     = false;
+        settings.visible = false;
+        settings.resizable = false;
         settings.double_buffer = false;
-        settings.srgb_capable  = false;
-        settings.samples       = 1;
+        settings.srgb_capable = false;
+        settings.samples = 1;
         return renderer::Renderer::create(settings);
     }
 
@@ -53,15 +53,15 @@ class SphereImpostorRendererTest : public ::testing::Test {
     static std::unique_ptr<renderer::Renderer> create_readback_renderer(std::uint32_t width = 256U,
                                                                         std::uint32_t height = 256U) {
         renderer::WindowSettings settings;
-        settings.title         = "sphere impostor readback test";
-        settings.width         = width;
-        settings.height        = height;
-        settings.visible       = false;
-        settings.resizable     = false;
+        settings.title = "sphere impostor readback test";
+        settings.width = width;
+        settings.height = height;
+        settings.visible = false;
+        settings.resizable = false;
         settings.double_buffer = false;
-        settings.srgb_capable  = false;
-        settings.samples       = 1;
-        settings.overlay       = renderer::OverlayKind::None;
+        settings.srgb_capable = false;
+        settings.samples = 1;
+        settings.overlay = renderer::OverlayKind::None;
         auto instance = renderer::Renderer::create(settings);
         if (instance) {
             instance->set_fxaa_enabled(false);
@@ -91,8 +91,7 @@ TEST_F(SphereImpostorRendererTest, AddPerVertexColorsReturnsValidSphereHandle) {
     auto instance = create_renderer();
     ASSERT_NE(nullptr, instance);
 
-    const renderer::DrawableHandle handle =
-        instance->add_sphere_point_drawable(kCenters, kRadii, kColors);
+    const renderer::DrawableHandle handle = instance->add_sphere_point_drawable(kCenters, kRadii, kColors);
     ASSERT_TRUE(handle.is_valid());
     EXPECT_EQ(renderer::DrawableKind::sphere, handle.kind);
 }
@@ -101,8 +100,7 @@ TEST_F(SphereImpostorRendererTest, AddUniformColorReturnsValidSphereHandle) {
     auto instance = create_renderer();
     ASSERT_NE(nullptr, instance);
 
-    const renderer::DrawableHandle handle =
-        instance->add_sphere_point_drawable(kCenters, kRadii, kUniformColor);
+    const renderer::DrawableHandle handle = instance->add_sphere_point_drawable(kCenters, kRadii, kUniformColor);
     ASSERT_TRUE(handle.is_valid());
     EXPECT_EQ(renderer::DrawableKind::sphere, handle.kind);
 }
@@ -112,9 +110,8 @@ TEST_F(SphereImpostorRendererTest, AddMismatchedSizesReturnsInvalidHandle) {
     ASSERT_NE(nullptr, instance);
 
     // 3 centers but 2 radii — size mismatch
-    const std::vector<float> threeCenters{0.0F, 0.0F, 0.0F,  1.0F, 0.0F, 0.0F,  2.0F, 0.0F, 0.0F};
-    const renderer::DrawableHandle handle =
-        instance->add_sphere_point_drawable(threeCenters, kRadii, kColors);
+    const std::vector<float> threeCenters{0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 2.0F, 0.0F, 0.0F};
+    const renderer::DrawableHandle handle = instance->add_sphere_point_drawable(threeCenters, kRadii, kColors);
     EXPECT_FALSE(handle.is_valid());
 }
 
@@ -225,7 +222,7 @@ TEST_F(SphereImpostorRendererTest, DrawWithMixedOpacitySphereDoesNotCrash) {
     auto instance = create_renderer();
     ASSERT_NE(nullptr, instance);
 
-    const std::vector<float> mixedColors{1.0F, 0.0F, 0.0F, 1.0F,  0.0F, 1.0F, 0.0F, 0.5F};
+    const std::vector<float> mixedColors{1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.5F};
     instance->add_sphere_point_drawable(kCenters, kRadii, mixedColors);
     render_one_frame(*instance);
     EXPECT_EQ(GL_NO_ERROR, glGetError());
@@ -295,10 +292,10 @@ TEST_F(SphereImpostorRendererTest, ProceduralDrawRestoresSampleShadingState) {
         GTEST_SKIP() << "OpenGL context does not support multisampling";
     }
 
-    ASSERT_TRUE(instance->add_sphere_point_drawable(
-                            std::vector<float>{0.0F, 0.0F, 0.0F},
-                            std::vector<float>{0.5F},
-                            std::array<float, 4>{1.0F, 0.0F, 0.0F, 1.0F})
+    ASSERT_TRUE(instance
+                    ->add_sphere_point_drawable(std::vector<float>{0.0F, 0.0F, 0.0F},
+                                                std::vector<float>{0.5F},
+                                                std::array<float, 4>{1.0F, 0.0F, 0.0F, 1.0F})
                     .is_valid());
     instance->set_msaa_samples(std::min(4, instance->get_max_msaa_samples()));
     instance->begin_frame();
@@ -338,8 +335,8 @@ TEST_F(SphereImpostorRendererTest, PickDrawablesResolvesSphereCenteredAtOrigin) 
     const auto results = instance->pick_drawables(cx, cy, 2.0);
     ASSERT_EQ(1U, results.size());
     EXPECT_EQ(renderer::DrawableKind::sphere, results.front().handle.kind);
-    EXPECT_EQ(handle.id,                     results.front().handle.id);
-    EXPECT_EQ(handle.rendererInstance,       results.front().handle.rendererInstance);
+    EXPECT_EQ(handle.id, results.front().handle.id);
+    EXPECT_EQ(handle.rendererInstance, results.front().handle.rendererInstance);
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
@@ -398,8 +395,8 @@ TEST_F(SphereImpostorRendererTest, SphereOccludesCoplanarMeshAtCenter) {
     // Grey quad covering the scene center at z=0 (mirrors examples/example_mesh.cpp).
     const std::vector<float> meshVerts{-1.0F, -1.0F, 0.0F, 1.0F, -1.0F, 0.0F, 1.0F, 1.0F, 0.0F, -1.0F, 1.0F, 0.0F};
     const std::vector<std::uint32_t> meshIndices{0U, 1U, 2U, 0U, 2U, 3U};
-    ASSERT_TRUE(instance->add_mesh_drawable(meshVerts, meshIndices, std::array<float, 4>{0.5F, 0.5F, 0.5F, 1.0F})
-                    .is_valid());
+    ASSERT_TRUE(
+        instance->add_mesh_drawable(meshVerts, meshIndices, std::array<float, 4>{0.5F, 0.5F, 0.5F, 1.0F}).is_valid());
 
     // A red sphere centered on the quad; its front surface protrudes toward the camera.
     const std::vector<float> center{0.0F, 0.0F, 0.0F};
@@ -493,15 +490,14 @@ TEST_F(SphereImpostorRendererTest, PerspectiveBillboardContainsLargeSphereSilhou
     const auto sv = instance->scene_viewport();
     const double distance = linal::length(camera->get_position() - camera->get_target());
     const double projectionScale = camera->get_projection_matrix()(0, 0);
-    const double tangentExtent = projectionScale * sphereRadius /
-                                 std::sqrt(distance * distance - sphereRadius * sphereRadius);
+    const double tangentExtent =
+        projectionScale * sphereRadius / std::sqrt(distance * distance - sphereRadius * sphereRadius);
     const double planarExtent = projectionScale * sphereRadius / distance;
     const double tangentLeft = (1.0 - tangentExtent) * sv.framebuffer.width * 0.5;
     const double planarLeft = (1.0 - planarExtent) * sv.framebuffer.width * 0.5;
     const double probeX = std::midpoint(tangentLeft, planarLeft);
 
-    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(sv.framebuffer.width) *
-                                     sv.framebuffer.height * 4U);
+    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(sv.framebuffer.width) * sv.framebuffer.height * 4U);
     glReadBuffer(GL_FRONT);
     glReadPixels(sv.framebuffer.x,
                  sv.framebuffer.y,
@@ -523,9 +519,7 @@ TEST_F(SphereImpostorRendererTest, PerspectiveBillboardContainsLargeSphereSilhou
 
     // This point is inside the true tangent silhouette but outside the old center-depth
     // center +/- radius proxy. Picking it therefore guards against a clipped billboard.
-    const auto centerPicks = instance->pick_drawables(sv.framebuffer.width * 0.5,
-                                                      sv.framebuffer.height * 0.5,
-                                                      0.0);
+    const auto centerPicks = instance->pick_drawables(sv.framebuffer.width * 0.5, sv.framebuffer.height * 0.5, 0.0);
     ASSERT_EQ(1U, centerPicks.size());
     const auto picks = instance->pick_drawables(probeX, sv.framebuffer.height * 0.5, 0.0);
     ASSERT_EQ(1U, picks.size());
@@ -611,6 +605,125 @@ TEST_F(SphereImpostorRendererTest, OffAxisSphereIsVisibleAndPickableWithOrthogra
     ASSERT_EQ(1U, picks.size());
     EXPECT_EQ(handle.id, picks.front().handle.id);
     EXPECT_EQ(renderer::DrawableKind::sphere, picks.front().handle.kind);
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(SphereImpostorRendererTest, NonUniformTransformScalesRenderedAndPickedSphere) {
+    auto instance = create_readback_renderer();
+    ASSERT_NE(nullptr, instance);
+
+    renderer::CameraAutoFitSettings autoFit;
+    autoFit.enabled = false;
+    instance->set_camera_auto_fit_settings(autoFit);
+    auto camera = instance->get_camera().lock();
+    ASSERT_NE(nullptr, camera);
+    camera->set_projection_type(renderer::CameraProjectionType::ORTHOGRAPHIC);
+    camera->look_at({0.0, 0.0, 5.0}, {0.0, 0.0, 0.0}, {0.0, 1.0, 0.0});
+
+    const auto handle = instance->add_sphere_point_drawable(std::vector<float>{0.0F, 0.0F, 0.0F},
+                                                            std::vector<float>{0.5F},
+                                                            std::array<float, 4>{0.8F, 0.1F, 0.1F, 1.0F});
+    ASSERT_TRUE(handle.is_valid());
+    linal::hmatf transform = linal::hmatf::identity();
+    transform(0, 0) = 3.0F;
+    ASSERT_TRUE(instance->set_drawable_transform(handle, transform));
+
+    render_one_frame(*instance);
+
+    const auto viewport = instance->scene_viewport();
+    constexpr int scaledOnlyOffset = 20;
+    const int probeX = viewport.framebuffer.x + viewport.framebuffer.width / 2 + scaledOnlyOffset;
+    const int probeY = viewport.framebuffer.y + viewport.framebuffer.height / 2;
+    const auto pixel = read_front_pixel(probeX, probeY);
+    EXPECT_GT(static_cast<int>(pixel[0]), static_cast<int>(pixel[1]) + 25);
+
+    const auto picks = instance->pick_drawables(viewport.framebuffer.width / 2 + scaledOnlyOffset,
+                                                viewport.framebuffer.height / 2,
+                                                0.0);
+    ASSERT_EQ(1U, picks.size());
+    EXPECT_EQ(handle.id, picks.front().handle.id);
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(SphereImpostorRendererTest, CameraAlignedLightingIsStableAcrossViewRotation) {
+    auto instance = create_readback_renderer();
+    ASSERT_NE(nullptr, instance);
+
+    renderer::CameraAutoFitSettings autoFit;
+    autoFit.enabled = false;
+    instance->set_camera_auto_fit_settings(autoFit);
+    auto camera = instance->get_camera().lock();
+    ASSERT_NE(nullptr, camera);
+
+    ASSERT_TRUE(instance
+                    ->add_sphere_point_drawable(std::vector<float>{0.0F, 0.0F, 0.0F},
+                                                std::vector<float>{1.0F},
+                                                std::array<float, 4>{1.0F, 0.0F, 0.0F, 1.0F})
+                    .is_valid());
+
+    renderer::LightingConfig lighting;
+    lighting.ambientColor = {0.0F, 0.0F, 0.0F};
+    lighting.fillLightColor = {0.0F, 0.0F, 0.0F};
+    lighting.materialDiffuse = {1.0F, 1.0F, 1.0F};
+    lighting.materialSpecular = {0.0F, 0.0F, 0.0F};
+
+    const auto render_center = [&] {
+        instance->begin_frame({0.0F, 0.0F, 0.0F, 1.0F});
+        instance->draw(lighting);
+        instance->end_frame();
+        glFinish();
+        const auto [x, y] = scene_interior_coordinate(*instance);
+        return read_front_pixel(x, y);
+    };
+
+    camera->look_at({0.0, 0.0, 5.0}, {0.0, 0.0, 0.0}, {0.0, 1.0, 0.0});
+    const auto fromZ = render_center();
+    camera->look_at({5.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 1.0});
+    const auto fromX = render_center();
+
+    EXPECT_GT(fromZ[0], 200U);
+    EXPECT_GT(fromX[0], 200U);
+    EXPECT_LE(std::abs(static_cast<int>(fromZ[0]) - static_cast<int>(fromX[0])), 5);
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(SphereImpostorRendererTest, TranslucentInstancesSortAfterApplyingDrawableTransform) {
+    auto instance = create_readback_renderer();
+    ASSERT_NE(nullptr, instance);
+
+    renderer::CameraAutoFitSettings autoFit;
+    autoFit.enabled = false;
+    instance->set_camera_auto_fit_settings(autoFit);
+    auto camera = instance->get_camera().lock();
+    ASSERT_NE(nullptr, camera);
+    camera->look_at({0.0, 0.0, 5.0}, {0.0, 0.0, 0.0}, {0.0, 1.0, 0.0});
+
+    const std::vector<float> centers{0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 2.0F};
+    const std::vector<float> radii{1.5F, 1.5F};
+    const std::vector<float> colors{1.0F, 0.0F, 0.0F, 0.5F, 0.0F, 1.0F, 0.0F, 0.5F};
+    const auto handle = instance->add_sphere_point_drawable(centers, radii, colors);
+    ASSERT_TRUE(handle.is_valid());
+    linal::hmatf transform = linal::hmatf::identity();
+    transform(2, 2) = -1.0F;
+    ASSERT_TRUE(instance->set_drawable_transform(handle, transform));
+
+    renderer::LightingConfig flatLighting;
+    flatLighting.lightColor = {0.0F, 0.0F, 0.0F};
+    flatLighting.fillLightColor = {0.0F, 0.0F, 0.0F};
+    flatLighting.ambientColor = {1.0F, 1.0F, 1.0F};
+    flatLighting.materialAmbient = {1.0F, 1.0F, 1.0F};
+    flatLighting.materialDiffuse = {0.0F, 0.0F, 0.0F};
+    flatLighting.materialSpecular = {0.0F, 0.0F, 0.0F};
+
+    instance->begin_frame({0.0F, 0.0F, 0.0F, 1.0F});
+    instance->draw(flatLighting);
+    instance->end_frame();
+    glFinish();
+
+    const auto [x, y] = scene_interior_coordinate(*instance);
+    const auto pixel = read_front_pixel(x, y);
+    EXPECT_GT(static_cast<int>(pixel[0]), static_cast<int>(pixel[1]) + 20)
+        << "the nearer red sphere must blend after the transformed farther green sphere";
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 

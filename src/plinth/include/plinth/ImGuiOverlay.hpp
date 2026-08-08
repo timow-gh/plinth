@@ -51,7 +51,7 @@ class ImGuiOverlay final : public IOverlay {
     /// Full debug control surface. Reads current values from the renderer and
     /// routes every change back through its validated set_* methods.
     void add_post_processing_controls(Renderer& renderer);
-    /// Minimal, game-like control surface: quality/AA preset, exposure, fog toggle.
+    /// Minimal control surface: independent MSAA and FXAA controls plus exposure.
     /// Also routes through the renderer's validated set_* methods.
     void add_release_post_processing_controls(Renderer& renderer);
 

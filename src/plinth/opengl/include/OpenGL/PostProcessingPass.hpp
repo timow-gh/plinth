@@ -24,14 +24,7 @@ class OPENGL_EXPORT PostProcessingPass {
 
     void process(GLuint hdrColorTexture, GLuint depthTexture, int width, int height) const;
 
-    void set_inv_projection(const float* data) const;
     void set_reversed_depth(bool enabled) const;
-    void set_fog_enabled(bool enabled) const;
-    void set_fog_mode(int mode) const;
-    void set_fog_start(float start) const;
-    void set_fog_end(float end) const;
-    void set_fog_density(float density) const;
-    void set_fog_color(float r, float g, float b) const;
     void set_exposure_stops(float stops) const;
     void set_tone_map_mode(int mode) const;
     void set_visualization_mode(int mode) const;
@@ -43,14 +36,7 @@ class OPENGL_EXPORT PostProcessingPass {
                        GLuint vertexArray,
                        Uniform sceneColor,
                        Uniform sceneDepth,
-                       Uniform invProjection,
                        Uniform reversedDepth,
-                       Uniform fogEnabled,
-                       Uniform fogMode,
-                       Uniform fogStart,
-                       Uniform fogEnd,
-                       Uniform fogDensity,
-                       Uniform fogColor,
                        Uniform exposureStops,
                        Uniform toneMapMode,
                        Uniform visualizationMode,
@@ -63,14 +49,7 @@ class OPENGL_EXPORT PostProcessingPass {
 
     Uniform m_sceneColor;
     Uniform m_sceneDepth;
-    Uniform m_invProjection;
     Uniform m_reversedDepth;
-    Uniform m_fogEnabled;
-    Uniform m_fogMode;
-    Uniform m_fogStart;
-    Uniform m_fogEnd;
-    Uniform m_fogDensity;
-    Uniform m_fogColor;
     Uniform m_exposureStops;
     Uniform m_toneMapMode;
     Uniform m_visualizationMode;

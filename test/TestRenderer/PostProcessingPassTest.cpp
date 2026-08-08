@@ -66,9 +66,6 @@ TEST_F(PostProcessingPassTest, ProcessesHdrToLdr) {
     ASSERT_TRUE(pass.has_value());
     ASSERT_TRUE(pass->is_valid());
 
-    float identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-    pass->set_inv_projection(identity);
-    pass->set_fog_enabled(false);
     pass->set_exposure_stops(0.0f);
     pass->set_tone_map_mode(0);
     pass->set_visualization_mode(0);
@@ -111,9 +108,6 @@ TEST_F(PostProcessingPassTest, LinearLdrVisualizationBypassesSrgbEncoding) {
 
     auto pass = opengl::PostProcessingPass::create();
     ASSERT_TRUE(pass.has_value());
-    const float identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-    pass->set_inv_projection(identity);
-    pass->set_fog_enabled(false);
     pass->set_exposure_stops(0.0F);
     pass->set_tone_map_mode(0);
     pass->set_hdr_display_max(10.0F);
@@ -136,88 +130,7 @@ TEST_F(PostProcessingPassTest, LinearLdrVisualizationBypassesSrgbEncoding) {
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
-TEST_F(PostProcessingPassTest, FogSettingsAffectVisibleGeometry) {
-    opengl::Framebuffer::HdrConfig hdrConfig{16, 16, 1, true};
-    auto hdrFb = opengl::Framebuffer::create_hdr(hdrConfig);
-    ASSERT_TRUE(hdrFb.has_value());
-    auto ldrFb = opengl::Framebuffer::create_ldr_intermediate(16, 16);
-    ASSERT_TRUE(ldrFb.has_value());
-
-    hdrFb->bind();
-    glClearColor(1.0F, 0.0F, 0.0F, 1.0F);
-    glClearDepth(0.5);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    auto pass = opengl::PostProcessingPass::create();
-    ASSERT_TRUE(pass.has_value());
-    const float identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-    pass->set_inv_projection(identity);
-    pass->set_fog_enabled(true);
-    pass->set_fog_mode(0);
-    pass->set_fog_start(0.0F);
-    pass->set_fog_end(0.01F);
-    pass->set_fog_color(0.0F, 0.0F, 1.0F);
-    pass->set_exposure_stops(0.0F);
-    pass->set_tone_map_mode(0);
-    pass->set_visualization_mode(0);
-    pass->set_hdr_display_max(10.0F);
-    pass->set_grayscale(false);
-
-    ldrFb->bind();
-    pass->process(hdrFb->get_color_texture(), hdrFb->get_depth_texture(), 16, 16);
-    std::array<unsigned char, 4> pixel{0, 0, 0, 0};
-    glReadPixels(8, 8, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
-
-    EXPECT_NEAR(0, static_cast<int>(pixel[0]), 5);
-    EXPECT_NEAR(0, static_cast<int>(pixel[1]), 5);
-    EXPECT_NEAR(255, static_cast<int>(pixel[2]), 5);
-    EXPECT_EQ(GL_NO_ERROR, glGetError());
-}
-
-TEST_F(PostProcessingPassTest, ExponentialFogMovesOutputTowardFogColor) {
-    opengl::Framebuffer::HdrConfig hdrConfig{16, 16, 1, true};
-    auto hdrFb = opengl::Framebuffer::create_hdr(hdrConfig);
-    ASSERT_TRUE(hdrFb.has_value());
-    auto ldrFb = opengl::Framebuffer::create_ldr_intermediate(16, 16);
-    ASSERT_TRUE(ldrFb.has_value());
-
-    hdrFb->bind();
-    glClearColor(1.0F, 0.0F, 0.0F, 1.0F);
-    glClearDepth(0.5);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    auto pass = opengl::PostProcessingPass::create();
-    ASSERT_TRUE(pass.has_value());
-    const float identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-    pass->set_inv_projection(identity);
-    pass->set_exposure_stops(0.0F);
-    pass->set_tone_map_mode(0);
-    pass->set_visualization_mode(0);
-    pass->set_hdr_display_max(10.0F);
-    pass->set_grayscale(false);
-    pass->set_fog_enabled(false);
-
-    ldrFb->bind();
-    pass->process(hdrFb->get_color_texture(), hdrFb->get_depth_texture(), 16, 16);
-    std::array<unsigned char, 4> withoutFog{};
-    glReadPixels(8, 8, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, withoutFog.data());
-
-    pass->set_fog_enabled(true);
-    pass->set_fog_mode(1);
-    pass->set_fog_density(100.0F);
-    pass->set_fog_color(0.0F, 0.0F, 1.0F);
-    ldrFb->bind();
-    pass->process(hdrFb->get_color_texture(), hdrFb->get_depth_texture(), 16, 16);
-    std::array<unsigned char, 4> withFog{};
-    glReadPixels(8, 8, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, withFog.data());
-
-    EXPECT_GT(withoutFog[0], withFog[0]);
-    EXPECT_LT(withoutFog[2], withFog[2]);
-    EXPECT_NE(withoutFog, withFog);
-    EXPECT_EQ(GL_NO_ERROR, glGetError());
-}
-
-TEST_F(PostProcessingPassTest, ReversedDepthTreatsZeroAsBackgroundAndReconstructsGeometry) {
+TEST_F(PostProcessingPassTest, ReversedDepthVisualizationInvertsDepth) {
     auto hdrFb = opengl::Framebuffer::create_hdr({16, 16, 1, true, true});
     auto ldrFb = opengl::Framebuffer::create_ldr_intermediate(16, 16);
     auto pass = opengl::PostProcessingPass::create();
@@ -225,17 +138,10 @@ TEST_F(PostProcessingPassTest, ReversedDepthTreatsZeroAsBackgroundAndReconstruct
     ASSERT_TRUE(ldrFb.has_value());
     ASSERT_TRUE(pass.has_value());
 
-    const float identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-    pass->set_inv_projection(identity);
     pass->set_reversed_depth(true);
-    pass->set_fog_enabled(true);
-    pass->set_fog_mode(0);
-    pass->set_fog_start(0.0F);
-    pass->set_fog_end(1.0F);
-    pass->set_fog_color(0.0F, 0.0F, 1.0F);
     pass->set_exposure_stops(0.0F);
     pass->set_tone_map_mode(0);
-    pass->set_visualization_mode(0);
+    pass->set_visualization_mode(5);
     pass->set_hdr_display_max(10.0F);
     pass->set_grayscale(false);
 
@@ -251,16 +157,16 @@ TEST_F(PostProcessingPassTest, ReversedDepthTreatsZeroAsBackgroundAndReconstruct
         return pixel;
     };
 
-    const auto background = renderAtDepth(0.0);
-    EXPECT_NEAR(255, static_cast<int>(background[0]), 5);
-    EXPECT_NEAR(0, static_cast<int>(background[2]), 5);
+    const auto farDepth = renderAtDepth(0.0);
+    EXPECT_NEAR(255, static_cast<int>(farDepth[0]), 5);
+    EXPECT_EQ(farDepth[0], farDepth[1]);
+    EXPECT_EQ(farDepth[1], farDepth[2]);
 
-    const auto geometry = renderAtDepth(0.5);
-    EXPECT_GT(geometry[0], 170);
-    EXPECT_LT(geometry[0], 205);
-    EXPECT_GT(geometry[2], 170);
-    EXPECT_LT(geometry[2], 205);
-    EXPECT_NEAR(static_cast<int>(geometry[0]), static_cast<int>(geometry[2]), 20);
+    const auto middleDepth = renderAtDepth(0.5);
+    EXPECT_GT(middleDepth[0], 180);
+    EXPECT_LT(middleDepth[0], 195);
+    EXPECT_EQ(middleDepth[0], middleDepth[1]);
+    EXPECT_EQ(middleDepth[1], middleDepth[2]);
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
@@ -272,9 +178,6 @@ TEST_F(PostProcessingPassTest, VisualizationModesProduceDeterministicOutput) {
     ASSERT_TRUE(ldrFb.has_value());
     auto pass = opengl::PostProcessingPass::create();
     ASSERT_TRUE(pass.has_value());
-    const float identity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-    pass->set_inv_projection(identity);
-    pass->set_fog_enabled(false);
     pass->set_exposure_stops(0.0F);
     pass->set_tone_map_mode(0);
     pass->set_hdr_display_max(4.0F);

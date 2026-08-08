@@ -602,15 +602,7 @@ in vec2 v_uv;
 uniform sampler2D u_sceneColor;
 uniform sampler2D u_sceneDepth;
 
-uniform mat4 u_invProjection;
 uniform bool u_reversedDepth;
-
-uniform bool   u_fogEnabled;
-uniform int    u_fogMode;
-uniform float  u_fogStart;
-uniform float  u_fogEnd;
-uniform float  u_fogDensity;
-uniform vec3   u_fogColor;
 
 uniform float  u_exposureStops;
 
@@ -632,22 +624,6 @@ vec3 srgbEncode(vec3 linear) {
 void main() {
     vec3 hdr = texture(u_sceneColor, v_uv).rgb;
     float depth = texture(u_sceneDepth, v_uv).r;
-
-    bool hasGeometry = u_reversedDepth ? depth > 0.0 : depth < 1.0;
-    if (u_fogEnabled && hasGeometry) {
-        float clipDepth = u_reversedDepth ? depth : depth * 2.0 - 1.0;
-        vec4 clip = vec4(v_uv * 2.0 - 1.0, clipDepth, 1.0);
-        vec4 view = u_invProjection * clip;
-        vec3 viewPos = view.xyz / view.w;
-        float dist = length(viewPos);
-        float fogAmount;
-        if (u_fogMode == 0) {
-            fogAmount = smoothstep(u_fogStart, u_fogEnd, dist);
-        } else {
-            fogAmount = 1.0 - exp(-u_fogDensity * dist);
-        }
-        hdr = mix(hdr, u_fogColor, fogAmount);
-    }
 
     hdr = max(hdr, vec3(0.0));
 

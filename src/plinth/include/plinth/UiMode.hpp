@@ -5,7 +5,7 @@ namespace renderer {
 
 /// Selects which control surface the renderer's ImGui overlay presents.
 /// Debug exposes the full set of post-processing and visualization controls;
-/// Release exposes a small, game-like set (quality preset, exposure, fog toggle)
+/// Release exposes a small set (MSAA, FXAA, and exposure)
 /// with debug-only state pinned to sensible defaults.
 enum class UiMode {
     Debug = 0,

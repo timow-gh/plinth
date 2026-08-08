@@ -6,6 +6,7 @@
 
 #include <glad/glad.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -230,6 +231,89 @@ TEST_F(SphereImpostorRendererTest, DrawWithMixedOpacitySphereDoesNotCrash) {
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
+TEST_F(SphereImpostorRendererTest, MultisamplingSmoothsProceduralSphereSilhouette) {
+    auto instance = create_readback_renderer();
+    ASSERT_NE(nullptr, instance);
+    if (instance->get_max_msaa_samples() < 2) {
+        GTEST_SKIP() << "OpenGL context does not support multisampling";
+    }
+
+    const std::vector<float> center{0.0F, 0.0F, 0.0F};
+    const std::vector<float> radius{1.0F};
+    const std::array<float, 4> red{1.0F, 0.0F, 0.0F, 1.0F};
+    ASSERT_TRUE(instance->add_sphere_point_drawable(center, radius, red).is_valid());
+
+    renderer::LightingConfig flatLighting;
+    flatLighting.lightColor = {0.0F, 0.0F, 0.0F};
+    flatLighting.fillLightColor = {0.0F, 0.0F, 0.0F};
+    flatLighting.ambientColor = {1.0F, 1.0F, 1.0F};
+    flatLighting.materialAmbient = {1.0F, 1.0F, 1.0F};
+    flatLighting.materialDiffuse = {0.0F, 0.0F, 0.0F};
+    flatLighting.materialSpecular = {0.0F, 0.0F, 0.0F};
+
+    // Count partially covered red pixels explicitly; single-sample discard produces only
+    // background or fully red pixels, whereas per-sample discard resolves intermediate values.
+    const auto countPartialRedPixels = [&] {
+        instance->begin_frame({0.0F, 0.0F, 0.0F, 1.0F});
+        instance->draw(flatLighting);
+        instance->end_frame();
+        glFinish();
+
+        const auto viewport = instance->scene_viewport();
+        std::vector<std::uint8_t> row(static_cast<std::size_t>(viewport.framebuffer.width) * 4U);
+        glReadBuffer(GL_FRONT);
+        glReadPixels(viewport.framebuffer.x,
+                     viewport.framebuffer.y + viewport.framebuffer.height / 2,
+                     viewport.framebuffer.width,
+                     1,
+                     GL_RGBA,
+                     GL_UNSIGNED_BYTE,
+                     row.data());
+        std::size_t partial = 0;
+        for (std::size_t pixel = 0; pixel < row.size() / 4U; ++pixel) {
+            const std::uint8_t r = row[pixel * 4U];
+            const std::uint8_t g = row[(pixel * 4U) + 1U];
+            const std::uint8_t b = row[(pixel * 4U) + 2U];
+            partial += r > 5U && r < 250U && g < 5U && b < 5U ? 1U : 0U;
+        }
+        return partial;
+    };
+
+    const std::size_t singleSamplePartial = countPartialRedPixels();
+    instance->set_msaa_samples(std::min(4, instance->get_max_msaa_samples()));
+    const std::size_t multisamplePartial = countPartialRedPixels();
+
+    EXPECT_EQ(0U, singleSamplePartial);
+    EXPECT_GT(multisamplePartial, singleSamplePartial);
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(SphereImpostorRendererTest, ProceduralDrawRestoresSampleShadingState) {
+    auto instance = create_readback_renderer();
+    ASSERT_NE(nullptr, instance);
+    if (instance->get_max_msaa_samples() < 2) {
+        GTEST_SKIP() << "OpenGL context does not support multisampling";
+    }
+
+    ASSERT_TRUE(instance->add_sphere_point_drawable(
+                            std::vector<float>{0.0F, 0.0F, 0.0F},
+                            std::vector<float>{0.5F},
+                            std::array<float, 4>{1.0F, 0.0F, 0.0F, 1.0F})
+                    .is_valid());
+    instance->set_msaa_samples(std::min(4, instance->get_max_msaa_samples()));
+    instance->begin_frame();
+    glDisable(GL_SAMPLE_SHADING);
+    glMinSampleShading(0.25F);
+    instance->draw();
+
+    GLfloat minimum = 0.0F;
+    glGetFloatv(GL_MIN_SAMPLE_SHADING_VALUE, &minimum);
+    EXPECT_EQ(GL_FALSE, glIsEnabled(GL_SAMPLE_SHADING));
+    EXPECT_FLOAT_EQ(0.25F, minimum);
+    instance->end_frame();
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // pick_drawables — sphere is selectable
 // ──────────────────────────────────────────────────────────────────────────────
@@ -408,13 +492,34 @@ TEST_F(SphereImpostorRendererTest, PerspectiveBillboardContainsLargeSphereSilhou
 
     const auto sv = instance->scene_viewport();
     const double distance = linal::length(camera->get_position() - camera->get_target());
-    const double projectionScale = 1.0 / std::tan(camera->get_fov() * std::numbers::pi / 360.0);
+    const double projectionScale = camera->get_projection_matrix()(0, 0);
     const double tangentExtent = projectionScale * sphereRadius /
                                  std::sqrt(distance * distance - sphereRadius * sphereRadius);
     const double planarExtent = projectionScale * sphereRadius / distance;
     const double tangentLeft = (1.0 - tangentExtent) * sv.framebuffer.width * 0.5;
     const double planarLeft = (1.0 - planarExtent) * sv.framebuffer.width * 0.5;
     const double probeX = std::midpoint(tangentLeft, planarLeft);
+
+    std::vector<std::uint8_t> pixels(static_cast<std::size_t>(sv.framebuffer.width) *
+                                     sv.framebuffer.height * 4U);
+    glReadBuffer(GL_FRONT);
+    glReadPixels(sv.framebuffer.x,
+                 sv.framebuffer.y,
+                 sv.framebuffer.width,
+                 sv.framebuffer.height,
+                 GL_RGBA,
+                 GL_UNSIGNED_BYTE,
+                 pixels.data());
+    int minRedX = sv.framebuffer.width;
+    for (int y = 0; y < sv.framebuffer.height; ++y) {
+        for (int x = 0; x < sv.framebuffer.width; ++x) {
+            const std::size_t i = (static_cast<std::size_t>(y) * sv.framebuffer.width + x) * 4U;
+            if (pixels[i] > pixels[i + 1U] + 10 && pixels[i] > pixels[i + 2U] + 10) {
+                minRedX = std::min(minRedX, x);
+            }
+        }
+    }
+    EXPECT_LE(minRedX, probeX);
 
     // This point is inside the true tangent silhouette but outside the old center-depth
     // center +/- radius proxy. Picking it therefore guards against a clipped billboard.

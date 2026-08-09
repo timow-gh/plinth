@@ -287,10 +287,10 @@ TEST_F(SphereImpostorRendererTest, ScreenSizeHoldsConstantSilhouetteAcrossDistan
         return covered;
     };
 
-    // A small world sphere and a moderate pixel radius that both stay comfortably inside the
+    // A small world sphere and a moderate pixel diameter that both stay comfortably inside the
     // 256x256 viewport at the near distance.
-    const std::vector<float> worldRadius{0.5F};   // world units
-    const std::vector<float> screenRadius{12.0F}; // pixels
+    const std::vector<float> worldRadius{0.5F};     // world units (radius)
+    const std::vector<float> screenDiameter{24.0F}; // pixels (diameter)
     constexpr double kNearDistance = 6.0;
     constexpr double kFarDistance = 12.0;
 
@@ -304,9 +304,9 @@ TEST_F(SphereImpostorRendererTest, ScreenSizeHoldsConstantSilhouetteAcrossDistan
     EXPECT_GT(worldNear, worldFar) << "world-space sphere should shrink with distance";
     instance->clear_sphere_point_drawables();
 
-    // Screen mode: radius is pixels, so the silhouette is ~constant across distance.
+    // Screen mode: size is a pixel diameter, so the silhouette is ~constant across distance.
     const renderer::DrawableHandle screenHandle = instance->add_sphere_point_drawable(
-        center, screenRadius, red, renderer::SphereStyle{renderer::SphereSizeSpace::Screen});
+        center, screenDiameter, red, renderer::SphereStyle{renderer::SphereSizeSpace::Screen});
     ASSERT_TRUE(screenHandle.is_valid());
     const std::size_t screenNear = countRedRowPixels(kNearDistance);
     const std::size_t screenFar = countRedRowPixels(kFarDistance);
@@ -317,6 +317,75 @@ TEST_F(SphereImpostorRendererTest, ScreenSizeHoldsConstantSilhouetteAcrossDistan
     // does not shrink the way World mode does.
     const std::size_t diff = screenNear > screenFar ? screenNear - screenFar : screenFar - screenNear;
     EXPECT_LE(diff, 3U) << "screen-space sphere should hold a constant pixel size across distance";
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+// Screen-space size is a pixel DIAMETER (matching StrokeStyle::lineWidth), not a radius. A sphere
+// drawn with size D must span ~D pixels across its center row, so the same numeric value yields a
+// sphere point and a line of roughly equal on-screen size. Guards against regressing to the old
+// radius convention, under which the coverage would be ~2*D.
+TEST_F(SphereImpostorRendererTest, ScreenSizeValueIsPixelDiameter) {
+    auto instance = create_readback_renderer();
+    ASSERT_NE(nullptr, instance);
+
+    const std::vector<float> center{0.0F, 0.0F, 0.0F};
+    const std::array<float, 4> red{1.0F, 0.0F, 0.0F, 1.0F};
+
+    renderer::LightingConfig flatLighting;
+    flatLighting.lightColor = {0.0F, 0.0F, 0.0F};
+    flatLighting.fillLightColor = {0.0F, 0.0F, 0.0F};
+    flatLighting.ambientColor = {1.0F, 1.0F, 1.0F};
+    flatLighting.materialAmbient = {1.0F, 1.0F, 1.0F};
+    flatLighting.materialDiffuse = {0.0F, 0.0F, 0.0F};
+    flatLighting.materialSpecular = {0.0F, 0.0F, 0.0F};
+
+    // Count red pixels across the center row: the sphere's horizontal silhouette width in pixels.
+    const auto countRedRowPixels = [&] {
+        auto camera = instance->get_camera().lock();
+        camera->look_at({0.0, 0.0, 8.0}, {0.0, 0.0, 0.0}, {0.0, 1.0, 0.0});
+
+        instance->begin_frame({0.0F, 0.0F, 0.0F, 1.0F});
+        instance->draw(flatLighting);
+        instance->end_frame();
+        glFinish();
+
+        const auto viewport = instance->scene_viewport();
+        std::vector<std::uint8_t> row(static_cast<std::size_t>(viewport.framebuffer.width) * 4U);
+        glReadBuffer(GL_FRONT);
+        glReadPixels(viewport.framebuffer.x,
+                     viewport.framebuffer.y + viewport.framebuffer.height / 2,
+                     viewport.framebuffer.width,
+                     1,
+                     GL_RGBA,
+                     GL_UNSIGNED_BYTE,
+                     row.data());
+        std::size_t covered = 0;
+        for (std::size_t pixel = 0; pixel < row.size() / 4U; ++pixel) {
+            const std::uint8_t r = row[pixel * 4U];
+            const std::uint8_t g = row[(pixel * 4U) + 1U];
+            const std::uint8_t b = row[(pixel * 4U) + 2U];
+            covered += r > 20U && g < 40U && b < 40U ? 1U : 0U;
+        }
+        return covered;
+    };
+
+    constexpr float kDiameter = 24.0F; // pixels
+    const std::vector<float> screenDiameter{kDiameter};
+    ASSERT_TRUE(instance
+                    ->add_sphere_point_drawable(center,
+                                                screenDiameter,
+                                                red,
+                                                renderer::SphereStyle{renderer::SphereSizeSpace::Screen})
+                    .is_valid());
+
+    const std::size_t covered = countRedRowPixels();
+
+    // The covered span should be about the requested diameter. Allow generous slack for the
+    // silhouette edge/rasterization, while still catching the 2x radius-vs-diameter regression: the
+    // old convention would cover ~48 pixels here, well above the upper bound.
+    EXPECT_GE(covered, static_cast<std::size_t>(kDiameter) - 6U);
+    EXPECT_LE(covered, static_cast<std::size_t>(kDiameter) + 6U)
+        << "screen-space sphere size should be a pixel diameter, not a radius";
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
@@ -360,9 +429,10 @@ TEST_F(SphereImpostorRendererTest, MultisamplingSmoothsProceduralSphereSilhouett
     }
 
     const std::vector<float> center{0.0F, 0.0F, 0.0F};
-    const std::vector<float> radius{1.0F};
+    // Default style is Screen mode, where the value is a pixel diameter.
+    const std::vector<float> diameter{2.0F};
     const std::array<float, 4> red{1.0F, 0.0F, 0.0F, 1.0F};
-    ASSERT_TRUE(instance->add_sphere_point_drawable(center, radius, red).is_valid());
+    ASSERT_TRUE(instance->add_sphere_point_drawable(center, diameter, red).is_valid());
 
     renderer::LightingConfig flatLighting;
     flatLighting.lightColor = {0.0F, 0.0F, 0.0F};
@@ -443,12 +513,12 @@ TEST_F(SphereImpostorRendererTest, PickDrawablesResolvesSphereCenteredAtOrigin) 
     auto instance = create_renderer();
     ASSERT_NE(nullptr, instance);
 
-    // A single sphere centered at the origin with a radius large enough to
-    // occupy the center of the viewport (camera is placed ~10 units back along z).
+    // A single sphere centered at the origin, large enough to occupy the center of the viewport
+    // (camera is placed ~10 units back along z). Default style is Screen mode: a pixel diameter.
     const std::vector<float> center{0.0F, 0.0F, 0.0F};
-    const std::vector<float> radius{2.0F};
+    const std::vector<float> diameter{4.0F};
     const std::vector<float> color{1.0F, 1.0F, 1.0F, 1.0F};
-    const renderer::DrawableHandle handle = instance->add_sphere_point_drawable(center, radius, color);
+    const renderer::DrawableHandle handle = instance->add_sphere_point_drawable(center, diameter, color);
     ASSERT_TRUE(handle.is_valid());
 
     render_one_frame(*instance);
@@ -482,11 +552,12 @@ TEST_F(SphereImpostorRendererTest, OpaqueSphereIsVisibleInPresentedScene) {
     ASSERT_EQ(GL_FALSE, doubleBuffered) << "Front-buffer readback requires a single-buffered context";
 
     // A single red sphere at the origin, large enough to cover the scene center
-    // (the camera frames the scene ~10 units back along z).
+    // (the camera frames the scene ~10 units back along z). Default style is Screen mode, where
+    // the value is a pixel diameter.
     const std::vector<float> center{0.0F, 0.0F, 0.0F};
-    const std::vector<float> radius{2.0F};
+    const std::vector<float> diameter{4.0F};
     const std::vector<float> color{1.0F, 0.0F, 0.0F, 1.0F};
-    ASSERT_TRUE(instance->add_sphere_point_drawable(center, radius, color).is_valid());
+    ASSERT_TRUE(instance->add_sphere_point_drawable(center, diameter, color).is_valid());
 
     // Clear to a non-red background so a depth-culled (invisible) sphere would leave the
     // interior clearly distinguishable from the sphere color.
@@ -806,9 +877,10 @@ TEST_F(SphereImpostorRendererTest, CameraAlignedLightingIsStableAcrossViewRotati
     auto camera = instance->get_camera().lock();
     ASSERT_NE(nullptr, camera);
 
+    // Default style is Screen mode: the size value is a pixel diameter.
     ASSERT_TRUE(instance
                     ->add_sphere_point_drawable(std::vector<float>{0.0F, 0.0F, 0.0F},
-                                                std::vector<float>{1.0F},
+                                                std::vector<float>{2.0F},
                                                 std::array<float, 4>{1.0F, 0.0F, 0.0F, 1.0F})
                     .is_valid());
 

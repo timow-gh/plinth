@@ -32,11 +32,15 @@ int main() {
     const std::array<float, 4> colorGrey{0.5F, 0.5F, 0.5F, 1.0F};
     const std::array<float, kVertexCount * 3>
         vertices{-1.0F, -1.0F, 0.0F, 1.0F, -1.0F, 0.0F, 1.0F, 1.0F, 0.0F, -1.0F, 1.0F, 0.0F};
-    const float vertexRadius = 5.0F;
-    const std::array<float, kVertexCount> vertexRadii{vertexRadius, vertexRadius, vertexRadius, vertexRadius};
+    // Screen-mode sphere points size by pixel diameter (matching line width), so this is a diameter.
+    const float vertexDiameter = 10.0F;
+    const std::array<float, kVertexCount> vertexDiameters{vertexDiameter,
+                                                          vertexDiameter,
+                                                          vertexDiameter,
+                                                          vertexDiameter};
     const std::array<std::uint32_t, 6> indices{0, 1, 2, 0, 2, 3};
     renderer->add_mesh_drawable(vertices, indices, colorGrey);
-    renderer->add_sphere_point_drawable(vertices, vertexRadii, colorGrey);
+    renderer->add_sphere_point_drawable(vertices, vertexDiameters, colorGrey);
 
     renderer::LightingConfig lighting;
 

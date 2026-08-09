@@ -366,7 +366,7 @@ uniform mat4 u_model;
 uniform mat4 u_view;
 uniform mat4 u_projection;
 uniform vec2 u_viewportSize;
-uniform int  u_sizeSpace; // 0 = World (radius in world units), 1 = Screen (radius in pixels)
+uniform int  u_sizeSpace; // 0 = World (radius in world units), 1 = Screen (diameter in pixels)
 
 out vec4  v_color;
 out vec3  v_sphereCenterLocal;
@@ -403,14 +403,17 @@ void main() {
                                  absoluteLinear[0].z + absoluteLinear[1].z + absoluteLinear[2].z));
     float modelViewScale = sqrt(oneNorm * infinityNorm);
 
-    // Screen mode: a_sphere.w is a pixel radius. Solve for the local radius whose projected
-    // silhouette spans that many pixels, so the fragment shader (which intersects a local sphere
-    // of v_radius) and this proxy stay consistent. The projection maps a view-space radius r to a
-    // half-NDC extent of projScaleY*r for orthographic, and ~projScaleY*r/|z| for perspective;
-    // NDC spans 2 units across the viewport height, hence the 2/height pixel basis. Model-view
-    // scale is divided out so the local radius reproduces the requested pixels under any transform.
+    // Screen mode: a_sphere.w is a pixel DIAMETER (matches the line-width convention, where
+    // u_lineWidth is a full pixel width). Solve for the local radius whose projected silhouette
+    // spans that many pixels, so the fragment shader (which intersects a local sphere of v_radius)
+    // and this proxy stay consistent. The projection maps a view-space radius r to a half-NDC
+    // extent of projScaleY*r for orthographic, and ~projScaleY*r/|z| for perspective; NDC spans 2
+    // units across the viewport height. Half of the diameter is the radius, whose half-NDC extent
+    // is therefore diameter*(1/height) -- hence the 1/height pixel basis rather than 2/height.
+    // Model-view scale is divided out so the local radius reproduces the requested pixels under any
+    // transform.
     if (u_sizeSpace == 1) {
-        float desiredNdcHalf = abs(radius) * (2.0 / u_viewportSize.y);
+        float desiredNdcHalf = abs(radius) * (1.0 / u_viewportSize.y);
         bool  orthographicSize = abs(u_projection[3][3]) > 0.5;
         float projScaleY = max(abs(u_projection[1][1]), 1e-6);
         float viewZ = max(abs(centerView.z), 1e-4);

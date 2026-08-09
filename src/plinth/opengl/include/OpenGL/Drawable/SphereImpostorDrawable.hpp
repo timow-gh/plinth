@@ -56,9 +56,11 @@ class OPENGL_EXPORT SphereImpostorDrawable {
     std::vector<linal::float3> m_centers;            // for get_vertex_positions()
     mutable std::vector<float> m_positionsCache;
 
-    // Per-drawable: how a_sphere.w is interpreted. World = local/world units;
-    // Screen = pixels, converted to a view-space radius in the vertex shader.
-    renderer::SphereSizeSpace m_sizeSpace{renderer::SphereSizeSpace::World};
+    // Per-drawable: how a_sphere.w is interpreted. World = local/world-space radius; Screen = a
+    // pixel diameter, converted to a view-space radius in the vertex shader. Defaulted to Screen to
+    // match the public default (renderer::SphereStyle::sizeSpace); DrawablesManager always sets this
+    // explicitly per add, so this initializer is only a safe fallback.
+    renderer::SphereSizeSpace m_sizeSpace{renderer::SphereSizeSpace::Screen};
 
   public:
     SphereImpostorDrawable(SphereImpostorProgram& program,

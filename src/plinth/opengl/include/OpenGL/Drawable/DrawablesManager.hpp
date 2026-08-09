@@ -302,7 +302,9 @@ class DrawablesManager {
                         std::span<const float> radii,
                         std::span<const float> colors,
                         opengl::BufferAccessPattern accessPattern,
-                        renderer::SphereSizeSpace sizeSpace = renderer::SphereSizeSpace::World) {
+                        // Matches the public default (renderer::SphereStyle::sizeSpace). Renderer
+                        // always passes style.sizeSpace explicitly, so this default is a fallback.
+                        renderer::SphereSizeSpace sizeSpace = renderer::SphereSizeSpace::Screen) {
         auto drawable = opengl::make_sphere_impostor_drawable(get_sphere_impostor_program(),
                                                               centers,
                                                               radii,
@@ -415,6 +417,32 @@ class DrawablesManager {
         m_lineDrawables.back().drawable.update_vertex_buffer(vertices, accessPattern);
         m_lineDrawables.back().drawable.update_color_buffer(colors, accessPattern);
         m_lineDrawables.back().drawable.update_indices_buffer(indices, accessPattern);
+        return true;
+    }
+
+    // Unlike points/lines, a sphere drawable has no granular per-buffer update: its opaque/
+    // translucent split, transparency info, and center cache are all derived at construction. So we
+    // rebuild the drawable from new data via the factory and swap it in place, preserving the entry's
+    // id, transform, and size space. Returns false if there is no sphere drawable or the new data is
+    // invalid (in which case the existing drawable is left untouched).
+    bool update_last_sphere_drawable(std::span<const float> centers,
+                                     std::span<const float> radii,
+                                     std::span<const float> colors,
+                                     opengl::BufferAccessPattern accessPattern) {
+        if (m_sphereDrawables.empty()) {
+            return false;
+        }
+        auto rebuilt = opengl::make_sphere_impostor_drawable(get_sphere_impostor_program(),
+                                                             centers,
+                                                             radii,
+                                                             colors,
+                                                             accessPattern);
+        if (!rebuilt.has_value()) {
+            return false;
+        }
+        DrawableEntry<opengl::SphereImpostorDrawable>& entry = m_sphereDrawables.back();
+        rebuilt->set_size_space(entry.drawable.get_size_space());
+        entry.drawable = std::move(rebuilt.value());
         return true;
     }
 

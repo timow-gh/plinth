@@ -576,6 +576,63 @@ TEST_F(SphereImpostorRendererTest, OpaqueSphereIsVisibleInPresentedScene) {
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
+// update_last_sphere_point_drawable rebuilds the most recent sphere drawable from new data. This
+// verifies the new data actually takes effect on screen (color changes red -> green) and that the
+// no-op contract holds when there is no sphere drawable or the data is invalid.
+TEST_F(SphereImpostorRendererTest, UpdateLastSphereDrawableReplacesRenderedData) {
+    auto instance = create_readback_renderer();
+    ASSERT_NE(nullptr, instance);
+
+    // With no sphere drawable yet, an update is a no-op and must not create one.
+    const std::vector<float> center{0.0F, 0.0F, 0.0F};
+    const std::vector<float> diameter{4.0F};
+    instance->update_last_sphere_point_drawable(center, diameter, std::array<float, 4>{0.0F, 1.0F, 0.0F, 1.0F},
+                                                renderer::BufferAccessPattern::Dynamic);
+    EXPECT_FALSE(instance->has_sphere_point_drawables());
+
+    ASSERT_TRUE(instance->add_sphere_point_drawable(center, diameter, std::array<float, 4>{1.0F, 0.0F, 0.0F, 1.0F})
+                    .is_valid());
+
+    renderer::LightingConfig flatLighting;
+    flatLighting.lightColor = {0.0F, 0.0F, 0.0F};
+    flatLighting.fillLightColor = {0.0F, 0.0F, 0.0F};
+    flatLighting.ambientColor = {1.0F, 1.0F, 1.0F};
+    flatLighting.materialAmbient = {1.0F, 1.0F, 1.0F};
+    flatLighting.materialDiffuse = {0.0F, 0.0F, 0.0F};
+    flatLighting.materialSpecular = {0.0F, 0.0F, 0.0F};
+
+    const auto render_center_pixel = [&] {
+        auto camera = instance->get_camera().lock();
+        camera->look_at({0.0, 0.0, 8.0}, {0.0, 0.0, 0.0}, {0.0, 1.0, 0.0});
+        instance->begin_frame({0.0F, 0.0F, 0.0F, 1.0F});
+        instance->draw(flatLighting);
+        instance->end_frame();
+        glFinish();
+        const auto [x, y] = scene_interior_coordinate(*instance);
+        return read_front_pixel(x, y);
+    };
+
+    const auto before = render_center_pixel();
+    EXPECT_GT(static_cast<int>(before[0]), static_cast<int>(before[1])) << "sphere starts red-dominant";
+
+    // Replace the sphere with a green one at the same place/size.
+    instance->update_last_sphere_point_drawable(center, diameter, std::array<float, 4>{0.0F, 1.0F, 0.0F, 1.0F},
+                                                renderer::BufferAccessPattern::Dynamic);
+    EXPECT_TRUE(instance->has_sphere_point_drawables());
+
+    const auto after = render_center_pixel();
+    EXPECT_GT(static_cast<int>(after[1]), static_cast<int>(after[0])) << "updated sphere should be green-dominant";
+
+    // Invalid data (mismatched center/radii counts) leaves the existing drawable untouched.
+    const std::vector<float> twoCenters{0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F};
+    instance->update_last_sphere_point_drawable(twoCenters, diameter, std::array<float, 4>{1.0F, 0.0F, 0.0F, 1.0F},
+                                                renderer::BufferAccessPattern::Dynamic);
+    const auto afterInvalid = render_center_pixel();
+    EXPECT_GT(static_cast<int>(afterInvalid[1]), static_cast<int>(afterInvalid[0]))
+        << "invalid update must not change the existing green sphere";
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
 // The example scenario: a sphere sitting on a coplanar mesh at z=0. The sphere's front
 // surface (z = +radius) is nearer the camera than the mesh, so its manually written
 // gl_FragDepth must win the depth test and the sphere must occlude the mesh at the center.

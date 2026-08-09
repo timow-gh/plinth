@@ -860,6 +860,23 @@ void Renderer::update_last_line_drawable(std::span<const float> vertices,
     }
 }
 
+void Renderer::update_last_sphere_point_drawable(std::span<const float> centers,
+                                                 std::span<const float> radii,
+                                                 std::array<float, 4> color,
+                                                 renderer::BufferAccessPattern accessPattern) {
+    const std::vector<float> colors = expand_color(centers, color);
+    update_last_sphere_point_drawable(centers, radii, colors, accessPattern);
+}
+
+void Renderer::update_last_sphere_point_drawable(std::span<const float> centers,
+                                                 std::span<const float> radii,
+                                                 std::span<const float> colors,
+                                                 renderer::BufferAccessPattern accessPattern) {
+    if (m_drawablesManager->update_last_sphere_drawable(centers, radii, colors, accessPattern)) {
+        request_auto_fit();
+    }
+}
+
 void Renderer::clear_point_drawables() {
     if (m_drawablesManager->clear_point_drawables()) {
         request_auto_fit();

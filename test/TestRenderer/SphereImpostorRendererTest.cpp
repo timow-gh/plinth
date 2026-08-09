@@ -576,22 +576,27 @@ TEST_F(SphereImpostorRendererTest, OpaqueSphereIsVisibleInPresentedScene) {
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
-// update_last_sphere_point_drawable rebuilds the most recent sphere drawable from new data. This
-// verifies the new data actually takes effect on screen (color changes red -> green) and that the
-// no-op contract holds when there is no sphere drawable or the data is invalid.
-TEST_F(SphereImpostorRendererTest, UpdateLastSphereDrawableReplacesRenderedData) {
+// update_sphere_point_drawable(handle, ...) rebuilds a specific sphere drawable from new data. This
+// verifies the new data takes effect on screen (color red -> green), that the returned bool reflects
+// success/failure, and that invalid data leaves the existing drawable untouched.
+TEST_F(SphereImpostorRendererTest, UpdateSphereDrawableReplacesRenderedData) {
     auto instance = create_readback_renderer();
     ASSERT_NE(nullptr, instance);
 
-    // With no sphere drawable yet, an update is a no-op and must not create one.
     const std::vector<float> center{0.0F, 0.0F, 0.0F};
     const std::vector<float> diameter{4.0F};
-    instance->update_last_sphere_point_drawable(center, diameter, std::array<float, 4>{0.0F, 1.0F, 0.0F, 1.0F},
-                                                renderer::BufferAccessPattern::Dynamic);
+
+    // Updating an invalid handle is rejected and creates nothing.
+    EXPECT_FALSE(instance->update_sphere_point_drawable(renderer::DrawableHandle{},
+                                                        center,
+                                                        diameter,
+                                                        std::array<float, 4>{0.0F, 1.0F, 0.0F, 1.0F},
+                                                        renderer::BufferAccessPattern::Dynamic));
     EXPECT_FALSE(instance->has_sphere_point_drawables());
 
-    ASSERT_TRUE(instance->add_sphere_point_drawable(center, diameter, std::array<float, 4>{1.0F, 0.0F, 0.0F, 1.0F})
-                    .is_valid());
+    const renderer::DrawableHandle handle =
+        instance->add_sphere_point_drawable(center, diameter, std::array<float, 4>{1.0F, 0.0F, 0.0F, 1.0F});
+    ASSERT_TRUE(handle.is_valid());
 
     renderer::LightingConfig flatLighting;
     flatLighting.lightColor = {0.0F, 0.0F, 0.0F};
@@ -616,20 +621,94 @@ TEST_F(SphereImpostorRendererTest, UpdateLastSphereDrawableReplacesRenderedData)
     EXPECT_GT(static_cast<int>(before[0]), static_cast<int>(before[1])) << "sphere starts red-dominant";
 
     // Replace the sphere with a green one at the same place/size.
-    instance->update_last_sphere_point_drawable(center, diameter, std::array<float, 4>{0.0F, 1.0F, 0.0F, 1.0F},
-                                                renderer::BufferAccessPattern::Dynamic);
+    EXPECT_TRUE(instance->update_sphere_point_drawable(handle,
+                                                       center,
+                                                       diameter,
+                                                       std::array<float, 4>{0.0F, 1.0F, 0.0F, 1.0F},
+                                                       renderer::BufferAccessPattern::Dynamic));
     EXPECT_TRUE(instance->has_sphere_point_drawables());
 
     const auto after = render_center_pixel();
     EXPECT_GT(static_cast<int>(after[1]), static_cast<int>(after[0])) << "updated sphere should be green-dominant";
 
-    // Invalid data (mismatched center/radii counts) leaves the existing drawable untouched.
+    // Invalid data (mismatched center/radii counts) is rejected and leaves the drawable untouched.
     const std::vector<float> twoCenters{0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F};
-    instance->update_last_sphere_point_drawable(twoCenters, diameter, std::array<float, 4>{1.0F, 0.0F, 0.0F, 1.0F},
-                                                renderer::BufferAccessPattern::Dynamic);
+    EXPECT_FALSE(instance->update_sphere_point_drawable(handle,
+                                                        twoCenters,
+                                                        diameter,
+                                                        std::array<float, 4>{1.0F, 0.0F, 0.0F, 1.0F},
+                                                        renderer::BufferAccessPattern::Dynamic));
     const auto afterInvalid = render_center_pixel();
     EXPECT_GT(static_cast<int>(afterInvalid[1]), static_cast<int>(afterInvalid[0]))
         << "invalid update must not change the existing green sphere";
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+// Color-only update via update_drawable_colors recolors in place (red -> green) without touching
+// geometry, and must preserve the drawable's Screen size space (the sphere keeps its pixel size).
+TEST_F(SphereImpostorRendererTest, ColorOnlyUpdateRecolorsAndKeepsSizeSpace) {
+    auto instance = create_readback_renderer();
+    ASSERT_NE(nullptr, instance);
+
+    const std::vector<float> center{0.0F, 0.0F, 0.0F};
+    const std::vector<float> diameter{24.0F};
+    const renderer::DrawableHandle handle = instance->add_sphere_point_drawable(
+        center, diameter, std::array<float, 4>{1.0F, 0.0F, 0.0F, 1.0F}, renderer::SphereStyle{renderer::SphereSizeSpace::Screen});
+    ASSERT_TRUE(handle.is_valid());
+
+    renderer::LightingConfig flatLighting;
+    flatLighting.lightColor = {0.0F, 0.0F, 0.0F};
+    flatLighting.fillLightColor = {0.0F, 0.0F, 0.0F};
+    flatLighting.ambientColor = {1.0F, 1.0F, 1.0F};
+    flatLighting.materialAmbient = {1.0F, 1.0F, 1.0F};
+    flatLighting.materialDiffuse = {0.0F, 0.0F, 0.0F};
+    flatLighting.materialSpecular = {0.0F, 0.0F, 0.0F};
+
+    const auto render = [&] {
+        auto camera = instance->get_camera().lock();
+        camera->look_at({0.0, 0.0, 8.0}, {0.0, 0.0, 0.0}, {0.0, 1.0, 0.0});
+        instance->begin_frame({0.0F, 0.0F, 0.0F, 1.0F});
+        instance->draw(flatLighting);
+        instance->end_frame();
+        glFinish();
+    };
+
+    // Measure the covered center-row span so we can confirm the diameter (size space) is unchanged.
+    const auto coveredRowPixels = [&] {
+        const auto viewport = instance->scene_viewport();
+        std::vector<std::uint8_t> row(static_cast<std::size_t>(viewport.framebuffer.width) * 4U);
+        glReadBuffer(GL_FRONT);
+        glReadPixels(viewport.framebuffer.x,
+                     viewport.framebuffer.y + viewport.framebuffer.height / 2,
+                     viewport.framebuffer.width,
+                     1,
+                     GL_RGBA,
+                     GL_UNSIGNED_BYTE,
+                     row.data());
+        std::size_t covered = 0;
+        for (std::size_t pixel = 0; pixel < row.size() / 4U; ++pixel) {
+            covered += row[pixel * 4U] > 20U || row[(pixel * 4U) + 1U] > 20U ? 1U : 0U;
+        }
+        return covered;
+    };
+
+    render();
+    const std::size_t coveredBefore = coveredRowPixels();
+    const auto [x, y] = scene_interior_coordinate(*instance);
+    const auto before = read_front_pixel(x, y);
+    EXPECT_GT(static_cast<int>(before[0]), static_cast<int>(before[1])) << "starts red";
+
+    // Recolor to green via the color-only path (per-instance rgba).
+    EXPECT_TRUE(instance->update_drawable_colors(handle, std::array<float, 4>{0.0F, 1.0F, 0.0F, 1.0F}));
+
+    render();
+    const std::size_t coveredAfter = coveredRowPixels();
+    const auto after = read_front_pixel(x, y);
+    EXPECT_GT(static_cast<int>(after[1]), static_cast<int>(after[0])) << "recolored to green";
+
+    // Size space preserved: the silhouette width should be unchanged by a color-only update.
+    const std::size_t diff = coveredBefore > coveredAfter ? coveredBefore - coveredAfter : coveredAfter - coveredBefore;
+    EXPECT_LE(diff, 2U) << "color-only update must not change the sphere's pixel size";
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 

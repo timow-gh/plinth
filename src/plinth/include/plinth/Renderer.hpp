@@ -251,31 +251,54 @@ class Renderer {
     bool set_line_dash_enabled(DrawableHandle handle, bool enabled);
     bool set_line_dash(DrawableHandle handle, float dashSize, float gapSize);
 
-    /// Updates affect the most recently added drawable of that kind. If none
-    /// exists, the call is ignored. Input spans are copied during the call.
-    void update_last_point_drawable(std::span<const float> vertices,
-                                    std::span<const float> colors,
-                                    std::span<const std::uint32_t> indices,
-                                    BufferAccessPattern accessPattern);
+    /// Drawable updates target a specific drawable by handle. Every function returns true when the
+    /// update was applied and false otherwise (invalid/foreign/removed/stale handle, wrong kind, or
+    /// invalid data such as empty or mismatched-length spans); rejections are logged with a specific
+    /// message via the error sink. On success the scene is re-fit if auto-fit is enabled. Input
+    /// spans are copied during the call.
+    ///
+    /// Color-only updates recolor without touching geometry — the common case (e.g. selection
+    /// highlighting). The uniform overload paints every vertex/instance the same color; the span
+    /// overload takes one rgba per vertex/instance (its length must match the drawable's count).
+    /// Works for any drawable kind, dispatched on the handle's kind.
+    bool update_drawable_colors(DrawableHandle handle, std::array<float, 4> color);
+    bool update_drawable_colors(DrawableHandle handle, std::span<const float> colors);
 
-    void update_last_line_drawable(std::span<const float> vertices,
-                                   std::span<const float> colors,
-                                   std::span<const std::uint32_t> indices,
-                                   BufferAccessPattern accessPattern);
+    /// Full updates replace geometry and color. Payloads differ per kind, so each has its own
+    /// function; the handle's kind must match. Point/line take vertices+colors+indices; sphere takes
+    /// centers+radii+colors; mesh takes vertices+normals+colors+indices (non-textured). The
+    /// drawable's transform is preserved; mesh cull mode and sphere size space are preserved too.
+    /// The primitive/sphere count may change. Uniform-color overloads paint one color everywhere.
+    bool update_point_drawable(DrawableHandle handle,
+                               std::span<const float> vertices,
+                               std::span<const float> colors,
+                               std::span<const std::uint32_t> indices,
+                               BufferAccessPattern accessPattern);
 
-    /// Replaces the centers/radii/colors of the most recently added sphere-point drawable, keeping
-    /// its transform and size space. The drawable is rebuilt from the new data, so the sphere count
-    /// may change. If no sphere drawable exists or the data is invalid (mismatched lengths, empty),
-    /// the call is ignored and existing state is unchanged. Input spans are copied during the call.
-    void update_last_sphere_point_drawable(std::span<const float> centers,
-                                           std::span<const float> radii,
-                                           std::array<float, 4> color,
-                                           BufferAccessPattern accessPattern);
+    bool update_line_drawable(DrawableHandle handle,
+                              std::span<const float> vertices,
+                              std::span<const float> colors,
+                              std::span<const std::uint32_t> indices,
+                              BufferAccessPattern accessPattern);
 
-    void update_last_sphere_point_drawable(std::span<const float> centers,
-                                           std::span<const float> radii,
-                                           std::span<const float> colors,
-                                           BufferAccessPattern accessPattern);
+    bool update_mesh_drawable(DrawableHandle handle,
+                              std::span<const float> vertices,
+                              std::span<const float> normals,
+                              std::span<const float> colors,
+                              std::span<const std::uint32_t> triangleIndices,
+                              BufferAccessPattern accessPattern);
+
+    bool update_sphere_point_drawable(DrawableHandle handle,
+                                      std::span<const float> centers,
+                                      std::span<const float> radii,
+                                      std::array<float, 4> color,
+                                      BufferAccessPattern accessPattern);
+
+    bool update_sphere_point_drawable(DrawableHandle handle,
+                                      std::span<const float> centers,
+                                      std::span<const float> radii,
+                                      std::span<const float> colors,
+                                      BufferAccessPattern accessPattern);
 
     /// Returns false for invalid, foreign, removed, or stale handles.
     bool remove_drawable(DrawableHandle handle);

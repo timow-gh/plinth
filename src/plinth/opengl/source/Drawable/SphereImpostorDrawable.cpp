@@ -37,6 +37,47 @@ namespace {
     return inverse;
 }
 
+// Splits parallel center/radius/color arrays into opaque and translucent interleaved instance blobs
+// (ABI: cx, cy, cz, radius, r, g, b, a). A sphere is translucent when its alpha < 1. The translucent
+// spheres also get a SortableSphereInstance copy so their GPU order can be resorted per frame.
+// Shared by make_sphere_impostor_drawable and SphereImpostorDrawable::update_colors so the split
+// stays identical in both paths.
+struct SphereInstanceSplit {
+    std::vector<float> opaqueData;
+    std::vector<float> translucentData;
+    std::vector<SphereImpostorDrawable::SortableSphereInstance> translucentSpheres;
+};
+
+[[nodiscard]] SphereInstanceSplit split_sphere_instances(std::span<const float> centers,
+                                                         std::span<const float> radii,
+                                                         std::span<const float> colors) {
+    const std::size_t sphereCount = centers.size() / 3U;
+    SphereInstanceSplit split;
+    split.opaqueData.reserve(sphereCount * kSphereInstanceFloats);
+    split.translucentData.reserve(sphereCount * kSphereInstanceFloats);
+
+    for (std::size_t i = 0; i < sphereCount; ++i) {
+        const float alpha = colors[i * 4U + 3U];
+        std::array<float, 8> inst{centers[i * 3U],
+                                  centers[i * 3U + 1U],
+                                  centers[i * 3U + 2U],
+                                  radii[i],
+                                  colors[i * 4U],
+                                  colors[i * 4U + 1U],
+                                  colors[i * 4U + 2U],
+                                  alpha};
+        if (alpha < 1.0F) {
+            split.translucentData.insert(split.translucentData.end(), inst.begin(), inst.end());
+            split.translucentSpheres.push_back(SphereImpostorDrawable::SortableSphereInstance{
+                inst,
+                linal::float3{centers[i * 3U], centers[i * 3U + 1U], centers[i * 3U + 2U]}});
+        } else {
+            split.opaqueData.insert(split.opaqueData.end(), inst.begin(), inst.end());
+        }
+    }
+    return split;
+}
+
 } // namespace
 
 SphereImpostorDrawable::SphereImpostorDrawable(SphereImpostorProgram& program,
@@ -45,14 +86,16 @@ SphereImpostorDrawable::SphereImpostorDrawable(SphereImpostorProgram& program,
                                                InstanceBuffer translucentInstanceBuffer,
                                                DrawableTransparencyInfo transparencyInfo,
                                                std::vector<SortableSphereInstance> translucentSpheres,
-                                               std::vector<linal::float3> centers)
+                                               std::vector<linal::float3> centers,
+                                               std::vector<float> radii)
     : m_program{&program}
     , m_vertexArray{std::move(vertexArray)}
     , m_opaqueInstanceBuffer{std::move(opaqueInstanceBuffer)}
     , m_translucentInstanceBuffer{std::move(translucentInstanceBuffer)}
     , m_transparencyInfo{transparencyInfo}
     , m_translucentSpheres{std::move(translucentSpheres)}
-    , m_centers{std::move(centers)} {
+    , m_centers{std::move(centers)}
+    , m_radii{std::move(radii)} {
 }
 
 SphereImpostorDrawable::SphereImpostorDrawable(SphereImpostorDrawable&& other) noexcept
@@ -63,6 +106,7 @@ SphereImpostorDrawable::SphereImpostorDrawable(SphereImpostorDrawable&& other) n
     , m_transparencyInfo{other.m_transparencyInfo}
     , m_translucentSpheres{std::move(other.m_translucentSpheres)}
     , m_centers{std::move(other.m_centers)}
+    , m_radii{std::move(other.m_radii)}
     , m_sizeSpace{other.m_sizeSpace} {
     other.m_program = nullptr;
 }
@@ -76,10 +120,39 @@ SphereImpostorDrawable& SphereImpostorDrawable::operator=(SphereImpostorDrawable
         m_transparencyInfo = other.m_transparencyInfo;
         m_translucentSpheres = std::move(other.m_translucentSpheres);
         m_centers = std::move(other.m_centers);
+        m_radii = std::move(other.m_radii);
         m_sizeSpace = other.m_sizeSpace;
         other.m_program = nullptr;
     }
     return *this;
+}
+
+bool SphereImpostorDrawable::update_colors(std::span<const float> colors, BufferAccessPattern accessPattern) {
+    const std::size_t sphereCount = m_radii.size();
+    if (colors.size() % 4U != 0 || colors.size() / 4U != sphereCount) {
+        return false;
+    }
+
+    // Flatten retained centers back to the (x, y, z) triplet layout the split helper expects.
+    std::vector<float> centers;
+    centers.reserve(sphereCount * 3U);
+    for (const linal::float3& center: m_centers) {
+        centers.push_back(center[0]);
+        centers.push_back(center[1]);
+        centers.push_back(center[2]);
+    }
+
+    SphereInstanceSplit split = split_sphere_instances(centers, m_radii, colors);
+
+    // Re-upload both buffers. update() re-orphans storage and recomputes the instance count, so a
+    // sphere whose alpha crossed 1.0 correctly migrates between the opaque and translucent buffers.
+    // The translucent draw path re-sorts m_translucentSpheres each frame, so replacing it is enough.
+    m_opaqueInstanceBuffer.update(split.opaqueData, accessPattern);
+    m_translucentInstanceBuffer.update(split.translucentData,
+                                       split.translucentData.empty() ? accessPattern : BufferAccessPattern::Stream);
+    m_translucentSpheres = std::move(split.translucentSpheres);
+    m_transparencyInfo.isTranslucent = contains_translucent_alpha(colors, 4);
+    return true;
 }
 
 void SphereImpostorDrawable::set_common_uniforms(const linal::hmatf& viewMatrix,
@@ -330,31 +403,10 @@ std::optional<SphereImpostorDrawable> make_sphere_impostor_drawable(SphereImpost
 
     // Split once at construction so opaque rendering never pays for blending or per-frame sorting.
     // A translucent CPU copy is retained below because its GPU order changes with the camera.
-    std::vector<float> opaqueData;
-    std::vector<float> translucentData;
-    std::vector<SphereImpostorDrawable::SortableSphereInstance> translucentSpheres;
-    opaqueData.reserve(sphereCount * kSphereInstanceFloats);
-    translucentData.reserve(sphereCount * kSphereInstanceFloats);
-
-    for (std::size_t i = 0; i < sphereCount; ++i) {
-        const float alpha = colors[i * 4U + 3U];
-        std::array<float, 8> inst{centers[i * 3U],
-                                  centers[i * 3U + 1U],
-                                  centers[i * 3U + 2U],
-                                  radii[i],
-                                  colors[i * 4U],
-                                  colors[i * 4U + 1U],
-                                  colors[i * 4U + 2U],
-                                  alpha};
-        if (alpha < 1.0F) {
-            translucentData.insert(translucentData.end(), inst.begin(), inst.end());
-            translucentSpheres.push_back(SphereImpostorDrawable::SortableSphereInstance{
-                inst,
-                linal::float3{centers[i * 3U], centers[i * 3U + 1U], centers[i * 3U + 2U]}});
-        } else {
-            opaqueData.insert(opaqueData.end(), inst.begin(), inst.end());
-        }
-    }
+    SphereInstanceSplit split = split_sphere_instances(centers, radii, colors);
+    std::vector<float>& opaqueData = split.opaqueData;
+    std::vector<float>& translucentData = split.translucentData;
+    std::vector<SphereImpostorDrawable::SortableSphereInstance>& translucentSpheres = split.translucentSpheres;
 
     auto vertexArray = VertexArray::create();
     if (!vertexArray) {
@@ -387,12 +439,14 @@ std::optional<SphereImpostorDrawable> make_sphere_impostor_drawable(SphereImpost
     // Build DrawableTransparencyInfo using centers as the vertex array.
     const DrawableTransparencyInfo transparencyInfo = make_drawable_transparency_info(centers, 3, colors, 4);
 
-    // Collect all sphere centers for get_vertex_positions().
+    // Collect all sphere centers for get_vertex_positions() and retain radii so a later color-only
+    // update can rebuild instance data without the caller re-supplying geometry.
     std::vector<linal::float3> centerVec;
     centerVec.reserve(sphereCount);
     for (std::size_t i = 0; i < sphereCount; ++i) {
         centerVec.push_back(linal::float3{centers[i * 3U], centers[i * 3U + 1U], centers[i * 3U + 2U]});
     }
+    std::vector<float> radiiVec{radii.begin(), radii.end()};
 
     return SphereImpostorDrawable{program,
                                   std::move(*vertexArray),
@@ -400,7 +454,8 @@ std::optional<SphereImpostorDrawable> make_sphere_impostor_drawable(SphereImpost
                                   std::move(*translucentBuffer),
                                   transparencyInfo,
                                   std::move(translucentSpheres),
-                                  std::move(centerVec)};
+                                  std::move(centerVec),
+                                  std::move(radiiVec)};
 }
 
 } // namespace opengl

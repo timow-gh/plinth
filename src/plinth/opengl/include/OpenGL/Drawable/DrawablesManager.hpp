@@ -394,42 +394,120 @@ class DrawablesManager {
         return get_drawable_transform_by_id(m_sphereDrawables, id);
     }
 
-    bool update_last_point_drawable(std::span<const float> vertices,
+    // ── Update by id ────────────────────────────────────────────────────────────────────────
+    // Full-geometry updates (vertices/indices/colors) and color-only fast paths, targeting a
+    // specific drawable by id. Each returns false (leaving the drawable untouched) when the id is
+    // not found or the drawable rejects the data. Point/line reuse their granular buffer updates;
+    // mesh/sphere geometry updates rebuild via the factory and swap in place, preserving the entry's
+    // id and transform (and mesh cull mode, stored separately by id) and the sphere's size space.
+
+    bool update_point_drawable_by_id(DrawableId id,
+                                     std::span<const float> vertices,
+                                     std::span<const float> colors,
+                                     std::span<const std::uint32_t> indices,
+                                     opengl::BufferAccessPattern accessPattern) {
+        return mutate_drawable_by_id(m_pointDrawables, id, [&](opengl::PointDrawable& d) {
+            d.update_point_drawable(vertices, colors, indices, accessPattern);
+        });
+    }
+
+    bool update_line_drawable_by_id(DrawableId id,
+                                    std::span<const float> vertices,
                                     std::span<const float> colors,
                                     std::span<const std::uint32_t> indices,
                                     opengl::BufferAccessPattern accessPattern) {
-        if (m_pointDrawables.empty()) {
+        return mutate_drawable_by_id(m_lineDrawables, id, [&](opengl::LineDrawable& d) {
+            d.update_line_drawable(vertices, colors, indices, accessPattern);
+        });
+    }
+
+    bool update_point_drawable_colors_by_id(DrawableId id,
+                                            std::span<const float> colors,
+                                            opengl::BufferAccessPattern accessPattern) {
+        return mutate_drawable_by_id(m_pointDrawables, id, [&](opengl::PointDrawable& d) {
+            d.update_color_buffer(colors, accessPattern);
+        });
+    }
+
+    bool update_line_drawable_colors_by_id(DrawableId id,
+                                           std::span<const float> colors,
+                                           opengl::BufferAccessPattern accessPattern) {
+        return mutate_drawable_by_id(m_lineDrawables, id, [&](opengl::LineDrawable& d) {
+            d.update_color_buffer(colors, accessPattern);
+        });
+    }
+
+    bool update_mesh_drawable_colors_by_id(DrawableId id,
+                                           std::span<const float> colors,
+                                           opengl::BufferAccessPattern accessPattern) {
+        return mutate_drawable_by_id(m_meshDrawables, id, [&](opengl::MeshDrawable& d) {
+            d.update_color_buffer(colors, accessPattern);
+        });
+    }
+
+    // Vertex/instance count (from the drawable's retained positions) so callers can expand a uniform
+    // color to the per-vertex layout the color-update methods expect. nullopt if the id is absent.
+    std::optional<std::size_t> point_drawable_vertex_count_by_id(DrawableId id) const {
+        return vertex_count_by_id(m_pointDrawables, id);
+    }
+    std::optional<std::size_t> line_drawable_vertex_count_by_id(DrawableId id) const {
+        return vertex_count_by_id(m_lineDrawables, id);
+    }
+    std::optional<std::size_t> mesh_drawable_vertex_count_by_id(DrawableId id) const {
+        return vertex_count_by_id(m_meshDrawables, id);
+    }
+    std::optional<std::size_t> sphere_drawable_vertex_count_by_id(DrawableId id) const {
+        return vertex_count_by_id(m_sphereDrawables, id);
+    }
+
+    // Non-textured geometry rebuild. The rebuilt mesh keeps the entry's id/transform; its cull mode
+    // lives in m_meshCullModes keyed by id and so survives untouched.
+    bool update_mesh_drawable_by_id(DrawableId id,
+                                    std::span<const float> vertices,
+                                    std::int32_t vertexDimension,
+                                    std::span<const float> normals,
+                                    std::span<const float> colors,
+                                    std::int32_t colorDimension,
+                                    std::span<const std::uint32_t> triangleIndices,
+                                    opengl::BufferAccessPattern accessPattern) {
+        DrawableEntry<opengl::MeshDrawable>* entry = find_entry_by_id(m_meshDrawables, id);
+        if (entry == nullptr) {
             return false;
         }
-        m_pointDrawables.back().drawable.update_vertex_buffer(vertices, accessPattern);
-        m_pointDrawables.back().drawable.update_color_buffer(colors, accessPattern);
-        m_pointDrawables.back().drawable.update_indices_buffer(indices, accessPattern);
+        std::vector<float> textureCoordinates(
+            (vertices.size() / static_cast<std::size_t>(vertexDimension)) * 2U, 0.0F);
+        auto rebuilt = opengl::make_mesh_soup(get_mesh_program(),
+                                              vertices,
+                                              vertexDimension,
+                                              normals,
+                                              textureCoordinates,
+                                              colors,
+                                              colorDimension,
+                                              triangleIndices,
+                                              accessPattern);
+        if (!rebuilt.has_value()) {
+            return false;
+        }
+        entry->drawable = std::move(rebuilt.value());
         return true;
     }
 
-    bool update_last_line_drawable(std::span<const float> vertices,
-                                   std::span<const float> colors,
-                                   std::span<const std::uint32_t> indices,
-                                   opengl::BufferAccessPattern accessPattern) {
-        if (m_lineDrawables.empty()) {
-            return false;
-        }
-        m_lineDrawables.back().drawable.update_vertex_buffer(vertices, accessPattern);
-        m_lineDrawables.back().drawable.update_color_buffer(colors, accessPattern);
-        m_lineDrawables.back().drawable.update_indices_buffer(indices, accessPattern);
-        return true;
+    bool update_sphere_drawable_colors_by_id(DrawableId id,
+                                             std::span<const float> colors,
+                                             opengl::BufferAccessPattern accessPattern) {
+        return mutate_drawable_by_id(m_sphereDrawables, id, [&](opengl::SphereImpostorDrawable& d) {
+            d.update_colors(colors, accessPattern);
+        });
     }
 
-    // Unlike points/lines, a sphere drawable has no granular per-buffer update: its opaque/
-    // translucent split, transparency info, and center cache are all derived at construction. So we
-    // rebuild the drawable from new data via the factory and swap it in place, preserving the entry's
-    // id, transform, and size space. Returns false if there is no sphere drawable or the new data is
-    // invalid (in which case the existing drawable is left untouched).
-    bool update_last_sphere_drawable(std::span<const float> centers,
-                                     std::span<const float> radii,
-                                     std::span<const float> colors,
-                                     opengl::BufferAccessPattern accessPattern) {
-        if (m_sphereDrawables.empty()) {
+    // Full sphere rebuild via the factory, preserving the entry's id/transform and the size space.
+    bool update_sphere_drawable_by_id(DrawableId id,
+                                      std::span<const float> centers,
+                                      std::span<const float> radii,
+                                      std::span<const float> colors,
+                                      opengl::BufferAccessPattern accessPattern) {
+        DrawableEntry<opengl::SphereImpostorDrawable>* entry = find_entry_by_id(m_sphereDrawables, id);
+        if (entry == nullptr) {
             return false;
         }
         auto rebuilt = opengl::make_sphere_impostor_drawable(get_sphere_impostor_program(),
@@ -440,9 +518,8 @@ class DrawablesManager {
         if (!rebuilt.has_value()) {
             return false;
         }
-        DrawableEntry<opengl::SphereImpostorDrawable>& entry = m_sphereDrawables.back();
-        rebuilt->set_size_space(entry.drawable.get_size_space());
-        entry.drawable = std::move(rebuilt.value());
+        rebuilt->set_size_space(entry->drawable.get_size_space());
+        entry->drawable = std::move(rebuilt.value());
         return true;
     }
 
@@ -843,6 +920,45 @@ class DrawablesManager {
 
         drawables.erase(it);
         return true;
+    }
+
+    // Returns a pointer to the entry with the given id, or nullptr if absent (or id is 0). Used by
+    // rebuild-style updates that must access both the entry's drawable and its retained fields.
+    template <typename Drawable>
+    static DrawableEntry<Drawable>* find_entry_by_id(std::vector<DrawableEntry<Drawable>>& drawables, DrawableId id) {
+        if (id == 0U) {
+            return nullptr;
+        }
+        const auto it = std::find_if(drawables.begin(), drawables.end(), [id](const DrawableEntry<Drawable>& entry) {
+            return entry.id == id;
+        });
+        return it == drawables.end() ? nullptr : &*it;
+    }
+
+    // Applies fn to the drawable with the given id. Returns false if the id is not found.
+    template <typename Drawable, typename Fn>
+    static bool mutate_drawable_by_id(std::vector<DrawableEntry<Drawable>>& drawables, DrawableId id, Fn&& fn) {
+        DrawableEntry<Drawable>* entry = find_entry_by_id(drawables, id);
+        if (entry == nullptr) {
+            return false;
+        }
+        fn(entry->drawable);
+        return true;
+    }
+
+    template <typename Drawable>
+    static std::optional<std::size_t> vertex_count_by_id(const std::vector<DrawableEntry<Drawable>>& drawables,
+                                                         DrawableId id) {
+        if (id == 0U) {
+            return std::nullopt;
+        }
+        const auto it = std::find_if(drawables.begin(), drawables.end(), [id](const DrawableEntry<Drawable>& entry) {
+            return entry.id == id;
+        });
+        if (it == drawables.end()) {
+            return std::nullopt;
+        }
+        return it->drawable.get_vertex_positions().size() / 3U;
     }
 
     template <typename Drawable>

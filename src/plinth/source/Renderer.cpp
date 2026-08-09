@@ -144,6 +144,11 @@ void report_invalid_argument(std::string_view setter) {
     opengl::report_error(std::string{"Error: Renderer::"} + std::string{setter} + " rejected an invalid value");
 }
 
+void report_update_rejected(std::string_view fn, std::string_view why) {
+    opengl::report_error(std::string{"Error: Renderer::"} + std::string{fn} + " rejected the update: " +
+                         std::string{why});
+}
+
 std::uint32_t valid_framebuffer_dimension(int dimension) {
     return static_cast<std::uint32_t>(dimension > 0 ? dimension : 1);
 }
@@ -842,22 +847,185 @@ bool Renderer::set_line_dash(DrawableHandle handle, float dashSize, float gapSiz
     return m_drawablesManager->set_line_dash(handle.id, dashSize, gapSize);
 }
 
-void Renderer::update_last_point_drawable(std::span<const float> vertices,
-                                          std::span<const float> colors,
-                                          std::span<const std::uint32_t> indices,
-                                          renderer::BufferAccessPattern accessPattern) {
-    if (m_drawablesManager->update_last_point_drawable(vertices, colors, indices, accessPattern)) {
-        request_auto_fit();
+namespace {
+
+// Validates a handle for an update call and, on rejection, logs a specific reason. Returns true only
+// when the handle is usable for a drawable of expectedKind on this renderer.
+bool validate_update_handle(const DrawableHandle& handle,
+                            DrawableKind expectedKind,
+                            std::uint64_t rendererInstance,
+                            std::string_view fn) {
+    if (!handle.is_valid() || handle.rendererInstance != rendererInstance) {
+        report_update_rejected(fn, "invalid, foreign, removed, or stale handle");
+        return false;
     }
+    if (handle.kind != expectedKind) {
+        report_update_rejected(fn, "handle is not of the expected drawable kind");
+        return false;
+    }
+    return true;
 }
 
-void Renderer::update_last_line_drawable(std::span<const float> vertices,
-                                         std::span<const float> colors,
-                                         std::span<const std::uint32_t> indices,
-                                         renderer::BufferAccessPattern accessPattern) {
-    if (m_drawablesManager->update_last_line_drawable(vertices, colors, indices, accessPattern)) {
-        request_auto_fit();
+} // namespace
+
+bool Renderer::update_drawable_colors(DrawableHandle handle, std::array<float, 4> color) {
+    if (!handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
+        report_update_rejected("update_drawable_colors", "invalid, foreign, removed, or stale handle");
+        return false;
     }
+
+    // Uniform fill needs the drawable's vertex/instance count, which only the drawable knows.
+    std::optional<std::size_t> count;
+    switch (handle.kind) {
+    case DrawableKind::point:  count = m_drawablesManager->point_drawable_vertex_count_by_id(handle.id); break;
+    case DrawableKind::line:   count = m_drawablesManager->line_drawable_vertex_count_by_id(handle.id); break;
+    case DrawableKind::mesh:   count = m_drawablesManager->mesh_drawable_vertex_count_by_id(handle.id); break;
+    case DrawableKind::sphere: count = m_drawablesManager->sphere_drawable_vertex_count_by_id(handle.id); break;
+    case DrawableKind::invalid: break;
+    }
+    if (!count.has_value()) {
+        report_update_rejected("update_drawable_colors", "no such drawable for this handle");
+        return false;
+    }
+
+    std::vector<float> colors(*count * 4U);
+    for (std::size_t v = 0; v < *count; ++v) {
+        for (std::size_t c = 0; c < 4U; ++c) {
+            colors[(v * 4U) + c] = color[c];
+        }
+    }
+    return update_drawable_colors(handle, std::span<const float>{colors});
+}
+
+bool Renderer::update_drawable_colors(DrawableHandle handle, std::span<const float> colors) {
+    if (!handle.is_valid() || handle.rendererInstance != m_rendererInstance) {
+        report_update_rejected("update_drawable_colors", "invalid, foreign, removed, or stale handle");
+        return false;
+    }
+    if (colors.empty() || colors.size() % 4U != 0) {
+        report_update_rejected("update_drawable_colors", "colors must be a non-empty multiple of 4 (rgba)");
+        return false;
+    }
+
+    bool updated = false;
+    switch (handle.kind) {
+    case DrawableKind::point:
+        updated = m_drawablesManager->update_point_drawable_colors_by_id(handle.id, colors, BufferAccessPattern::Dynamic);
+        break;
+    case DrawableKind::line:
+        updated = m_drawablesManager->update_line_drawable_colors_by_id(handle.id, colors, BufferAccessPattern::Dynamic);
+        break;
+    case DrawableKind::mesh:
+        updated = m_drawablesManager->update_mesh_drawable_colors_by_id(handle.id, colors, BufferAccessPattern::Dynamic);
+        break;
+    case DrawableKind::sphere:
+        updated = m_drawablesManager->update_sphere_drawable_colors_by_id(handle.id, colors, BufferAccessPattern::Dynamic);
+        break;
+    case DrawableKind::invalid:
+        break;
+    }
+    if (!updated) {
+        report_update_rejected("update_drawable_colors", "no such drawable, or the color count did not match");
+    }
+    return updated;
+}
+
+bool Renderer::update_point_drawable(DrawableHandle handle,
+                                     std::span<const float> vertices,
+                                     std::span<const float> colors,
+                                     std::span<const std::uint32_t> indices,
+                                     renderer::BufferAccessPattern accessPattern) {
+    if (!validate_update_handle(handle, DrawableKind::point, m_rendererInstance, "update_point_drawable")) {
+        return false;
+    }
+    if (vertices.empty() || vertices.size() % 3U != 0 || colors.size() % 4U != 0 ||
+        vertices.size() / 3U != colors.size() / 4U) {
+        report_update_rejected("update_point_drawable", "vertices (xyz) and colors (rgba) must be non-empty and equal in count");
+        return false;
+    }
+    if (!m_drawablesManager->update_point_drawable_by_id(handle.id, vertices, colors, indices, accessPattern)) {
+        report_update_rejected("update_point_drawable", "no such point drawable for this handle");
+        return false;
+    }
+    request_auto_fit();
+    return true;
+}
+
+bool Renderer::update_line_drawable(DrawableHandle handle,
+                                    std::span<const float> vertices,
+                                    std::span<const float> colors,
+                                    std::span<const std::uint32_t> indices,
+                                    renderer::BufferAccessPattern accessPattern) {
+    if (!validate_update_handle(handle, DrawableKind::line, m_rendererInstance, "update_line_drawable")) {
+        return false;
+    }
+    if (vertices.empty() || vertices.size() % 3U != 0 || colors.size() % 4U != 0 ||
+        vertices.size() / 3U != colors.size() / 4U) {
+        report_update_rejected("update_line_drawable", "vertices (xyz) and colors (rgba) must be non-empty and equal in count");
+        return false;
+    }
+    if (!m_drawablesManager->update_line_drawable_by_id(handle.id, vertices, colors, indices, accessPattern)) {
+        report_update_rejected("update_line_drawable", "no such line drawable for this handle");
+        return false;
+    }
+    request_auto_fit();
+    return true;
+}
+
+bool Renderer::update_mesh_drawable(DrawableHandle handle,
+                                    std::span<const float> vertices,
+                                    std::span<const float> normals,
+                                    std::span<const float> colors,
+                                    std::span<const std::uint32_t> triangleIndices,
+                                    renderer::BufferAccessPattern accessPattern) {
+    if (!validate_update_handle(handle, DrawableKind::mesh, m_rendererInstance, "update_mesh_drawable")) {
+        return false;
+    }
+    const std::size_t vertexCount = vertices.size() / 3U;
+    if (vertices.empty() || vertices.size() % 3U != 0 || normals.size() != vertices.size() ||
+        colors.size() % 4U != 0 || colors.size() / 4U != vertexCount) {
+        report_update_rejected("update_mesh_drawable",
+                               "vertices (xyz), normals (xyz), and colors (rgba) must be non-empty and consistent in count");
+        return false;
+    }
+    if (!m_drawablesManager->update_mesh_drawable_by_id(handle.id, vertices, 3, normals, colors, 4, triangleIndices, accessPattern)) {
+        report_update_rejected("update_mesh_drawable", "no such mesh drawable, or the geometry was rejected");
+        return false;
+    }
+    request_auto_fit();
+    return true;
+}
+
+bool Renderer::update_sphere_point_drawable(DrawableHandle handle,
+                                            std::span<const float> centers,
+                                            std::span<const float> radii,
+                                            std::array<float, 4> color,
+                                            renderer::BufferAccessPattern accessPattern) {
+    const std::vector<float> colors = expand_color(centers, color);
+    return update_sphere_point_drawable(handle, centers, radii, colors, accessPattern);
+}
+
+bool Renderer::update_sphere_point_drawable(DrawableHandle handle,
+                                            std::span<const float> centers,
+                                            std::span<const float> radii,
+                                            std::span<const float> colors,
+                                            renderer::BufferAccessPattern accessPattern) {
+    if (!validate_update_handle(handle, DrawableKind::sphere, m_rendererInstance, "update_sphere_point_drawable")) {
+        return false;
+    }
+    const std::size_t sphereCount = centers.size() / 3U;
+    if (centers.empty() || centers.size() % 3U != 0 || radii.size() != sphereCount || colors.size() % 4U != 0 ||
+        colors.size() / 4U != sphereCount) {
+        report_update_rejected("update_sphere_point_drawable",
+                               "centers (xyz), radii, and colors (rgba) must be non-empty and equal in count");
+        return false;
+    }
+    if (!m_drawablesManager->update_sphere_drawable_by_id(handle.id, centers, radii, colors, accessPattern)) {
+        report_update_rejected("update_sphere_point_drawable", "no such sphere drawable for this handle");
+        return false;
+    }
+    request_auto_fit();
+    return true;
 }
 
 void Renderer::clear_point_drawables() {

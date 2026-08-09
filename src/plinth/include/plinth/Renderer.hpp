@@ -137,6 +137,26 @@ class Renderer {
                                       float pointSize = 2.0F,
                                       BufferAccessPattern accessPattern = BufferAccessPattern::Static);
 
+    /// Sphere-impostor point rendering: visualises each input point as a lit sphere without
+    /// tessellating sphere meshes. centers contains local-space xyz triples (N*3 floats), radii
+    /// contains local-space radii (N floats), and colors contains flat RGBA values (N*4 floats)
+    /// or a single uniform color. The drawable's model transform therefore also transforms the
+    /// sphere shape; non-uniform scale produces an ellipsoid. Picking identifies the returned
+    /// drawable as a whole, not an individual sphere. Prefer add_point_drawable for large point
+    /// clouds where raw GL_POINTS performance matters. See docs/sphere-point-rendering.md for the
+    /// rendering contract and extension checklist.
+    DrawableHandle add_sphere_point_drawable(std::span<const float> centers,
+                                             std::span<const float> radii,
+                                             std::array<float, 4> color,
+                                             const renderer::SphereStyle& style = {},
+                                             BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
+    DrawableHandle add_sphere_point_drawable(std::span<const float> centers,
+                                             std::span<const float> radii,
+                                             std::span<const float> colors,
+                                             const renderer::SphereStyle& style = {},
+                                             BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+
     DrawableHandle add_line_drawable(std::span<const float> vertices,
                                      std::span<const std::uint32_t> indices,
                                      std::span<const float> colors,
@@ -204,14 +224,15 @@ class Renderer {
     /// Invalid, foreign, removed, and stale handles leave state unchanged.
     void set_mesh_drawable_cull_mode(DrawableHandle handle, MeshCullFaceMode mode);
 
-    /// Returns false for invalid, foreign, removed, or stale handles.
-    bool remove_drawable(DrawableHandle handle);
-
     /// Transform operations return false (or std::nullopt) for invalid, foreign,
     /// removed, and stale handles; reset restores the identity transform.
     bool set_drawable_transform(DrawableHandle handle, const linal::hmatf& transform);
     [[nodiscard]] std::optional<linal::hmatf> get_drawable_transform(DrawableHandle handle) const;
     bool reset_drawable_transform(DrawableHandle handle);
+
+    /// Selects whether the drawable's sphere radii are measured in world units or pixels.
+    /// Returns false for invalid, foreign, removed, non-sphere, or stale handles.
+    bool set_sphere_point_size_space(DrawableHandle handle, renderer::SphereSizeSpace space);
 
     /// Line style controls. Return false for invalid, foreign, removed, non-line, or stale handles.
     bool set_line_cap(DrawableHandle handle, renderer::LineCap cap);
@@ -230,41 +251,57 @@ class Renderer {
     bool set_line_dash_enabled(DrawableHandle handle, bool enabled);
     bool set_line_dash(DrawableHandle handle, float dashSize, float gapSize);
 
-    /// Updates affect the most recently added drawable of that kind. If none
-    /// exists, the call is ignored. Input spans are copied during the call.
-    void update_last_point_drawable(std::span<const float> vertices,
-                                    std::span<const float> colors,
-                                    std::span<const std::uint32_t> indices,
-                                    BufferAccessPattern accessPattern);
+    /// Drawable updates target a specific drawable by handle. Every function returns true when the
+    /// update was applied and false otherwise (invalid/foreign/removed/stale handle, wrong kind, or
+    /// invalid data such as empty or mismatched-length spans); rejections are logged with a specific
+    /// message via the error sink. On success the scene is re-fit if auto-fit is enabled. Input
+    /// spans are copied during the call.
+    ///
+    /// Color-only updates recolor without touching geometry — the common case (e.g. selection
+    /// highlighting). The uniform overload paints every vertex/instance the same color; the span
+    /// overload takes one rgba per vertex/instance (its length must match the drawable's count).
+    /// Works for any drawable kind, dispatched on the handle's kind.
+    bool update_drawable_colors(DrawableHandle handle, std::array<float, 4> color);
+    bool update_drawable_colors(DrawableHandle handle, std::span<const float> colors);
 
-    void update_last_line_drawable(std::span<const float> vertices,
-                                   std::span<const float> colors,
-                                   std::span<const std::uint32_t> indices,
-                                   BufferAccessPattern accessPattern);
+    /// Full updates replace geometry and color. Payloads differ per kind, so each has its own
+    /// function; the handle's kind must match. Point/line take vertices+colors+indices; sphere takes
+    /// centers+radii+colors; mesh takes vertices+normals+colors+indices (non-textured). The
+    /// drawable's transform is preserved; mesh cull mode and sphere size space are preserved too.
+    /// The primitive/sphere count may change. Uniform-color overloads paint one color everywhere.
+    bool update_point_drawable(DrawableHandle handle,
+                               std::span<const float> vertices,
+                               std::span<const float> colors,
+                               std::span<const std::uint32_t> indices,
+                               BufferAccessPattern accessPattern);
 
-    /// Sphere-impostor point rendering: visualises each input point as a lit sphere without
-    /// tessellating sphere meshes. centers contains local-space xyz triples (N*3 floats), radii
-    /// contains local-space radii (N floats), and colors contains flat RGBA values (N*4 floats)
-    /// or a single uniform color. The drawable's model transform therefore also transforms the
-    /// sphere shape; non-uniform scale produces an ellipsoid. Picking identifies the returned
-    /// drawable as a whole, not an individual sphere. Prefer add_point_drawable for large point
-    /// clouds where raw GL_POINTS performance matters. See docs/sphere-point-rendering.md for the
-    /// rendering contract and extension checklist.
-    DrawableHandle add_sphere_point_drawable(std::span<const float> centers,
-                                             std::span<const float> radii,
-                                             std::array<float, 4> color,
-                                             const renderer::SphereStyle& style = {},
-                                             BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+    bool update_line_drawable(DrawableHandle handle,
+                              std::span<const float> vertices,
+                              std::span<const float> colors,
+                              std::span<const std::uint32_t> indices,
+                              BufferAccessPattern accessPattern);
 
-    DrawableHandle add_sphere_point_drawable(std::span<const float> centers,
-                                             std::span<const float> radii,
-                                             std::span<const float> colors,
-                                             const renderer::SphereStyle& style = {},
-                                             BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+    bool update_mesh_drawable(DrawableHandle handle,
+                              std::span<const float> vertices,
+                              std::span<const float> normals,
+                              std::span<const float> colors,
+                              std::span<const std::uint32_t> triangleIndices,
+                              BufferAccessPattern accessPattern);
 
-    /// Selects whether the drawable's sphere radii are measured in world units or pixels.
-    /// Returns false for invalid, foreign, removed, non-sphere, or stale handles.
-    bool set_sphere_point_size_space(DrawableHandle handle, renderer::SphereSizeSpace space);
+    bool update_sphere_point_drawable(DrawableHandle handle,
+                                      std::span<const float> centers,
+                                      std::span<const float> radii,
+                                      std::array<float, 4> color,
+                                      BufferAccessPattern accessPattern);
+
+    bool update_sphere_point_drawable(DrawableHandle handle,
+                                      std::span<const float> centers,
+                                      std::span<const float> radii,
+                                      std::span<const float> colors,
+                                      BufferAccessPattern accessPattern);
+
+    /// Returns false for invalid, foreign, removed, or stale handles.
+    bool remove_drawable(DrawableHandle handle);
 
     /// Removes all drawables of the given kind. Handles previously returned for
     /// those drawables become invalid and are rejected by subsequent operations.

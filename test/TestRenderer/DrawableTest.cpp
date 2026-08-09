@@ -391,14 +391,17 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerUpdatesClearsAndDrawsTransparentPoint
     EXPECT_FALSE(manager->has_drawables());
     const std::vector<float> emptyFloatData;
     const std::vector<std::uint32_t> emptyIndices;
-    manager->update_last_point_drawable(emptyFloatData,
-                                        emptyFloatData,
-                                        emptyIndices,
-                                        opengl::BufferAccessPattern::Dynamic);
-    manager->update_last_line_drawable(emptyFloatData,
-                                       emptyFloatData,
-                                       emptyIndices,
-                                       opengl::BufferAccessPattern::Dynamic);
+    // Updating a non-existent id is a no-op that reports failure.
+    EXPECT_FALSE(manager->update_point_drawable_by_id(0U,
+                                                      emptyFloatData,
+                                                      emptyFloatData,
+                                                      emptyIndices,
+                                                      opengl::BufferAccessPattern::Dynamic));
+    EXPECT_FALSE(manager->update_line_drawable_by_id(0U,
+                                                     emptyFloatData,
+                                                     emptyFloatData,
+                                                     emptyIndices,
+                                                     opengl::BufferAccessPattern::Dynamic));
 
     const std::vector<float> pointVertices = {
         0.0F,
@@ -519,8 +522,16 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerUpdatesClearsAndDrawsTransparentPoint
     glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
     EXPECT_EQ(GL_TRUE, depthMask);
 
-    manager->update_last_point_drawable(pointVertices, pointColors, emptyIndices, opengl::BufferAccessPattern::Dynamic);
-    manager->update_last_line_drawable(lineVertices, lineColors, emptyIndices, opengl::BufferAccessPattern::Dynamic);
+    EXPECT_TRUE(manager->update_point_drawable_by_id(lastPointId,
+                                                     pointVertices,
+                                                     pointColors,
+                                                     emptyIndices,
+                                                     opengl::BufferAccessPattern::Dynamic));
+    EXPECT_TRUE(manager->update_line_drawable_by_id(lastLineId,
+                                                    lineVertices,
+                                                    lineColors,
+                                                    emptyIndices,
+                                                    opengl::BufferAccessPattern::Dynamic));
     manager->clear_point_drawables();
     manager->clear_line_drawables();
     EXPECT_FALSE(manager->remove_point_drawable(firstPointId));

@@ -86,17 +86,20 @@ per-drawable `u_sizeSpace` int uniform:
 - `World` (default) — `a_sphere.w` is a local/world-space radius. Spheres scale with zoom and
   distance, matching the historical behavior. All prior call sites keep this by defaulting the
   style.
-- `Screen` — `a_sphere.w` is a pixel radius. The vertex shader converts the requested pixel size
-  into a view-space radius (using `u_viewportSize`, the projection's `y` scale, and, for
-  perspective, the view-space depth), then divides out the model-view scale so the resulting local
-  `v_radius` reproduces those pixels. Each sphere then holds a roughly constant on-screen size at
-  any distance or zoom, like `glPointSize`.
+- `Screen` — `a_sphere.w` is a pixel diameter (matching `StrokeStyle::lineWidth`, which is a full
+  pixel width). The vertex shader halves it to a radius and converts that into a view-space radius
+  (using `u_viewportSize`, the projection's `y` scale, and, for perspective, the view-space depth),
+  then divides out the model-view scale so the resulting local `v_radius` reproduces those pixels.
+  Each sphere then holds a roughly constant on-screen size at any distance or zoom, like
+  `glPointSize`.
 
-The pixel size uses the viewport-height basis (`2.0 / u_viewportSize.y`) so a value reads as a
-radius in pixels regardless of aspect ratio. Because Screen mode still routes the radius through
-the model-view scale (spheres remain real, ray-traced surfaces), a non-uniform or scaled model
-transform will scale the apparent pixel size too; use an identity or rigid model transform when a
-caller needs exact pixel sizing.
+The pixel size uses the viewport-height basis: a diameter maps to a half-NDC extent of
+`diameter * (1.0 / u_viewportSize.y)`, so a value reads as a diameter in pixels regardless of
+aspect ratio. This matches the line-width convention, so the same numeric value yields a sphere
+point and a line of roughly equal on-screen size (identity or rigid model transforms). Because
+Screen mode still routes the radius through the model-view scale (spheres remain real, ray-traced
+surfaces), a non-uniform or scaled model transform will scale the apparent pixel size too; use an
+identity or rigid model transform when a caller needs exact pixel sizing.
 
 `u_sizeSpace` is uploaded on the opaque, translucent, and picking paths (all through
 `set_common_uniforms`, plus `draw_pick`), so the picked proxy and surface stay identical to the

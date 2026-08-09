@@ -26,7 +26,8 @@
 namespace {
 
 constexpr float cubeHalfExtent = 0.4F;
-constexpr float markerRadius = 10.0F;
+// Screen-mode sphere points size by pixel diameter (matching line width), so this is a diameter.
+constexpr float markerDiameter = 20.0F;
 constexpr float axisLineWidth = 4.0F;
 constexpr double pickRadius = 4.0;
 constexpr int mouseButtonLeft = 0; // GLFW_MOUSE_BUTTON_LEFT
@@ -223,8 +224,8 @@ int main() {
         auto rebuild = [&renderer, position](const Color& color) {
             // NOLINTNEXTLINE(clang-analyzer-core.CallAndMessage)
             const std::array<float, 3> center{position[0], position[1], position[2]};
-            const std::array<float, 1> radius{markerRadius};
-            return renderer->add_sphere_point_drawable(center, radius, color);
+            const std::array<float, 1> diameter{markerDiameter};
+            return renderer->add_sphere_point_drawable(center, diameter, color);
         };
         const renderer::DrawableHandle handle = rebuild(spherePointColor);
         scene.push_back({handle, label, spherePointColor, std::move(rebuild)});

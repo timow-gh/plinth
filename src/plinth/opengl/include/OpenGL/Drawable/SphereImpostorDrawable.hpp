@@ -54,11 +54,16 @@ class OPENGL_EXPORT SphereImpostorDrawable {
     std::vector<SortableSphereInstance> m_translucentSpheres;
 
     std::vector<linal::float3> m_centers;            // for get_vertex_positions()
+    std::vector<float>         m_radii;              // parallel to m_centers; kept so update_colors
+                                                     // can rebuild instance data without the caller
+                                                     // re-supplying geometry
     mutable std::vector<float> m_positionsCache;
 
-    // Per-drawable: how a_sphere.w is interpreted. World = local/world units;
-    // Screen = pixels, converted to a view-space radius in the vertex shader.
-    renderer::SphereSizeSpace m_sizeSpace{renderer::SphereSizeSpace::World};
+    // Per-drawable: how a_sphere.w is interpreted. World = local/world-space radius; Screen = a
+    // pixel diameter, converted to a view-space radius in the vertex shader. Defaulted to Screen to
+    // match the public default (renderer::SphereStyle::sizeSpace); DrawablesManager always sets this
+    // explicitly per add, so this initializer is only a safe fallback.
+    renderer::SphereSizeSpace m_sizeSpace{renderer::SphereSizeSpace::Screen};
 
   public:
     SphereImpostorDrawable(SphereImpostorProgram& program,
@@ -67,7 +72,8 @@ class OPENGL_EXPORT SphereImpostorDrawable {
                            InstanceBuffer translucentInstanceBuffer,
                            DrawableTransparencyInfo transparencyInfo,
                            std::vector<SortableSphereInstance> translucentSpheres,
-                           std::vector<linal::float3> centers);
+                           std::vector<linal::float3> centers,
+                           std::vector<float> radii);
 
     SphereImpostorDrawable(const SphereImpostorDrawable&) = delete;
     SphereImpostorDrawable& operator=(const SphereImpostorDrawable&) = delete;
@@ -120,6 +126,13 @@ class OPENGL_EXPORT SphereImpostorDrawable {
 
     void set_size_space(renderer::SphereSizeSpace space) noexcept { m_sizeSpace = space; }
     [[nodiscard]] renderer::SphereSizeSpace get_size_space() const noexcept { return m_sizeSpace; }
+
+    // Replaces only the per-instance colors, keeping the retained centers/radii. colors is N*4
+    // (rgba per sphere) where N is the current sphere count. Because alpha can move a sphere between
+    // the opaque and translucent buffers, this re-splits and re-uploads both instance buffers (via
+    // InstanceBuffer::update, so no VAO/attribute recreation) and refreshes transparency info.
+    // Returns false (leaving state unchanged) if colors has the wrong length.
+    bool update_colors(std::span<const float> colors, BufferAccessPattern accessPattern);
 
     [[nodiscard]] double distance_squared_to(const linal::double3& viewPosition) const noexcept {
         return m_transparencyInfo.distance_squared_to(viewPosition);

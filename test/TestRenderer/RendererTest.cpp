@@ -888,6 +888,124 @@ TEST_F(RendererTest, ResetTransformSetsIdentity) {
     EXPECT_TRUE(m_renderer->get_drawable_transform(handle)->is_identity());
 }
 
+// ── Handle-based update API ─────────────────────────────────────────────────────────────────
+namespace {
+const std::array<float, 9> kTriVerts = {0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F};
+const std::array<float, 9> kTriVerts2 = {0.0F, 0.0F, 0.0F, 2.0F, 0.0F, 0.0F, 0.0F, 2.0F, 0.0F};
+const std::array<float, 9> kTriNormals = {0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F};
+const std::array<float, 12> kTriColors = {1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F};
+const std::array<float, 12> kGreenColors = {0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F};
+const std::array<std::uint32_t, 3> kTriIndices = {0U, 1U, 2U};
+} // namespace
+
+TEST_F(RendererTest, FullUpdatePreservesTransformForEachKind) {
+    const linal::hmatf t = make_translation(5.0F, 6.0F, 7.0F);
+
+    const renderer::DrawableHandle point = m_renderer->add_point_drawable(kTriVerts, kTriIndices, kTriColors, 1.0F);
+    const renderer::DrawableHandle line =
+        m_renderer->add_line_drawable(kTriVerts, kTriColors, renderer::LineType::line_strip());
+    const renderer::DrawableHandle mesh =
+        m_renderer->add_mesh_drawable(kTriVerts, kTriIndices, kTriNormals, kTriColors);
+    const renderer::DrawableHandle sphere =
+        m_renderer->add_sphere_point_drawable(kTriVerts, std::vector<float>{4.0F, 4.0F, 4.0F},
+                                              std::span<const float>{kTriColors});
+    ASSERT_TRUE(point.is_valid() && line.is_valid() && mesh.is_valid() && sphere.is_valid());
+
+    for (const renderer::DrawableHandle h: {point, line, mesh, sphere}) {
+        ASSERT_TRUE(m_renderer->set_drawable_transform(h, t));
+    }
+
+    EXPECT_TRUE(m_renderer->update_point_drawable(point, kTriVerts2, kTriColors, kTriIndices,
+                                                  renderer::BufferAccessPattern::Dynamic));
+    EXPECT_TRUE(m_renderer->update_line_drawable(line, kTriVerts2, kTriColors, kTriIndices,
+                                                 renderer::BufferAccessPattern::Dynamic));
+    EXPECT_TRUE(m_renderer->update_mesh_drawable(mesh, kTriVerts2, kTriNormals, kTriColors, kTriIndices,
+                                                 renderer::BufferAccessPattern::Dynamic));
+    EXPECT_TRUE(m_renderer->update_sphere_point_drawable(sphere, kTriVerts2, std::vector<float>{4.0F, 4.0F, 4.0F},
+                                                         std::span<const float>{kTriColors},
+                                                         renderer::BufferAccessPattern::Dynamic));
+
+    for (const renderer::DrawableHandle h: {point, line, mesh, sphere}) {
+        const auto after = m_renderer->get_drawable_transform(h);
+        ASSERT_TRUE(after.has_value());
+        const auto tr = after->get_translation();
+        const linal::double3 actual{static_cast<double>(tr[0]), static_cast<double>(tr[1]), static_cast<double>(tr[2])};
+        EXPECT_TRUE(Double3Near(actual, linal::double3{5.0, 6.0, 7.0}, 1.0e-6))
+            << "full update must preserve the drawable transform";
+    }
+}
+
+TEST_F(RendererTest, MeshFullUpdatePreservesCullMode) {
+    const renderer::DrawableHandle mesh =
+        m_renderer->add_mesh_drawable(kTriVerts, kTriIndices, kTriNormals, kTriColors);
+    ASSERT_TRUE(mesh.is_valid());
+    m_renderer->set_mesh_drawable_cull_mode(mesh, renderer::MeshCullFaceMode::NONE);
+
+    ASSERT_TRUE(m_renderer->update_mesh_drawable(mesh, kTriVerts2, kTriNormals, kTriColors, kTriIndices,
+                                                 renderer::BufferAccessPattern::Dynamic));
+    // Cull mode is stored by id separately from the drawable, so the rebuild must not disturb it.
+    // No getter exists; exercise the draw path to confirm the update did not crash or GL-error.
+    m_renderer->begin_frame();
+    m_renderer->draw();
+    m_renderer->end_frame();
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(RendererTest, FullUpdateRejectsWrongKindHandle) {
+    const renderer::DrawableHandle point = m_renderer->add_point_drawable(kTriVerts, kTriIndices, kTriColors, 1.0F);
+    ASSERT_TRUE(point.is_valid());
+    // A point handle passed to a line/mesh/sphere update must be rejected.
+    EXPECT_FALSE(m_renderer->update_line_drawable(point, kTriVerts2, kTriColors, kTriIndices,
+                                                  renderer::BufferAccessPattern::Dynamic));
+    EXPECT_FALSE(m_renderer->update_mesh_drawable(point, kTriVerts2, kTriNormals, kTriColors, kTriIndices,
+                                                  renderer::BufferAccessPattern::Dynamic));
+    EXPECT_FALSE(m_renderer->update_sphere_point_drawable(point, kTriVerts2, std::vector<float>{4.0F, 4.0F, 4.0F},
+                                                          std::span<const float>{kTriColors},
+                                                          renderer::BufferAccessPattern::Dynamic));
+}
+
+TEST_F(RendererTest, FullUpdateRejectsMismatchedData) {
+    const renderer::DrawableHandle point = m_renderer->add_point_drawable(kTriVerts, kTriIndices, kTriColors, 1.0F);
+    ASSERT_TRUE(point.is_valid());
+    const std::array<float, 8> tooFewColors = {1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F}; // 2 rgba, 3 verts
+    EXPECT_FALSE(m_renderer->update_point_drawable(point, kTriVerts, tooFewColors, kTriIndices,
+                                                   renderer::BufferAccessPattern::Dynamic));
+    const std::array<float, 0> empty{};
+    EXPECT_FALSE(m_renderer->update_point_drawable(point, empty, empty, kTriIndices,
+                                                   renderer::BufferAccessPattern::Dynamic));
+}
+
+TEST_F(RendererTest, UpdateDrawableColorsRecolorsEachKindAndValidates) {
+    const renderer::DrawableHandle point = m_renderer->add_point_drawable(kTriVerts, kTriIndices, kTriColors, 1.0F);
+    const renderer::DrawableHandle line =
+        m_renderer->add_line_drawable(kTriVerts, kTriColors, renderer::LineType::line_strip());
+    const renderer::DrawableHandle mesh =
+        m_renderer->add_mesh_drawable(kTriVerts, kTriIndices, kTriNormals, kTriColors);
+    const renderer::DrawableHandle sphere =
+        m_renderer->add_sphere_point_drawable(kTriVerts, std::vector<float>{4.0F, 4.0F, 4.0F},
+                                              std::span<const float>{kTriColors});
+    ASSERT_TRUE(point.is_valid() && line.is_valid() && mesh.is_valid() && sphere.is_valid());
+
+    // Per-vertex/instance colors (3 rgba) succeed for each kind.
+    for (const renderer::DrawableHandle h: {point, line, mesh, sphere}) {
+        EXPECT_TRUE(m_renderer->update_drawable_colors(h, std::span<const float>{kGreenColors}));
+    }
+    // Uniform color succeeds for each kind (sized internally from the drawable's count).
+    for (const renderer::DrawableHandle h: {point, line, mesh, sphere}) {
+        EXPECT_TRUE(m_renderer->update_drawable_colors(h, std::array<float, 4>{0.0F, 0.0F, 1.0F, 1.0F}));
+    }
+    // Rejections: invalid handle and non-multiple-of-4 color spans.
+    EXPECT_FALSE(m_renderer->update_drawable_colors(renderer::DrawableHandle{},
+                                                    std::array<float, 4>{1.0F, 1.0F, 1.0F, 1.0F}));
+    const std::array<float, 3> notRgba = {1.0F, 0.0F, 0.0F};
+    EXPECT_FALSE(m_renderer->update_drawable_colors(point, std::span<const float>{notRgba}));
+
+    m_renderer->begin_frame();
+    m_renderer->draw();
+    m_renderer->end_frame();
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
 TEST_F(RendererTest, DrawableKindsSupportTransformAndRemoval) {
     const std::array<float, 9> vertices = {
         0.0F,
@@ -1329,16 +1447,18 @@ TEST_P(RendererAutoFitMutationTest, SuccessfulBoundsMutationSchedulesFit) {
 
     switch (GetParam()) {
     case AutoFitMutation::pointUpdate:
-        m_renderer->update_last_point_drawable(farAutoFitVertices,
-                                               autoFitColors,
-                                               autoFitIndices,
-                                               renderer::BufferAccessPattern::Dynamic);
+        ASSERT_TRUE(m_renderer->update_point_drawable(affected,
+                                                      farAutoFitVertices,
+                                                      autoFitColors,
+                                                      autoFitIndices,
+                                                      renderer::BufferAccessPattern::Dynamic));
         break;
     case AutoFitMutation::lineUpdate:
-        m_renderer->update_last_line_drawable(farAutoFitVertices,
-                                              autoFitColors,
-                                              autoFitIndices,
-                                              renderer::BufferAccessPattern::Dynamic);
+        ASSERT_TRUE(m_renderer->update_line_drawable(affected,
+                                                     farAutoFitVertices,
+                                                     autoFitColors,
+                                                     autoFitIndices,
+                                                     renderer::BufferAccessPattern::Dynamic));
         break;
     case AutoFitMutation::remove:      ASSERT_TRUE(m_renderer->remove_drawable(affected)); break;
     case AutoFitMutation::clearPoints: m_renderer->clear_point_drawables(); break;
@@ -1379,14 +1499,17 @@ TEST_F(RendererTest, FailedAndEmptyGeometryCallsDoNotScheduleFit) {
     const renderer::DrawableHandle invalid;
     EXPECT_FALSE(m_renderer->remove_drawable(invalid));
     EXPECT_FALSE(m_renderer->set_drawable_transform(invalid, make_translation(100.0F, 0.0F, 0.0F)));
-    m_renderer->update_last_point_drawable(farAutoFitVertices,
-                                           autoFitColors,
-                                           autoFitIndices,
-                                           renderer::BufferAccessPattern::Dynamic);
-    m_renderer->update_last_line_drawable(farAutoFitVertices,
-                                          autoFitColors,
-                                          autoFitIndices,
-                                          renderer::BufferAccessPattern::Dynamic);
+    // Updates against an invalid handle are rejected and must not schedule a fit.
+    EXPECT_FALSE(m_renderer->update_point_drawable(invalid,
+                                                   farAutoFitVertices,
+                                                   autoFitColors,
+                                                   autoFitIndices,
+                                                   renderer::BufferAccessPattern::Dynamic));
+    EXPECT_FALSE(m_renderer->update_line_drawable(invalid,
+                                                  farAutoFitVertices,
+                                                  autoFitColors,
+                                                  autoFitIndices,
+                                                  renderer::BufferAccessPattern::Dynamic));
     m_renderer->clear_point_drawables();
     m_renderer->clear_line_drawables();
 

@@ -21,6 +21,20 @@ namespace {
 //   floats 12-15  a_color1 offset 48
 //   floats 16-19  a_pPrev  offset 64
 //   floats 20-23  a_pNext  offset 80
+// Opt-in camera-ward window-depth nudge: a line with depthLayer > 0 is pushed toward the
+// camera so a line coplanar with a face (e.g. a crease drawn on paper) wins the depth test
+// instead of z-fighting, and a larger depthLayer stacks overlapping lines in a stable,
+// flicker-free order. depthLayer == 0 applies NO bias, so default lines depth-test normally
+// and can be occluded. Reversed-Z has ample precision, so the per-layer step is small; tune
+// if lines visibly float above the surface at extreme zoom, or if the smallest layer gap flickers.
+//
+// We deliberately keep this shader-side clip-space nudge rather than glPolygonOffset:
+// glPolygonOffset's offset (factor*maxSlope + r*units) collapses to a driver-dependent r*units
+// for lines lying flat facing the camera (maxSlope ~ 0), so it cannot guarantee the
+// driver-independent per-layer stacking (layer N+1 always in front of layer N) that depthLayer
+// provides here.
+constexpr float kDepthLayerStep = 5.0e-5F;
+
 std::array<InstanceAttribSpec, 6> make_instance_attribs(const LineProgram& program) {
     return {
         InstanceAttribSpec{program.get_p0_location(), 4, 0},
@@ -87,6 +101,7 @@ LineDrawable::LineDrawable(LineDrawable&& other) noexcept
     , m_dashPattern(std::move(other.m_dashPattern))
     , m_dashPhase(other.m_dashPhase)
     , m_dashSpace(other.m_dashSpace)
+    , m_depthLayer(other.m_depthLayer)
     , m_vertexPositions(std::move(other.m_vertexPositions))
     , m_vertexColors(std::move(other.m_vertexColors))
     , m_vertexTranslucency(std::move(other.m_vertexTranslucency))
@@ -113,6 +128,7 @@ LineDrawable& LineDrawable::operator=(LineDrawable&& other) noexcept {
         m_dashPattern = std::move(other.m_dashPattern);
         m_dashPhase = other.m_dashPhase;
         m_dashSpace = other.m_dashSpace;
+        m_depthLayer = other.m_depthLayer;
         m_vertexPositions = std::move(other.m_vertexPositions);
         m_vertexColors = std::move(other.m_vertexColors);
         m_vertexTranslucency = std::move(other.m_vertexTranslucency);
@@ -178,6 +194,14 @@ void LineDrawable::set_common_uniforms(const linal::hmatf& mvp,
     glUniform1f(prog.get_dash_phase_location().get_value(), m_dashPhase);
     glUniform1i(prog.get_cap_style_location().get_value(), static_cast<GLint>(m_cap));
     glUniform1i(prog.get_join_style_location().get_value(), static_cast<GLint>(m_join));
+
+    // Push opted-in lines toward the camera (per-layer step) so coplanar lines beat faces and
+    // overlapping lines stack deterministically. The reversed-Z sign is a program-lifetime
+    // constant, so we bake it into the bias here instead of branching per-vertex in the shader:
+    // reversed-Z has the near plane at +z, legacy depth at -z.
+    const float depthBias = static_cast<float>(m_depthLayer) * kDepthLayerStep;
+    const float signedDepthBias = prog.get_reversed_depth() ? depthBias : -depthBias;
+    glUniform1f(prog.get_depth_bias_location().get_value(), signedDepthBias);
 
     // Dash pattern: clamp to DASH_PATTERN_MAX (16) entries, upload count + array.
     constexpr GLint kMaxDashPattern = 16;
@@ -314,7 +338,8 @@ std::optional<LineDrawable> make_line_drawable(LineProgram& program,
                                                LineJoin join,
                                                std::span<const float> dashPattern,
                                                DashSpace dashSpace,
-                                               std::span<const std::uint8_t> perVertexDashFlags) {
+                                               std::span<const std::uint8_t> perVertexDashFlags,
+                                               std::int32_t depthLayer) {
     auto vertexArray = VertexArray::create();
     if (!vertexArray.has_value()) {
         RENDERER_ASSERT(false);
@@ -404,6 +429,7 @@ std::optional<LineDrawable> make_line_drawable(LineProgram& program,
     drawable.set_line_join(join);
     drawable.set_line_dash_pattern(dashPattern);
     drawable.set_line_dash_space(dashSpace);
+    drawable.set_depth_layer(depthLayer);
     return drawable;
 }
 

@@ -24,6 +24,7 @@ LineProgram::LineProgram(ProgramHandle program,
                          Uniform joinStyleLocation,
                          Uniform dashPatternCountLocation,
                          Uniform dashPatternLocation,
+                         Uniform depthBiasLocation,
                          Attribute cornerLocation,
                          Attribute p0Location,
                          Attribute p1Location,
@@ -44,6 +45,7 @@ LineProgram::LineProgram(ProgramHandle program,
     , m_joinStyleLocation{joinStyleLocation}
     , m_dashPatternCountLocation{dashPatternCountLocation}
     , m_dashPatternLocation{dashPatternLocation}
+    , m_depthBiasLocation{depthBiasLocation}
     , m_cornerLocation{cornerLocation}
     , m_p0Location{p0Location}
     , m_p1Location{p1Location}
@@ -64,6 +66,7 @@ LineProgram::LineProgram(ProgramHandle program,
     RENDERER_ASSERT(joinStyleLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(dashPatternCountLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(dashPatternLocation.get_location().get_value() != -1);
+    RENDERER_ASSERT(depthBiasLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(cornerLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(p0Location.get_location().get_value() != -1);
     RENDERER_ASSERT(p1Location.get_location().get_value() != -1);
@@ -104,6 +107,7 @@ opengl::LineProgram make_line_program() {
     Uniform joinStyleLocation = make_uniform("u_joinStyle", id);
     Uniform dashPatternCountLocation = make_uniform("u_dashPatternCount", id);
     Uniform dashPatternLocation = make_uniform("u_dashPattern", id);
+    Uniform depthBiasLocation = make_uniform("u_depthBias", id);
     Attribute cornerLocation = make_attribute("a_corner", id);
     Attribute p0Location = make_attribute("a_p0", id);
     Attribute p1Location = make_attribute("a_p1", id);
@@ -114,8 +118,9 @@ opengl::LineProgram make_line_program() {
     return LineProgram{std::move(*program), viewProjectionLocation, modelMatrixLocation, viewportSizeLocation,
                        lineWidthLocation,   dashSpaceLocation,      dashPhaseLocation,   pickModeLocation,
                        pickColorLocation,   capStyleLocation,       joinStyleLocation,   dashPatternCountLocation,
-                       dashPatternLocation, cornerLocation,         p0Location,          p1Location,
-                       color0Location,      color1Location,         pPrevLocation,       pNextLocation};
+                       dashPatternLocation, depthBiasLocation,      cornerLocation,      p0Location,
+                       p1Location,          color0Location,         color1Location,      pPrevLocation,
+                       pNextLocation};
 }
 
 } // namespace opengl

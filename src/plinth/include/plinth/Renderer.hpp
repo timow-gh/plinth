@@ -124,18 +124,23 @@ class Renderer {
     DrawableHandle add_point_drawable(std::span<const float> vertices,
                                       std::array<float, 4> color,
                                       float pointSize = 2.0F,
-                                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+                                      BufferAccessPattern accessPattern = BufferAccessPattern::Static,
+                                      std::int32_t depthLayer = 0);
 
     DrawableHandle add_point_drawable(std::span<const float> vertices,
                                       std::span<const float> colors,
                                       float pointSize = 2.0F,
-                                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+                                      BufferAccessPattern accessPattern = BufferAccessPattern::Static,
+                                      std::int32_t depthLayer = 0);
 
+    /// depthLayer nudges opted-in points toward the camera (higher = closer) so points coplanar with
+    /// a face beat it instead of z-fighting; 0 = no bias (depth-tests normally). See StrokeStyle::depthLayer.
     DrawableHandle add_point_drawable(std::span<const float> vertices,
                                       std::span<const std::uint32_t> indices,
                                       std::span<const float> colors,
                                       float pointSize = 2.0F,
-                                      BufferAccessPattern accessPattern = BufferAccessPattern::Static);
+                                      BufferAccessPattern accessPattern = BufferAccessPattern::Static,
+                                      std::int32_t depthLayer = 0);
 
     /// Sphere-impostor point rendering: visualises each input point as a lit sphere without
     /// tessellating sphere meshes. centers contains local-space xyz triples (N*3 floats), radii

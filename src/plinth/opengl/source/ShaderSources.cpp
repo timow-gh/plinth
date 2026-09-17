@@ -12,6 +12,7 @@ uniform float u_lineWidth;
 uniform int   u_dashSpace;    // 0 = World, 1 = Screen
 uniform int   u_capStyle;     // 0 = Butt, 1 = Square, 2 = Round
 uniform int   u_joinStyle;    // 0 = Miter, 1 = Bevel, 2 = Round
+uniform float u_depthBias;    // signed camera-ward clip-depth nudge; keeps coplanar lines above faces
 
 // Shared unit quad (divisor 0): x in {0,1} selects endpoint, y in {-0.5,0.5} selects side.
 in vec2 a_corner;
@@ -76,6 +77,14 @@ void main() {
     vec2 totalOffset = alongDir + sideNrm;
     vec2 ndcOffset   = totalOffset / (0.5 * u_viewportSize);
     clip.xy += ndcOffset * clip.w;
+
+    // Nudge the line toward the camera in clip space so coplanar lines beat faces (and stack
+    // deterministically by layer). u_depthBias is already signed for the active depth convention
+    // on the CPU (reversed-Z near = +Z, legacy near = -Z). Bias is applied in NDC then
+    // re-multiplied by w so it survives the perspective divide. Clamp into the clip range so a
+    // near-plane vertex is not pushed past the near plane and clipped away under either convention.
+    clip.z = clamp(clip.z + u_depthBias * clip.w, -clip.w, clip.w);
+
     gl_Position = clip;
 
     float worldArc1 = arc0 + distance(p0, p1);
@@ -212,6 +221,7 @@ std::string point_color_vertex_shader_source() {
 uniform mat4 u_viewProjection;
 uniform mat4 u_model;
 uniform float u_pointSize;
+uniform float u_depthBias; // signed camera-ward clip-depth nudge; keeps coplanar points above faces
 
 in vec3 a_vertex;
 in vec4 a_color;
@@ -219,7 +229,12 @@ in vec4 a_color;
 out vec4 v_color;
 
 void main() {
-    gl_Position = u_viewProjection * u_model * vec4(a_vertex, 1.0);
+    vec4 clip = u_viewProjection * u_model * vec4(a_vertex, 1.0);
+    // Opt-in nudge toward the camera so a point coplanar with a face beats it (see u_depthBias).
+    // Sign is baked in on the CPU for the active depth convention; clamp so a near-plane point is
+    // not pushed past the near plane and clipped away.
+    clip.z = clamp(clip.z + u_depthBias * clip.w, -clip.w, clip.w);
+    gl_Position = clip;
     gl_PointSize = u_pointSize;
     v_color = a_color;
 })";

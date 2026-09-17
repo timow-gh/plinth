@@ -17,14 +17,16 @@ PointProgram::PointProgram(ProgramHandle program,
                            Attribute vertexLocation,
                            Attribute colorLocation,
                            Uniform pickModeLocation,
-                           Uniform pickColorLocation) noexcept
+                           Uniform pickColorLocation,
+                           Uniform depthBiasLocation) noexcept
     : m_program{std::move(program)}
     , m_viewProjectionLocation{viewProjectionLocation}
     , m_modelMatrixLocation{modelMatrixLocation}
     , m_vertexLocation{vertexLocation}
     , m_colorLocation{colorLocation}
     , m_pickModeLocation{pickModeLocation}
-    , m_pickColorLocation{pickColorLocation} {
+    , m_pickColorLocation{pickColorLocation}
+    , m_depthBiasLocation{depthBiasLocation} {
     RENDERER_ASSERT(m_program.is_valid());
     RENDERER_ASSERT(viewProjectionLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(modelMatrixLocation.get_location().get_value() != -1);
@@ -32,6 +34,7 @@ PointProgram::PointProgram(ProgramHandle program,
     RENDERER_ASSERT(colorLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(pickModeLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(pickColorLocation.get_location().get_value() != -1);
+    RENDERER_ASSERT(depthBiasLocation.get_location().get_value() != -1);
 }
 
 void PointProgram::use() const {
@@ -58,6 +61,7 @@ PointProgram make_point_program() {
     Attribute colorLocation = make_attribute("a_color", programId);
     Uniform pickModeLocation = make_uniform("u_pickMode", programId);
     Uniform pickColorLocation = make_uniform("u_pickColor", programId);
+    Uniform depthBiasLocation = make_uniform("u_depthBias", programId);
 
     return PointProgram{std::move(*program),
                         viewProjectionLocation,
@@ -65,7 +69,8 @@ PointProgram make_point_program() {
                         vertexLocation,
                         colorLocation,
                         pickModeLocation,
-                        pickColorLocation};
+                        pickColorLocation,
+                        depthBiasLocation};
 }
 
 } // namespace opengl

@@ -59,6 +59,7 @@ set(plinth_examples
     example_renderer_standalone
     example_showcase_scene
     example_textured_mesh
+    example_zfighting_lines
 )
 
 foreach(example IN LISTS plinth_examples)

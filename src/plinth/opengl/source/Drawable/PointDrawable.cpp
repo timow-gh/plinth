@@ -46,6 +46,18 @@ PointDrawable::PointDrawable(PointProgram& program,
     , m_transparencyInfo(transparencyInfo) {
 }
 
+namespace {
+// Opt-in signed camera-ward clip-depth bias for points, mirroring LineDrawable. depthLayer == 0
+// yields 0 so default points depth-test normally. Keep the per-layer step identical to the line
+// path's kDepthLayerStep so points and lines on the same layer stack consistently.
+constexpr float kPointDepthLayerStep = 5.0e-5F;
+
+float signed_point_depth_bias(std::int32_t depthLayer, bool reversedDepth) {
+    const float bias = static_cast<float>(depthLayer) * kPointDepthLayerStep;
+    return reversedDepth ? bias : -bias;
+}
+} // namespace
+
 PointDrawable::PointDrawable(PointDrawable&& other) noexcept
     : m_program(std::exchange(other.m_program, nullptr))
     , m_vertexArray(std::move(other.m_vertexArray))
@@ -54,6 +66,7 @@ PointDrawable::PointDrawable(PointDrawable&& other) noexcept
     , m_opaquePointIndicesBuffer(std::move(other.m_opaquePointIndicesBuffer))
     , m_translucentPointIndicesBuffer(std::move(other.m_translucentPointIndicesBuffer))
     , m_pointSize(other.m_pointSize)
+    , m_depthLayer(other.m_depthLayer)
     , m_vertexDimension(other.m_vertexDimension)
     , m_colorDimension(other.m_colorDimension)
     , m_vertexPositions(std::move(other.m_vertexPositions))
@@ -72,6 +85,7 @@ PointDrawable& PointDrawable::operator=(PointDrawable&& other) noexcept {
         m_opaquePointIndicesBuffer = std::move(other.m_opaquePointIndicesBuffer);
         m_translucentPointIndicesBuffer = std::move(other.m_translucentPointIndicesBuffer);
         m_pointSize = other.m_pointSize;
+        m_depthLayer = other.m_depthLayer;
         m_vertexDimension = other.m_vertexDimension;
         m_colorDimension = other.m_colorDimension;
         m_vertexPositions = std::move(other.m_vertexPositions);
@@ -144,6 +158,7 @@ void PointDrawable::draw_index_buffer(const linal::hmatf& mvp,
     prog.use();
     glUniformMatrix4fv(prog.get_view_projection_location().get_value(), 1, GL_TRUE, mvp.data());
     glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
+    glUniform1f(prog.get_depth_bias_location().get_value(), signed_point_depth_bias(m_depthLayer, prog.get_reversed_depth()));
     glPointSize(m_pointSize);
     m_vertexArray.bind();
     indexBuffer.bind();
@@ -163,6 +178,8 @@ void PointDrawable::draw_pick(const linal::hmatf& mvp,
         prog.use();
         glUniformMatrix4fv(prog.get_view_projection_location().get_value(), 1, GL_TRUE, mvp.data());
         glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
+        glUniform1f(prog.get_depth_bias_location().get_value(),
+                    signed_point_depth_bias(m_depthLayer, prog.get_reversed_depth()));
         glUniform1i(prog.get_pick_mode_location().get_value(), GL_TRUE);
         glUniform3fv(prog.get_pick_color_location().get_value(), 1, pickColor.data());
         glPointSize(m_pointSize);
@@ -196,7 +213,8 @@ std::optional<PointDrawable> make_point_drawable(PointProgram& program,
                                                  std::int32_t colorDimension,
                                                  std::span<const std::uint32_t> indices,
                                                  float pointSize,
-                                                 BufferAccessPattern accessPattern) {
+                                                 BufferAccessPattern accessPattern,
+                                                 std::int32_t depthLayer) {
     auto vertexArray = opengl::VertexArray::create();
     if (!vertexArray.has_value()) {
         return make_failed_drawable<PointDrawable>();
@@ -224,20 +242,22 @@ std::optional<PointDrawable> make_point_drawable(PointProgram& program,
     if (!translucentIndexBuffer.has_value()) {
         return make_failed_drawable<PointDrawable>();
     }
-    return PointDrawable{program,
-                         std::move(vertexArray.value()),
-                         std::move(vertexBuffer.value()),
-                         std::move(colorBuffer.value()),
-                         std::move(opaqueIndexBuffer.value()),
-                         std::move(translucentIndexBuffer.value()),
-                         pointSize,
-                         make_drawable_transparency_info(vertices, vertexDimension, colors, colorDimension),
-                         vertexDimension,
-                         colorDimension,
-                         std::move(vertexPositions),
-                         std::move(vertexTranslucency),
-                         std::move(pointIndices),
-                         std::move(split.translucentIndices)};
+    PointDrawable drawable{program,
+                           std::move(vertexArray.value()),
+                           std::move(vertexBuffer.value()),
+                           std::move(colorBuffer.value()),
+                           std::move(opaqueIndexBuffer.value()),
+                           std::move(translucentIndexBuffer.value()),
+                           pointSize,
+                           make_drawable_transparency_info(vertices, vertexDimension, colors, colorDimension),
+                           vertexDimension,
+                           colorDimension,
+                           std::move(vertexPositions),
+                           std::move(vertexTranslucency),
+                           std::move(pointIndices),
+                           std::move(split.translucentIndices)};
+    drawable.set_depth_layer(depthLayer);
+    return drawable;
 }
 
 } // namespace opengl

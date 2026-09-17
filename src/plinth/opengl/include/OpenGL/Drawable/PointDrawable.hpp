@@ -31,6 +31,7 @@ class OPENGL_EXPORT PointDrawable {
     opengl::IndexBuffer m_opaquePointIndicesBuffer;
     opengl::IndexBuffer m_translucentPointIndicesBuffer;
     float m_pointSize{1.0F};
+    std::int32_t m_depthLayer{0};
     std::int32_t m_vertexDimension{0};
     std::int32_t m_colorDimension{0};
     std::vector<linal::float3> m_vertexPositions;
@@ -63,6 +64,12 @@ class OPENGL_EXPORT PointDrawable {
     ~PointDrawable() = default;
 
     constexpr void set_point_size(float pointSize) noexcept { m_pointSize = pointSize; }
+
+    // Render priority for coplanar / overlapping points; higher = closer to the camera. Scales the
+    // opt-in camera-ward depth bias applied in the vertex shader so points beat coplanar faces.
+    // 0 = no bias. Mirrors LineDrawable::set_depth_layer / StrokeStyle::depthLayer.
+    constexpr void set_depth_layer(std::int32_t depthLayer) noexcept { m_depthLayer = depthLayer; }
+    [[nodiscard]] constexpr std::int32_t get_depth_layer() const noexcept { return m_depthLayer; }
 
     void update_vertex_buffer(std::span<const float> vertices, BufferAccessPattern accessPattern);
 
@@ -133,7 +140,8 @@ OPENGL_EXPORT std::optional<PointDrawable> make_point_drawable(PointProgram& pro
                                                                std::int32_t colorDimension,
                                                                std::span<const std::uint32_t> indices,
                                                                float pointSize,
-                                                               BufferAccessPattern accessPattern);
+                                                               BufferAccessPattern accessPattern,
+                                                               std::int32_t depthLayer = 0);
 
 } // namespace opengl
 

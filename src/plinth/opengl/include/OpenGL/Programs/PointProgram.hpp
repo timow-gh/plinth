@@ -18,6 +18,8 @@ class OPENGL_EXPORT PointProgram {
     Attribute m_colorLocation;
     Uniform m_pickModeLocation;
     Uniform m_pickColorLocation;
+    Uniform m_depthBiasLocation;
+    bool m_reversedDepth{false};
 
   public:
     PointProgram() noexcept = default;
@@ -27,7 +29,8 @@ class OPENGL_EXPORT PointProgram {
                  Attribute vertexLocation,
                  Attribute colorLocation,
                  Uniform pickModeLocation,
-                 Uniform pickColorLocation) noexcept;
+                 Uniform pickColorLocation,
+                 Uniform depthBiasLocation) noexcept;
 
     PointProgram(const PointProgram&) = delete;
     PointProgram& operator=(const PointProgram&) = delete;
@@ -39,6 +42,8 @@ class OPENGL_EXPORT PointProgram {
         m_colorLocation = std::move(other.m_colorLocation);
         m_pickModeLocation = std::move(other.m_pickModeLocation);
         m_pickColorLocation = std::move(other.m_pickColorLocation);
+        m_depthBiasLocation = std::move(other.m_depthBiasLocation);
+        m_reversedDepth = other.m_reversedDepth;
     }
     PointProgram& operator=(PointProgram&& other) noexcept {
         if (this != &other) {
@@ -49,6 +54,8 @@ class OPENGL_EXPORT PointProgram {
             m_colorLocation = std::move(other.m_colorLocation);
             m_pickModeLocation = std::move(other.m_pickModeLocation);
             m_pickColorLocation = std::move(other.m_pickColorLocation);
+            m_depthBiasLocation = std::move(other.m_depthBiasLocation);
+            m_reversedDepth = other.m_reversedDepth;
         }
         return *this;
     }
@@ -70,6 +77,15 @@ class OPENGL_EXPORT PointProgram {
     [[nodiscard]] constexpr Location get_pick_color_location() const noexcept {
         return m_pickColorLocation.get_location();
     }
+    [[nodiscard]] constexpr Location get_depth_bias_location() const noexcept {
+        return m_depthBiasLocation.get_location();
+    }
+
+    /// Reversed-Z is a lifetime-constant GPU property; it selects the sign of the depth-bias baked
+    /// into u_depthBias on the CPU so opted-in coplanar points are pushed toward the camera under
+    /// both depth conventions. Mirrors LineProgram::set_reversed_depth.
+    void set_reversed_depth(bool reversedDepth) noexcept { m_reversedDepth = reversedDepth; }
+    [[nodiscard]] bool get_reversed_depth() const noexcept { return m_reversedDepth; }
 
     void use() const;
 };

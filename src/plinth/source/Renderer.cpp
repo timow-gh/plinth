@@ -419,6 +419,10 @@ Renderer::Renderer(GlfwWindow window,
     // Preserve the historical Renderer default. CameraAutoFitSettings itself
     // remains enabled by default for direct calculate_camera_auto_fit callers.
     m_cameraAutoFitSettings.enabled = false;
+
+    // Reversed-Z is a lifetime-constant GPU property; hand it to the line program once so its
+    // depth-bias nudge (lines-on-faces / layering) picks the correct camera-ward direction.
+    m_drawablesManager->set_line_reversed_depth(m_reversedDepth);
 }
 
 void Renderer::on_cursor_pos(double xpos, double ypos) {
@@ -507,26 +511,30 @@ void Renderer::wire_callbacks() {
 DrawableHandle Renderer::add_point_drawable(std::span<const float> vertices,
                                             std::array<float, 4> color,
                                             float pointSize,
-                                            renderer::BufferAccessPattern accessPattern) {
+                                            renderer::BufferAccessPattern accessPattern,
+                                            std::int32_t depthLayer) {
     const std::vector<float> colors = expand_color(vertices, color);
     const std::vector<std::uint32_t> indices = make_sequential_indices(vertices);
-    return add_point_drawable(vertices, indices, colors, pointSize, accessPattern);
+    return add_point_drawable(vertices, indices, colors, pointSize, accessPattern, depthLayer);
 }
 
 DrawableHandle Renderer::add_point_drawable(std::span<const float> vertices,
                                             std::span<const float> colors,
                                             float pointSize,
-                                            renderer::BufferAccessPattern accessPattern) {
+                                            renderer::BufferAccessPattern accessPattern,
+                                            std::int32_t depthLayer) {
     const std::vector<std::uint32_t> indices = make_sequential_indices(vertices);
-    return add_point_drawable(vertices, indices, colors, pointSize, accessPattern);
+    return add_point_drawable(vertices, indices, colors, pointSize, accessPattern, depthLayer);
 }
 
 DrawableHandle Renderer::add_point_drawable(std::span<const float> vertices,
                                             std::span<const std::uint32_t> indices,
                                             std::span<const float> colors,
                                             float pointSize,
-                                            renderer::BufferAccessPattern accessPattern) {
-    const auto id = m_drawablesManager->add_point_drawable(vertices, colors, indices, pointSize, accessPattern);
+                                            renderer::BufferAccessPattern accessPattern,
+                                            std::int32_t depthLayer) {
+    const auto id =
+        m_drawablesManager->add_point_drawable(vertices, colors, indices, pointSize, accessPattern, depthLayer);
     if (!id.has_value()) {
         return DrawableHandle{};
     }
@@ -551,7 +559,8 @@ DrawableHandle Renderer::add_line_drawable(std::span<const float> vertices,
                                                           style.join,
                                                           style.dashPattern,
                                                           style.dashSpace,
-                                                          perVertexDashFlags);
+                                                          perVertexDashFlags,
+                                                          style.depthLayer);
     if (!id.has_value()) {
         return DrawableHandle{};
     }
@@ -809,6 +818,7 @@ bool Renderer::set_line_stroke_style(DrawableHandle handle, const renderer::Stro
     m_drawablesManager->set_line_dash_pattern(handle.id, style.dashPattern);
     m_drawablesManager->set_line_dash_phase(handle.id, style.dashPhase);
     m_drawablesManager->set_line_dash_space(handle.id, style.dashSpace);
+    m_drawablesManager->set_line_depth_layer(handle.id, style.depthLayer);
     return true;
 }
 
@@ -1275,11 +1285,6 @@ void Renderer::draw(const renderer::LightingConfig& lighting) {
 
     const linal::float2 sceneViewportSize{static_cast<float>(m_sceneViewport.framebuffer.width),
                                           static_cast<float>(m_sceneViewport.framebuffer.height)};
-    {
-        const ScopedFullSampleShading sampleShading{m_sceneSamples > 1};
-        m_drawablesManager->draw_lines_and_points(
-            m_camera->get_current_MVP(), sceneViewportSize, m_camera->get_position());
-    }
 
     const linal::float3 viewPosF{static_cast<float>(m_camera->get_position()[0]),
                                  static_cast<float>(m_camera->get_position()[1]),
@@ -1287,11 +1292,28 @@ void Renderer::draw(const renderer::LightingConfig& lighting) {
     renderer::LightingConfig effectiveLighting = lighting;
     effectiveLighting.lightPosition = viewPosF;
 
+    // Draw meshes (faces) before lines/points so that opted-in lines and points, which carry a
+    // small camera-ward depth bias (StrokeStyle::depthLayer > 0), reliably render on top of coplanar
+    // faces (e.g. crease lines on paper) without z-fighting. Spheres stay last since they write
+    // corrected gl_FragDepth.
+    //
+    // Note on transparency: translucent (alpha < 1) lines/points are sorted only within their own
+    // queue (see DrawablesManager::draw_lines_and_points) and are NOT cross-sorted with translucent
+    // meshes. With meshes drawn first, a translucent line/point blends over the mesh color in paint
+    // order, so a translucent line physically behind a translucent mesh will still composite on top.
+    // Acceptable for the current opaque-line use cases; revisit with a unified transparency sort if
+    // mixed translucent meshes + lines become common.
     if (m_drawablesManager->has_mesh_drawables()) {
         m_drawablesManager->draw_meshes(m_camera->get_view_matrix(),
                                         m_camera->get_projection_matrix(),
                                         viewPosF,
                                         effectiveLighting);
+    }
+
+    {
+        const ScopedFullSampleShading sampleShading{m_sceneSamples > 1};
+        m_drawablesManager->draw_lines_and_points(
+            m_camera->get_current_MVP(), sceneViewportSize, m_camera->get_position());
     }
 
     if (m_drawablesManager->has_sphere_drawables()) {

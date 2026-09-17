@@ -3,6 +3,7 @@
 
 #include "plinth/DashSpace.hpp"
 
+#include <cstdint>
 #include <vector>
 
 namespace renderer {
@@ -46,6 +47,14 @@ struct StrokeStyle {
     /// independent of dashSpace. Animate over time for marching ants.
     float dashPhase{0.0F};
     DashSpace dashSpace{DashSpace::Screen};
+
+    /// Render priority for coplanar / overlapping lines; higher = closer to the camera.
+    /// The renderer nudges lines toward the camera in clip space to beat coplanar faces
+    /// (e.g. crease lines drawn on paper) and stacks them by this value so overlapping
+    /// lines resolve in a stable, flicker-free order instead of by sub-pixel depth noise.
+    /// 0 = default surface layer with NO bias (depth-tests normally, can be occluded);
+    /// each integer step adds a guaranteed depth gap between layers.
+    std::int32_t depthLayer{0};
 };
 
 /// Convenience factory: single dash+gap pair.

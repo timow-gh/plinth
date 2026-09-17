@@ -44,6 +44,7 @@ class OPENGL_EXPORT LineDrawable {
     std::vector<float> m_dashPattern{};
     float m_dashPhase{0.0F};
     DashSpace m_dashSpace{DashSpace::World};
+    std::int32_t m_depthLayer{0};
     std::vector<linal::float3> m_vertexPositions;
     std::vector<float> m_vertexColors;
     std::vector<std::uint8_t> m_vertexTranslucency;
@@ -87,6 +88,13 @@ class OPENGL_EXPORT LineDrawable {
     [[nodiscard]] LineCap get_line_cap() const { return m_cap; }
     void set_line_join(LineJoin join) { m_join = join; }
     [[nodiscard]] LineJoin get_line_join() const { return m_join; }
+
+    // Render priority for coplanar / overlapping lines; higher = closer to the camera.
+    // Scales the opt-in camera-ward depth bias applied in the vertex shader so lines beat coplanar
+    // faces and overlapping lines stack in a stable, flicker-free order. 0 = no bias.
+    // See StrokeStyle::depthLayer.
+    void set_depth_layer(std::int32_t depthLayer) { m_depthLayer = depthLayer; }
+    [[nodiscard]] std::int32_t get_depth_layer() const { return m_depthLayer; }
 
     // Dashing controls. dashPattern uses SVG stroke-dasharray semantics: alternating on/off lengths.
     // Empty pattern = solid. per-vertex dash flags (see set_dash_flags) control per-segment dashing.
@@ -197,7 +205,8 @@ OPENGL_EXPORT std::optional<LineDrawable> make_line_drawable(LineProgram& progra
                                                              LineJoin join = LineJoin::Miter,
                                                              std::span<const float> dashPattern = {},
                                                              DashSpace dashSpace = DashSpace::World,
-                                                             std::span<const std::uint8_t> perVertexDashFlags = {});
+                                                             std::span<const std::uint8_t> perVertexDashFlags = {},
+                                                             std::int32_t depthLayer = 0);
 
 } // namespace opengl
 

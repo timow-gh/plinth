@@ -35,6 +35,8 @@ constexpr float overlapLineWidth = 6.0F;
 // nudges the creases a per-layer step toward the camera so they sit clearly in front.
 constexpr std::int32_t fixOffDepthLayer = 0;
 constexpr std::int32_t fixOnDepthLayer = 4;
+constexpr std::int32_t overlapLowDepthLayer = 2;
+constexpr std::int32_t overlapHighDepthLayer = 6;
 
 using example::add_preset_view_callback;
 } // namespace
@@ -87,12 +89,12 @@ int main() {
 
     renderer::StrokeStyle overlapLow;
     overlapLow.lineWidth = overlapLineWidth;
-    overlapLow.depthLayer = 2; // lower priority: still above the paper
+    overlapLow.depthLayer = overlapLowDepthLayer; // lower priority: still above the paper
     renderer->add_line_drawable(overlapRed, overlapIndices, red, renderer::LineType::line_strip(), overlapLow);
 
     renderer::StrokeStyle overlapHigh;
     overlapHigh.lineWidth = overlapLineWidth;
-    overlapHigh.depthLayer = 6; // higher priority: sits on top of the red one
+    overlapHigh.depthLayer = overlapHighDepthLayer; // higher priority: sits on top of the red one
     renderer->add_line_drawable(overlapCyan, overlapIndices, cyan, renderer::LineType::line_strip(), overlapHigh);
 
     // --- B toggles the fix on the crease lines via the public stroke-style path. ---

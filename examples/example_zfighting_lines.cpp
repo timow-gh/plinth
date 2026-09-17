@@ -61,7 +61,6 @@ int main() {
     // --- Creases: line strips lying exactly on the paper plane (z = 0). ---
     // These are the coplanar lines-on-faces case; the toggle mutates their depthLayer.
     const std::array<float, 4> creaseColor{0.15F, 0.15F, 0.15F, 1.0F};
-    const std::array<std::uint32_t, 4> creaseStripIndices{0, 1, 2, 3};
 
     // A few diagonal / mountain-valley style creases spanning the sheet.
     const std::array<float, 12> creaseA{-2.0F, -2.0F, 0.0F, -0.5F, 0.5F, 0.0F, 0.5F, -0.5F, 0.0F, 2.0F, 2.0F, 0.0F};

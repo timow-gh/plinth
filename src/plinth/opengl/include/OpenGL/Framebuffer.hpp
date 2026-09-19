@@ -40,6 +40,10 @@ class OPENGL_EXPORT Framebuffer {
 
     [[nodiscard]] bool resolve_to(Framebuffer& destination, GLbitfield mask = GL_COLOR_BUFFER_BIT) const;
 
+    /// Copies this single-sample framebuffer's color attachment to the default framebuffer at the
+    /// supplied lower-left destination offset. Restores framebuffer bindings before returning.
+    [[nodiscard]] bool blit_color_to_default(int destX, int destY) const;
+
     [[nodiscard]] bool is_valid() const noexcept;
     [[nodiscard]] GLuint get_id() const noexcept;
     [[nodiscard]] GLuint get_color_texture() const noexcept;

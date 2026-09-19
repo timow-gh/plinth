@@ -530,6 +530,29 @@ bool Framebuffer::resolve_to(Framebuffer& destination, GLbitfield mask) const {
     return !check_gl_errors("Framebuffer::resolve_to");
 }
 
+bool Framebuffer::blit_color_to_default(int destX, int destY) const {
+    if (!is_valid() || m_samples != 1 || m_width <= 0 || m_height <= 0) {
+        return false;
+    }
+
+    ScopedFramebufferState state;
+    // Stale errors belong to the caller, not to this blit operation.
+    check_gl_errors("Framebuffer::blit_color_to_default pre-existing");
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBlitFramebuffer(0,
+                      0,
+                      m_width,
+                      m_height,
+                      destX,
+                      destY,
+                      destX + m_width,
+                      destY + m_height,
+                      GL_COLOR_BUFFER_BIT,
+                      GL_NEAREST);
+    return !check_gl_errors("Framebuffer::blit_color_to_default");
+}
+
 bool Framebuffer::is_valid() const noexcept {
     return m_framebuffer != 0;
 }

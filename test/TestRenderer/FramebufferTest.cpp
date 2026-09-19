@@ -209,6 +209,55 @@ TEST_F(FramebufferTest, ResolveBlitsColor) {
     EXPECT_NEAR(bExpected, static_cast<int>(pixel[2]), 1);
 }
 
+TEST_F(FramebufferTest, BlitColorToDefaultCopiesAtOffsetAndRestoresBindings) {
+    constexpr int sourceWidth = 16;
+    constexpr int sourceHeight = 12;
+    constexpr int destX = 7;
+    constexpr int destY = 9;
+    auto source = opengl::Framebuffer::create_ldr_intermediate(sourceWidth, sourceHeight);
+    auto read = opengl::Framebuffer::create(16, 16, 1, false);
+    auto draw = opengl::Framebuffer::create(16, 16, 1, false);
+    ASSERT_TRUE(source.has_value());
+    ASSERT_TRUE(read.has_value());
+    ASSERT_TRUE(draw.has_value());
+
+    source->bind();
+    glClearColor(0.2F, 0.4F, 0.6F, 1.0F);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    opengl::Framebuffer::unbind();
+    glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, read->get_id());
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw->get_id());
+
+    ASSERT_TRUE(source->blit_color_to_default(destX, destY));
+
+    GLint readBinding = 0;
+    GLint drawBinding = 0;
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readBinding);
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawBinding);
+    EXPECT_EQ(static_cast<GLint>(read->get_id()), readBinding);
+    EXPECT_EQ(static_cast<GLint>(draw->get_id()), drawBinding);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glReadBuffer(GL_BACK);
+    std::array<unsigned char, 4> copied{};
+    std::array<unsigned char, 4> untouched{};
+    constexpr std::array<unsigned char, 4> expectedUntouched{0, 0, 0, 255};
+    glReadPixels(destX + sourceWidth / 2, destY + sourceHeight / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, copied.data());
+    glReadPixels(destX - 1, destY - 1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, untouched.data());
+
+    EXPECT_NEAR(51, static_cast<int>(copied[0]), 1);
+    EXPECT_NEAR(102, static_cast<int>(copied[1]), 1);
+    EXPECT_NEAR(153, static_cast<int>(copied[2]), 1);
+    EXPECT_EQ(255, copied[3]);
+    EXPECT_EQ(expectedUntouched, untouched);
+
+    opengl::Framebuffer::unbind();
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
 TEST_F(FramebufferTest, ResizeSucceedsAndUpdatesDimensions) {
     auto fb = opengl::Framebuffer::create(64, 64, 1, false);
     ASSERT_TRUE(fb.has_value());

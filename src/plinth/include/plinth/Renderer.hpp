@@ -400,6 +400,14 @@ class Renderer {
     /// Makes the renderer-owned context current on the calling thread.
     void make_context_current() const;
 
+    /// Reads back the post-processed scene image (including FXAA, but no overlay/UI) for the most
+    /// recent successful present_scene(). Pixels are RGB8, tightly packed, bottom-row first (raw
+    /// glReadPixels order; the caller flips if it needs top-first). @p outWidth / @p outHeight
+    /// receive the scene framebuffer pixel size. Returns false until end_frame() has produced a
+    /// scene image. Makes the renderer-owned GL context current and preserves readback-related GL
+    /// state.
+    [[nodiscard]] bool read_scene_pixels(std::vector<std::uint8_t>& out, int& outWidth, int& outHeight) const;
+
     // --- Camera navigation (geometry-fit aware) ---
     /// Schedules one geometry-aware camera fit for the next eligible
     /// begin_frame(). Requests coalesce and remain pending while automatic
@@ -457,6 +465,7 @@ class Renderer {
              std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
              std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
              std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
+             std::unique_ptr<opengl::Framebuffer> fxaaIntermediate,
              std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
              std::unique_ptr<opengl::FXAAPass> fxaaPass,
              int sceneSamples,
@@ -509,6 +518,7 @@ class Renderer {
     std::unique_ptr<opengl::Framebuffer> m_sceneFramebuffer;
     std::unique_ptr<opengl::Framebuffer> m_hdrResolveFramebuffer;
     std::unique_ptr<opengl::Framebuffer> m_ldrIntermediate;
+    std::unique_ptr<opengl::Framebuffer> m_fxaaIntermediate;
     /// Lazily-created single-sample color target for GPU color-ID picking. Created/resized on the
     /// first pick_drawables call and reused thereafter. Mutable because pick_drawables is const.
     mutable std::unique_ptr<opengl::Framebuffer> m_pickFramebuffer;
@@ -553,6 +563,7 @@ class Renderer {
     float m_fxaaEdgeThreshold{0.166f};
     float m_fxaaEdgeThresholdMin{0.0833f};
     float m_fxaaSubpixelAmount{0.75f};
+    bool m_scenePixelsAvailable{false};
 };
 
 } // namespace renderer

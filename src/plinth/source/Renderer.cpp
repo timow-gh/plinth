@@ -1508,18 +1508,25 @@ bool Renderer::rebuild_scene_targets(int width, int height, int samples, bool re
 void Renderer::present_scene() {
     m_scenePixelsAvailable = false;
 
+    const bool visualizeDepth = m_visualizationMode == renderer::VisualizationMode::Depth;
     GLuint hdrColorTex{0};
     GLuint depthTex{0};
     if (m_sceneSamples > 1) {
-        if (!m_sceneFramebuffer->resolve_to(*m_hdrResolveFramebuffer, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)) {
+        const GLbitfield resolveMask =
+            GL_COLOR_BUFFER_BIT | (visualizeDepth ? GL_DEPTH_BUFFER_BIT : static_cast<GLbitfield>(0));
+        if (!m_sceneFramebuffer->resolve_to(*m_hdrResolveFramebuffer, resolveMask)) {
             opengl::report_error("Error: present_scene failed to resolve HDR framebuffer");
             return;
         }
         hdrColorTex = m_hdrResolveFramebuffer->get_color_texture();
-        depthTex = m_hdrResolveFramebuffer->get_depth_texture();
+        if (visualizeDepth) {
+            depthTex = m_hdrResolveFramebuffer->get_depth_texture();
+        }
     } else {
         hdrColorTex = m_sceneFramebuffer->get_color_texture();
-        depthTex = m_sceneFramebuffer->get_depth_texture();
+        if (visualizeDepth) {
+            depthTex = m_sceneFramebuffer->get_depth_texture();
+        }
     }
 
     m_postProcessingPass->set_reversed_depth(m_reversedDepth);
@@ -1534,21 +1541,25 @@ void Renderer::present_scene() {
     const int w = m_sceneFramebuffer->get_width();
     const int h = m_sceneFramebuffer->get_height();
 
-    m_ldrIntermediate->bind();
+    opengl::Framebuffer& postProcessingTarget =
+        m_fxaaEnabled ? *m_ldrIntermediate : *m_fxaaIntermediate;
+    postProcessingTarget.bind();
     m_postProcessingPass->process(hdrColorTex, depthTex, w, h);
 
     opengl::Framebuffer::unbind();
 
-    m_fxaaPass->set_enabled(m_fxaaEnabled);
-    m_fxaaPass->set_edge_threshold(m_fxaaEdgeThreshold);
-    m_fxaaPass->set_edge_threshold_min(m_fxaaEdgeThresholdMin);
-    m_fxaaPass->set_subpixel_amount(m_fxaaSubpixelAmount);
+    if (m_fxaaEnabled) {
+        m_fxaaPass->set_enabled(true);
+        m_fxaaPass->set_edge_threshold(m_fxaaEdgeThreshold);
+        m_fxaaPass->set_edge_threshold_min(m_fxaaEdgeThresholdMin);
+        m_fxaaPass->set_subpixel_amount(m_fxaaSubpixelAmount);
 
-    // Keep the clean, fully post-processed scene in an offscreen target so readback is unaffected
-    // by the overlay that is drawn later.
-    m_fxaaIntermediate->bind();
-    m_fxaaPass->process(m_ldrIntermediate->get_color_texture(), w, h);
-    opengl::Framebuffer::unbind();
+        // Keep the clean, fully post-processed scene in an offscreen target so readback is
+        // unaffected by the overlay that is drawn later.
+        m_fxaaIntermediate->bind();
+        m_fxaaPass->process(m_ldrIntermediate->get_color_texture(), w, h);
+        opengl::Framebuffer::unbind();
+    }
     m_scenePixelsAvailable = true;
 
     // Present only the scene viewport rect into the default framebuffer. Clear the whole window
@@ -1691,7 +1702,7 @@ CameraAutoFitResult Renderer::compute_fit_destination(const linal::double3& dire
     input.orthographicWidth = orthoParams.width;
     input.orthographicHeight = orthoParams.height;
 
-    const std::vector<std::vector<float>> positionBuffers = m_drawablesManager->collect_vertex_position_buffers();
+    const auto& positionBuffers = m_drawablesManager->collect_vertex_position_buffers();
     std::vector<std::span<const float>> positionBufferSpans;
     positionBufferSpans.reserve(positionBuffers.size());
     for (const auto& buffer: positionBuffers) {
@@ -1762,7 +1773,7 @@ void Renderer::update_clip_planes_from_bounds() {
     input.farPlaneMultiplier = m_cameraFarPlaneMultiplier;
     input.useReversedDepth = m_reversedDepth;
 
-    const std::vector<std::vector<float>> positionBuffers = m_drawablesManager->collect_vertex_position_buffers();
+    const auto& positionBuffers = m_drawablesManager->collect_vertex_position_buffers();
     std::vector<std::span<const float>> positionBufferSpans;
     positionBufferSpans.reserve(positionBuffers.size());
     for (const auto& buffer: positionBuffers) {

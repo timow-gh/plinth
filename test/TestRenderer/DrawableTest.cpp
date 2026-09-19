@@ -974,3 +974,75 @@ TEST_F(OpenGLDrawableTest, CollectVertexPositionBuffersAppliesNonIdentityTransfo
         EXPECT_FLOAT_EQ(expected[i], buffers.front()[i]);
     }
 }
+
+TEST_F(OpenGLDrawableTest, DrawablesManagerCachesAndInvalidatesTransformedPositionBuffers) {
+    auto manager = opengl::DrawablesManager::create();
+    ASSERT_NE(nullptr, manager);
+
+    const std::vector<float> pointVertices{0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F};
+    const std::vector<float> pointColors{1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F};
+    const std::vector<std::uint32_t> pointIndices{0U, 1U};
+    const auto pointId = manager->add_point_drawable(
+        pointVertices, pointColors, pointIndices, 3.0F, opengl::BufferAccessPattern::Static);
+    ASSERT_TRUE(pointId.has_value());
+
+    const auto& firstCollection = manager->collect_vertex_position_buffers();
+    ASSERT_EQ(1U, firstCollection.size());
+    const float* cachedData = firstCollection.front().data();
+    const auto& repeatedCollection = manager->collect_vertex_position_buffers();
+    EXPECT_EQ(cachedData, repeatedCollection.front().data());
+
+    const std::vector<float> recolored{0.0F, 0.0F, 1.0F, 1.0F, 1.0F, 1.0F, 0.0F, 1.0F};
+    ASSERT_TRUE(manager->update_point_drawable_colors_by_id(
+        *pointId, recolored, opengl::BufferAccessPattern::Dynamic));
+    EXPECT_EQ(cachedData, manager->collect_vertex_position_buffers().front().data());
+
+    ASSERT_TRUE(manager->set_point_drawable_transform(*pointId, make_translation(10.0F, 20.0F, 30.0F)));
+    const auto& transformed = manager->collect_vertex_position_buffers();
+    ASSERT_EQ(1U, transformed.size());
+    EXPECT_FLOAT_EQ(10.0F, transformed.front()[0]);
+    EXPECT_FLOAT_EQ(20.0F, transformed.front()[1]);
+    EXPECT_FLOAT_EQ(30.0F, transformed.front()[2]);
+
+    const std::vector<float> updatedVertices{2.0F, 0.0F, 0.0F, 3.0F, 0.0F, 0.0F};
+    ASSERT_TRUE(manager->update_point_drawable_by_id(*pointId,
+                                                     updatedVertices,
+                                                     pointColors,
+                                                     pointIndices,
+                                                     opengl::BufferAccessPattern::Dynamic));
+    EXPECT_FLOAT_EQ(12.0F, manager->collect_vertex_position_buffers().front()[0]);
+
+    const auto lineId = manager->add_line_drawable(updatedVertices,
+                                                   pointIndices,
+                                                   pointColors,
+                                                   opengl::LineType::lines(),
+                                                   2.0F,
+                                                   opengl::BufferAccessPattern::Static);
+    ASSERT_TRUE(lineId.has_value());
+    EXPECT_EQ(2U, manager->collect_vertex_position_buffers().size());
+    EXPECT_TRUE(manager->remove_line_drawable(*lineId));
+    EXPECT_EQ(1U, manager->collect_vertex_position_buffers().size());
+
+    const std::vector<float> meshColors{
+        1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 1.0F};
+    add_mesh_drawable_with_alpha(*manager, meshColors);
+    EXPECT_EQ(2U, manager->collect_vertex_position_buffers().size());
+    EXPECT_TRUE(manager->clear_mesh_drawables());
+    EXPECT_EQ(1U, manager->collect_vertex_position_buffers().size());
+
+    const std::array<float, 3> sphereCenter{4.0F, 5.0F, 6.0F};
+    const std::array<float, 1> sphereRadius{1.0F};
+    const std::array<float, 4> sphereColor{1.0F, 1.0F, 1.0F, 1.0F};
+    ASSERT_TRUE(manager
+                    ->add_sphere_drawable(sphereCenter,
+                                          sphereRadius,
+                                          sphereColor,
+                                          opengl::BufferAccessPattern::Static)
+                    .has_value());
+    EXPECT_EQ(2U, manager->collect_vertex_position_buffers().size());
+    EXPECT_TRUE(manager->clear_sphere_drawables());
+    EXPECT_EQ(1U, manager->collect_vertex_position_buffers().size());
+
+    EXPECT_TRUE(manager->clear_point_drawables());
+    EXPECT_TRUE(manager->collect_vertex_position_buffers().empty());
+}

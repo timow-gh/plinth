@@ -180,13 +180,18 @@ void PostProcessingPass::process(GLuint hdrColorTexture, GLuint depthTexture, in
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, hdrColorTexture);
     glUniform1i(m_sceneColor.get_location().get_value(), 0);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, depthTexture);
-    glUniform1i(m_sceneDepth.get_location().get_value(), 1);
+    if (depthTexture != 0) {
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, depthTexture);
+        glUniform1i(m_sceneDepth.get_location().get_value(), 1);
+    }
     glBindVertexArray(m_vertexArray);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    if (depthTexture != 0) {
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
 }

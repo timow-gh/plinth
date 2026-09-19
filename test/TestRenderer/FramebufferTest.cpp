@@ -508,6 +508,37 @@ TEST_F(FramebufferTest, HdrResolveBlitsColorAndDepth) {
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
+TEST_F(FramebufferTest, HdrColorOnlyResolveLeavesDestinationDepthUntouched) {
+    GLint maxSamples = 0;
+    glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+    if (maxSamples < 2) {
+        GTEST_SKIP() << "GL_MAX_SAMPLES < 2, skipping MSAA resolve test";
+    }
+
+    const int samples = std::min(4, maxSamples);
+    auto source = opengl::Framebuffer::create_hdr({32, 32, samples, true, true});
+    auto destination = opengl::Framebuffer::create_hdr({32, 32, 1, true, true});
+    ASSERT_TRUE(source.has_value());
+    ASSERT_TRUE(destination.has_value());
+
+    source->bind();
+    glClearColor(0.2F, 0.4F, 0.6F, 1.0F);
+    glClearDepth(0.75);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    destination->bind();
+    glClearDepth(0.25);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    ASSERT_TRUE(source->resolve_to(*destination, GL_COLOR_BUFFER_BIT));
+    destination->bind();
+    float depth = 0.0F;
+    glReadPixels(16, 16, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth);
+
+    EXPECT_NEAR(0.25F, depth, 0.001F);
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
 TEST_F(FramebufferTest, ResolveRejectsIncompatibleFramebuffers) {
     GLint maxSamples = 0;
     glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);

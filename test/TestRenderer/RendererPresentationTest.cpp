@@ -714,6 +714,75 @@ TEST_F(RendererPresentationTest, ReservedSceneViewportPresentsBesideBandInsteadO
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
+TEST_F(RendererPresentationTest, DepthVisualizationRemainsFreshAcrossModeAndMsaaChanges) {
+    auto instance = create_renderer(1, 128, 128);
+    ASSERT_NE(nullptr, instance);
+    instance->set_fxaa_enabled(false);
+
+    constexpr std::array<float, 3> vertices{0.0F, 0.0F, 0.0F};
+    constexpr std::array<float, 4> colors{1.0F, 0.0F, 0.0F, 1.0F};
+    constexpr std::array<std::uint32_t, 1> indices{0U};
+    ASSERT_TRUE(instance->add_point_drawable(vertices, indices, colors, 64.0F).is_valid());
+
+    const auto render = [&](renderer::VisualizationMode mode) {
+        instance->set_visualization_mode(mode);
+        instance->begin_frame({0.25F, 0.25F, 0.25F, 1.0F});
+        instance->draw();
+        instance->end_frame();
+        glFinish();
+
+        const auto viewport = instance->scene_viewport().framebuffer;
+        const auto center = read_front_pixel(viewport.x + viewport.width / 2, viewport.y + viewport.height / 2);
+        const auto background = read_front_pixel(viewport.x + 4, viewport.y + 4);
+        return std::pair{center, background};
+    };
+
+    const auto [singleSampleDepth, singleSampleBackground] = render(renderer::VisualizationMode::Depth);
+    EXPECT_LT(singleSampleDepth[0], singleSampleBackground[0]);
+    expect_pixel_near(singleSampleBackground, {255, 255, 255, 255});
+
+    const auto [finalColor, finalBackground] = render(renderer::VisualizationMode::Final);
+    EXPECT_GT(finalColor[0], finalColor[1]);
+    expect_pixel_near(finalBackground, {137, 137, 137, 255});
+
+    if (instance->get_max_msaa_samples() >= 2) {
+        instance->set_msaa_samples(std::min(4, instance->get_max_msaa_samples()));
+        const auto [multisampleDepth, multisampleBackground] = render(renderer::VisualizationMode::Depth);
+        EXPECT_LT(multisampleDepth[0], multisampleBackground[0]);
+        expect_pixel_near(multisampleBackground, {255, 255, 255, 255});
+    }
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(RendererPresentationTest, DisablingFxaaRemovesItsFullscreenRasterPass) {
+    auto instance = create_renderer(1, 128, 128);
+    ASSERT_NE(nullptr, instance);
+
+    const auto presentedSamples = [&](bool enabled) {
+        instance->set_fxaa_enabled(enabled);
+        instance->begin_frame({0.25F, 0.25F, 0.25F, 1.0F});
+
+        GLuint query = 0;
+        glGenQueries(1, &query);
+        EXPECT_NE(0U, query);
+        glBeginQuery(GL_SAMPLES_PASSED, query);
+        instance->end_frame();
+        glEndQuery(GL_SAMPLES_PASSED);
+
+        GLuint samples = 0;
+        glGetQueryObjectuiv(query, GL_QUERY_RESULT, &samples);
+        glDeleteQueries(1, &query);
+        return samples;
+    };
+
+    const GLuint withoutFxaa = presentedSamples(false);
+    const GLuint withFxaa = presentedSamples(true);
+
+    EXPECT_GT(withoutFxaa, 0U);
+    EXPECT_GT(withFxaa, withoutFxaa + withoutFxaa / 2U);
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
 TEST_F(RendererPresentationTest, PresentsFreshSingleSampleOutputAfterStableFramebufferResize) {
     verify_stable_resize_case(1);
 }

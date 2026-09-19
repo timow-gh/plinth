@@ -99,6 +99,9 @@ class DrawablesManager {
     std::vector<DrawableEntry<opengl::MeshDrawable>> m_meshDrawables;
     std::vector<DrawableEntry<opengl::SphereImpostorDrawable>> m_sphereDrawables;
 
+    mutable std::vector<std::vector<float>> m_transformedPositionBuffers;
+    mutable bool m_transformedPositionBuffersDirty{true};
+
     std::unordered_map<DrawableId, MeshCullFaceMode> m_meshCullModes;
 
   public:
@@ -131,14 +134,17 @@ class DrawablesManager {
 
     // Collects a position buffer (world-space xyz triplets, transformed by each drawable's
     // current transform) for every currently-added drawable, for use with
-    // renderer::calculate_camera_auto_fit. Unlike the untransformed local vertex data a drawable
-    // caches internally, this must return owned data - applying a transform produces new values,
-    // not a view into existing memory.
-    [[nodiscard]] std::vector<std::vector<float>> collect_vertex_position_buffers() const {
-        std::vector<std::vector<float>> buffers;
-        buffers.reserve(m_pointDrawables.size() + m_lineDrawables.size() + m_meshDrawables.size() +
-                        m_sphereDrawables.size());
-        const auto collect = [&buffers](const auto& drawables) {
+    // renderer::calculate_camera_auto_fit. The returned reference remains valid until a positional
+    // drawable mutation or the next call that rebuilds this cache.
+    [[nodiscard]] const std::vector<std::vector<float>>& collect_vertex_position_buffers() const {
+        if (!m_transformedPositionBuffersDirty) {
+            return m_transformedPositionBuffers;
+        }
+
+        m_transformedPositionBuffers.clear();
+        m_transformedPositionBuffers.reserve(m_pointDrawables.size() + m_lineDrawables.size() +
+                                             m_meshDrawables.size() + m_sphereDrawables.size());
+        const auto collect = [this](const auto& drawables) {
             for (const auto& entry: drawables) {
                 const auto span = entry.drawable.get_vertex_positions();
                 if (span.empty()) {
@@ -153,24 +159,27 @@ class DrawablesManager {
                     transformed.push_back(transformedPoint[1]);
                     transformed.push_back(transformedPoint[2]);
                 }
-                buffers.push_back(std::move(transformed));
+                m_transformedPositionBuffers.push_back(std::move(transformed));
             }
         };
         collect(m_pointDrawables);
         collect(m_lineDrawables);
         collect(m_meshDrawables);
         collect(m_sphereDrawables);
-        return buffers;
+        m_transformedPositionBuffersDirty = false;
+        return m_transformedPositionBuffers;
     }
 
     DrawableId add_point_drawable(opengl::PointDrawable drawable) {
         const DrawableId id = next_drawable_id();
         m_pointDrawables.emplace_back(DrawableEntry<opengl::PointDrawable>{id, std::move(drawable)});
+        invalidate_transformed_position_buffers();
         return id;
     }
     DrawableId add_line_drawable(opengl::LineDrawable drawable) {
         const DrawableId id = next_drawable_id();
         m_lineDrawables.emplace_back(DrawableEntry<opengl::LineDrawable>{id, std::move(drawable)});
+        invalidate_transformed_position_buffers();
         return id;
     }
     std::optional<DrawableId> add_point_drawable(std::span<const float> vertices,
@@ -245,6 +254,7 @@ class DrawablesManager {
 
         const DrawableId id = next_drawable_id();
         m_meshDrawables.emplace_back(DrawableEntry<opengl::MeshDrawable>{id, std::move(drawable.value())});
+        invalidate_transformed_position_buffers();
         return id;
     }
 
@@ -297,6 +307,7 @@ class DrawablesManager {
             return std::nullopt;
         const DrawableId id = next_drawable_id();
         m_meshDrawables.emplace_back(DrawableEntry<opengl::MeshDrawable>{id, std::move(*drawable)});
+        invalidate_transformed_position_buffers();
         return id;
     }
 
@@ -319,19 +330,42 @@ class DrawablesManager {
         drawable->set_size_space(sizeSpace);
         const DrawableId id = next_drawable_id();
         m_sphereDrawables.emplace_back(DrawableEntry<opengl::SphereImpostorDrawable>{id, std::move(drawable.value())});
+        invalidate_transformed_position_buffers();
         return id;
     }
 
-    bool remove_point_drawable(DrawableId id) { return remove_drawable_by_id(m_pointDrawables, id); }
+    bool remove_point_drawable(DrawableId id) {
+        const bool removed = remove_drawable_by_id(m_pointDrawables, id);
+        if (removed) {
+            invalidate_transformed_position_buffers();
+        }
+        return removed;
+    }
 
-    bool remove_line_drawable(DrawableId id) { return remove_drawable_by_id(m_lineDrawables, id); }
+    bool remove_line_drawable(DrawableId id) {
+        const bool removed = remove_drawable_by_id(m_lineDrawables, id);
+        if (removed) {
+            invalidate_transformed_position_buffers();
+        }
+        return removed;
+    }
 
     bool remove_mesh_drawable(DrawableId id) {
         m_meshCullModes.erase(id);
-        return remove_drawable_by_id(m_meshDrawables, id);
+        const bool removed = remove_drawable_by_id(m_meshDrawables, id);
+        if (removed) {
+            invalidate_transformed_position_buffers();
+        }
+        return removed;
     }
 
-    bool remove_sphere_drawable(DrawableId id) { return remove_drawable_by_id(m_sphereDrawables, id); }
+    bool remove_sphere_drawable(DrawableId id) {
+        const bool removed = remove_drawable_by_id(m_sphereDrawables, id);
+        if (removed) {
+            invalidate_transformed_position_buffers();
+        }
+        return removed;
+    }
 
     void set_mesh_drawable_cull_mode(DrawableId id, MeshCullFaceMode mode) {
         if (mode == MeshCullFaceMode::BACK)
@@ -343,14 +377,22 @@ class DrawablesManager {
     void remove_mesh_drawable_cull_mode(DrawableId id) { m_meshCullModes.erase(id); }
 
     bool set_point_drawable_transform(DrawableId id, const linal::hmatf& transform) {
-        return set_drawable_transform_by_id(m_pointDrawables, id, transform);
+        const bool changed = set_drawable_transform_by_id(m_pointDrawables, id, transform);
+        if (changed) {
+            invalidate_transformed_position_buffers();
+        }
+        return changed;
     }
     [[nodiscard]] std::optional<linal::hmatf> get_point_drawable_transform(DrawableId id) const {
         return get_drawable_transform_by_id(m_pointDrawables, id);
     }
 
     bool set_line_drawable_transform(DrawableId id, const linal::hmatf& transform) {
-        return set_drawable_transform_by_id(m_lineDrawables, id, transform);
+        const bool changed = set_drawable_transform_by_id(m_lineDrawables, id, transform);
+        if (changed) {
+            invalidate_transformed_position_buffers();
+        }
+        return changed;
     }
     [[nodiscard]] std::optional<linal::hmatf> get_line_drawable_transform(DrawableId id) const {
         return get_drawable_transform_by_id(m_lineDrawables, id);
@@ -393,14 +435,22 @@ class DrawablesManager {
     }
 
     bool set_mesh_drawable_transform(DrawableId id, const linal::hmatf& transform) {
-        return set_drawable_transform_by_id(m_meshDrawables, id, transform);
+        const bool changed = set_drawable_transform_by_id(m_meshDrawables, id, transform);
+        if (changed) {
+            invalidate_transformed_position_buffers();
+        }
+        return changed;
     }
     [[nodiscard]] std::optional<linal::hmatf> get_mesh_drawable_transform(DrawableId id) const {
         return get_drawable_transform_by_id(m_meshDrawables, id);
     }
 
     bool set_sphere_drawable_transform(DrawableId id, const linal::hmatf& transform) {
-        return set_drawable_transform_by_id(m_sphereDrawables, id, transform);
+        const bool changed = set_drawable_transform_by_id(m_sphereDrawables, id, transform);
+        if (changed) {
+            invalidate_transformed_position_buffers();
+        }
+        return changed;
     }
     [[nodiscard]] std::optional<linal::hmatf> get_sphere_drawable_transform(DrawableId id) const {
         return get_drawable_transform_by_id(m_sphereDrawables, id);
@@ -418,9 +468,13 @@ class DrawablesManager {
                                      std::span<const float> colors,
                                      std::span<const std::uint32_t> indices,
                                      opengl::BufferAccessPattern accessPattern) {
-        return mutate_drawable_by_id(m_pointDrawables, id, [&](opengl::PointDrawable& d) {
+        const bool updated = mutate_drawable_by_id(m_pointDrawables, id, [&](opengl::PointDrawable& d) {
             d.update_point_drawable(vertices, colors, indices, accessPattern);
         });
+        if (updated) {
+            invalidate_transformed_position_buffers();
+        }
+        return updated;
     }
 
     bool update_line_drawable_by_id(DrawableId id,
@@ -428,9 +482,13 @@ class DrawablesManager {
                                     std::span<const float> colors,
                                     std::span<const std::uint32_t> indices,
                                     opengl::BufferAccessPattern accessPattern) {
-        return mutate_drawable_by_id(m_lineDrawables, id, [&](opengl::LineDrawable& d) {
+        const bool updated = mutate_drawable_by_id(m_lineDrawables, id, [&](opengl::LineDrawable& d) {
             d.update_line_drawable(vertices, colors, indices, accessPattern);
         });
+        if (updated) {
+            invalidate_transformed_position_buffers();
+        }
+        return updated;
     }
 
     bool update_point_drawable_colors_by_id(DrawableId id,
@@ -501,6 +559,7 @@ class DrawablesManager {
             return false;
         }
         entry->drawable = std::move(rebuilt.value());
+        invalidate_transformed_position_buffers();
         return true;
     }
 
@@ -532,18 +591,25 @@ class DrawablesManager {
         }
         rebuilt->set_size_space(entry->drawable.get_size_space());
         entry->drawable = std::move(rebuilt.value());
+        invalidate_transformed_position_buffers();
         return true;
     }
 
     bool clear_point_drawables() {
         const bool changed = !m_pointDrawables.empty();
         m_pointDrawables.clear();
+        if (changed) {
+            invalidate_transformed_position_buffers();
+        }
         return changed;
     }
 
     bool clear_line_drawables() {
         const bool changed = !m_lineDrawables.empty();
         m_lineDrawables.clear();
+        if (changed) {
+            invalidate_transformed_position_buffers();
+        }
         return changed;
     }
 
@@ -551,12 +617,18 @@ class DrawablesManager {
         const bool changed = !m_meshDrawables.empty();
         m_meshDrawables.clear();
         m_meshCullModes.clear();
+        if (changed) {
+            invalidate_transformed_position_buffers();
+        }
         return changed;
     }
 
     bool clear_sphere_drawables() {
         const bool changed = !m_sphereDrawables.empty();
         m_sphereDrawables.clear();
+        if (changed) {
+            invalidate_transformed_position_buffers();
+        }
         return changed;
     }
 
@@ -884,6 +956,8 @@ class DrawablesManager {
     SphereImpostorProgram& get_sphere_impostor_program() { return programManager.get_sphere_impostor_program(); }
 
     DrawableId next_drawable_id() { return m_nextDrawableId++; }
+
+    void invalidate_transformed_position_buffers() noexcept { m_transformedPositionBuffersDirty = true; }
 
     template <typename Fn>
     bool mutate_line_drawable_by_id(DrawableId id, Fn&& fn) {

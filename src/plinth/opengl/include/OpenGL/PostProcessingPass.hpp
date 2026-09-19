@@ -22,6 +22,7 @@ class OPENGL_EXPORT PostProcessingPass {
 
     [[nodiscard]] bool is_valid() const noexcept;
 
+    /// depthTexture may be zero when the active visualization mode does not consume scene depth.
     void process(GLuint hdrColorTexture, GLuint depthTexture, int width, int height) const;
 
     void set_reversed_depth(bool enabled) const;

@@ -655,7 +655,6 @@ vec3 srgbEncode(vec3 linear) {
 
 void main() {
     vec3 hdr = texture(u_sceneColor, v_uv).rgb;
-    float depth = texture(u_sceneDepth, v_uv).r;
 
     hdr = max(hdr, vec3(0.0));
 
@@ -678,6 +677,7 @@ void main() {
         float value = log2(max(lum, 1e-6));
         ldr = vec3(clamp((value + 10.0) / 20.0, 0.0, 1.0));
     } else if (u_visualizationMode == 5) {
+        float depth = texture(u_sceneDepth, v_uv).r;
         ldr = vec3(u_reversedDepth ? 1.0 - depth : depth);
     } else if (u_visualizationMode == 6) {
         bool clipped = any(greaterThan(exposed, vec3(1.0)));

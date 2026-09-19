@@ -77,7 +77,11 @@ TEST_F(PostProcessingPassTest, ProcessesHdrToLdr) {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glEnable(GL_BLEND);
-    pass->process(hdrFb->get_color_texture(), hdrFb->get_depth_texture(), 16, 16);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, hdrFb->get_color_texture());
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, hdrFb->get_depth_texture());
+    pass->process(hdrFb->get_color_texture(), 0, 16, 16);
 
     std::array<GLint, 4> viewport{};
     glGetIntegerv(GL_VIEWPORT, viewport.data());
@@ -85,6 +89,15 @@ TEST_F(PostProcessingPassTest, ProcessesHdrToLdr) {
     EXPECT_TRUE(glIsEnabled(GL_DEPTH_TEST));
     EXPECT_TRUE(glIsEnabled(GL_CULL_FACE));
     EXPECT_TRUE(glIsEnabled(GL_BLEND));
+    GLint activeTexture = 0;
+    GLint textureBinding = 0;
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
+    EXPECT_EQ(GL_TEXTURE1, activeTexture);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &textureBinding);
+    EXPECT_EQ(static_cast<GLint>(hdrFb->get_depth_texture()), textureBinding);
+    glActiveTexture(GL_TEXTURE0);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &textureBinding);
+    EXPECT_EQ(static_cast<GLint>(hdrFb->get_color_texture()), textureBinding);
 
     std::array<unsigned char, 4> pixel{0, 0, 0, 0};
     glReadPixels(8, 8, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
@@ -115,13 +128,13 @@ TEST_F(PostProcessingPassTest, LinearLdrVisualizationBypassesSrgbEncoding) {
 
     ldrFb->bind();
     pass->set_visualization_mode(0);
-    pass->process(hdrFb->get_color_texture(), hdrFb->get_depth_texture(), 16, 16);
+    pass->process(hdrFb->get_color_texture(), 0, 16, 16);
     std::array<unsigned char, 4> finalPixel{0, 0, 0, 0};
     glReadPixels(8, 8, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, finalPixel.data());
 
     ldrFb->bind();
     pass->set_visualization_mode(2);
-    pass->process(hdrFb->get_color_texture(), hdrFb->get_depth_texture(), 16, 16);
+    pass->process(hdrFb->get_color_texture(), 0, 16, 16);
     std::array<unsigned char, 4> linearPixel{0, 0, 0, 0};
     glReadPixels(8, 8, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, linearPixel.data());
 
@@ -186,7 +199,7 @@ TEST_F(PostProcessingPassTest, VisualizationModesProduceDeterministicOutput) {
     const auto render = [&](int mode) {
         ldrFb->bind();
         pass->set_visualization_mode(mode);
-        pass->process(hdrFb->get_color_texture(), hdrFb->get_depth_texture(), 16, 16);
+        pass->process(hdrFb->get_color_texture(), mode == 5 ? hdrFb->get_depth_texture() : 0, 16, 16);
         std::array<unsigned char, 4> pixel{};
         glReadPixels(8, 8, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
         return pixel;

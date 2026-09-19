@@ -62,6 +62,7 @@ Renderer::~Renderer() {
     m_overlay.reset();
     m_fxaaPass.reset();
     m_postProcessingPass.reset();
+    m_fxaaIntermediate.reset();
     m_ldrIntermediate.reset();
     m_hdrResolveFramebuffer.reset();
     m_sceneFramebuffer.reset();
@@ -115,6 +116,40 @@ class ScopedFullSampleShading {
     bool m_active{false};
     GLboolean m_wasEnabled{GL_FALSE};
     GLfloat m_previousMinimum{0.0F};
+};
+
+class ScopedPixelReadState {
+  public:
+    ScopedPixelReadState() {
+        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &m_readFramebuffer);
+        glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &m_pixelPackBuffer);
+        glGetIntegerv(GL_PACK_ALIGNMENT, &m_packAlignment);
+        glGetIntegerv(GL_PACK_ROW_LENGTH, &m_packRowLength);
+        glGetIntegerv(GL_PACK_SKIP_PIXELS, &m_packSkipPixels);
+        glGetIntegerv(GL_PACK_SKIP_ROWS, &m_packSkipRows);
+    }
+
+    ScopedPixelReadState(const ScopedPixelReadState&) = delete;
+    ScopedPixelReadState& operator=(const ScopedPixelReadState&) = delete;
+    ScopedPixelReadState(ScopedPixelReadState&&) = delete;
+    ScopedPixelReadState& operator=(ScopedPixelReadState&&) = delete;
+
+    ~ScopedPixelReadState() {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(m_readFramebuffer));
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, static_cast<GLuint>(m_pixelPackBuffer));
+        glPixelStorei(GL_PACK_ALIGNMENT, m_packAlignment);
+        glPixelStorei(GL_PACK_ROW_LENGTH, m_packRowLength);
+        glPixelStorei(GL_PACK_SKIP_PIXELS, m_packSkipPixels);
+        glPixelStorei(GL_PACK_SKIP_ROWS, m_packSkipRows);
+    }
+
+  private:
+    GLint m_readFramebuffer{0};
+    GLint m_pixelPackBuffer{0};
+    GLint m_packAlignment{4};
+    GLint m_packRowLength{0};
+    GLint m_packSkipPixels{0};
+    GLint m_packSkipRows{0};
 };
 
 std::optional<std::uint64_t> next_renderer_instance() {
@@ -343,6 +378,12 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
         return nullptr;
     }
 
+    auto fxaaFb = opengl::Framebuffer::create_ldr_intermediate(framebufferWidth, framebufferHeight);
+    if (!fxaaFb.has_value()) {
+        opengl::report_error("Error: Renderer::create failed - FXAA intermediate framebuffer creation failed");
+        return nullptr;
+    }
+
     auto postProcess = opengl::PostProcessingPass::create();
     if (!postProcess.has_value()) {
         opengl::report_error("Error: Renderer::create failed - post-processing pass creation failed");
@@ -369,6 +410,7 @@ std::unique_ptr<Renderer> Renderer::create(const WindowSettings& settings) {
                      std::make_unique<opengl::Framebuffer>(std::move(*hdrSceneFb)),
                      std::move(hdrResolveFb),
                      std::make_unique<opengl::Framebuffer>(std::move(*ldrFb)),
+                     std::make_unique<opengl::Framebuffer>(std::move(*fxaaFb)),
                      std::make_unique<opengl::PostProcessingPass>(std::move(*postProcess)),
                      std::make_unique<opengl::FXAAPass>(std::move(*fxaa)),
                      sceneSamples,
@@ -391,6 +433,7 @@ Renderer::Renderer(GlfwWindow window,
                    std::unique_ptr<opengl::Framebuffer> sceneFramebuffer,
                    std::unique_ptr<opengl::Framebuffer> hdrResolveFramebuffer,
                    std::unique_ptr<opengl::Framebuffer> ldrIntermediate,
+                   std::unique_ptr<opengl::Framebuffer> fxaaIntermediate,
                    std::unique_ptr<opengl::PostProcessingPass> postProcessingPass,
                    std::unique_ptr<opengl::FXAAPass> fxaaPass,
                    int sceneSamples,
@@ -406,6 +449,7 @@ Renderer::Renderer(GlfwWindow window,
     , m_sceneFramebuffer(std::move(sceneFramebuffer))
     , m_hdrResolveFramebuffer(std::move(hdrResolveFramebuffer))
     , m_ldrIntermediate(std::move(ldrIntermediate))
+    , m_fxaaIntermediate(std::move(fxaaIntermediate))
     , m_postProcessingPass(std::move(postProcessingPass))
     , m_fxaaPass(std::move(fxaaPass))
     , m_sceneSamples(sceneSamples)
@@ -1388,6 +1432,37 @@ void Renderer::make_context_current() const {
     m_window.make_context_current();
 }
 
+bool Renderer::read_scene_pixels(std::vector<std::uint8_t>& out, int& outWidth, int& outHeight) const {
+    make_context_current();
+
+    // m_fxaaIntermediate holds the fully post-processed scene at scene-viewport resolution with
+    // no UI composited on top. It is populated before the overlay pass in present_scene().
+    if (!m_scenePixelsAvailable || !m_fxaaIntermediate) {
+        return false;
+    }
+    const int width = m_fxaaIntermediate->get_width();
+    const int height = m_fxaaIntermediate->get_height();
+    if (width <= 0 || height <= 0) {
+        return false;
+    }
+
+    const auto byteCount = static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 3U;
+    out.resize(byteCount);
+
+    const ScopedPixelReadState state;
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_fxaaIntermediate->get_id());
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+    glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+    glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, out.data());
+
+    outWidth = width;
+    outHeight = height;
+    return true;
+}
+
 bool Renderer::rebuild_scene_targets(int width, int height, int samples, bool resizeLdrTarget) {
     const opengl::Framebuffer::HdrConfig sceneConfig{width, height, samples, true, m_reversedDepth};
     auto scene = opengl::Framebuffer::create_hdr(sceneConfig);
@@ -1405,9 +1480,14 @@ bool Renderer::rebuild_scene_targets(int width, int height, int samples, bool re
     }
 
     std::optional<opengl::Framebuffer> ldr;
+    std::optional<opengl::Framebuffer> fxaa;
     if (resizeLdrTarget) {
         ldr = opengl::Framebuffer::create_ldr_intermediate(width, height);
         if (!ldr.has_value()) {
+            return false;
+        }
+        fxaa = opengl::Framebuffer::create_ldr_intermediate(width, height);
+        if (!fxaa.has_value()) {
             return false;
         }
     }
@@ -1418,12 +1498,16 @@ bool Renderer::rebuild_scene_targets(int width, int height, int samples, bool re
         : nullptr;
     if (ldr.has_value()) {
         m_ldrIntermediate = std::make_unique<opengl::Framebuffer>(std::move(*ldr));
+        m_fxaaIntermediate = std::make_unique<opengl::Framebuffer>(std::move(*fxaa));
+        m_scenePixelsAvailable = false;
     }
     m_sceneSamples = samples;
     return true;
 }
 
 void Renderer::present_scene() {
+    m_scenePixelsAvailable = false;
+
     GLuint hdrColorTex{0};
     GLuint depthTex{0};
     if (m_sceneSamples > 1) {
@@ -1455,9 +1539,21 @@ void Renderer::present_scene() {
 
     opengl::Framebuffer::unbind();
 
-    // FXAA presents only the scene viewport rect into the default framebuffer. Clear the whole
-    // window first so any region outside the scene (a reserved UI band) is a defined color
-    // instead of stale garbage; an overlay or the application draws over it afterwards.
+    m_fxaaPass->set_enabled(m_fxaaEnabled);
+    m_fxaaPass->set_edge_threshold(m_fxaaEdgeThreshold);
+    m_fxaaPass->set_edge_threshold_min(m_fxaaEdgeThresholdMin);
+    m_fxaaPass->set_subpixel_amount(m_fxaaSubpixelAmount);
+
+    // Keep the clean, fully post-processed scene in an offscreen target so readback is unaffected
+    // by the overlay that is drawn later.
+    m_fxaaIntermediate->bind();
+    m_fxaaPass->process(m_ldrIntermediate->get_color_texture(), w, h);
+    opengl::Framebuffer::unbind();
+    m_scenePixelsAvailable = true;
+
+    // Present only the scene viewport rect into the default framebuffer. Clear the whole window
+    // first so any region outside the scene (a reserved UI band) is a defined color instead of
+    // stale garbage; an overlay or the application draws over it afterwards.
     const auto [windowFramebufferWidth, windowFramebufferHeight] = m_window.get_framebuffer_size();
     glViewport(0,
                0,
@@ -1467,17 +1563,12 @@ void Renderer::present_scene() {
     glClearColor(defaultClearColor.r, defaultClearColor.g, defaultClearColor.b, defaultClearColor.a);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    m_fxaaPass->set_enabled(m_fxaaEnabled);
-    m_fxaaPass->set_edge_threshold(m_fxaaEdgeThreshold);
-    m_fxaaPass->set_edge_threshold_min(m_fxaaEdgeThresholdMin);
-    m_fxaaPass->set_subpixel_amount(m_fxaaSubpixelAmount);
-    // Present into the default (whole-window) framebuffer at the scene viewport's offset so
-    // the scene lands beside the reserved UI band instead of stretching across it.
-    m_fxaaPass->process(m_ldrIntermediate->get_color_texture(),
-                        w,
-                        h,
-                        m_sceneViewport.framebuffer.x,
-                        m_sceneViewport.framebuffer.y);
+    // FXAA has already been applied into m_fxaaIntermediate. Blit its color attachment into the
+    // scene viewport instead of running another full-screen shader pass just to copy the pixels.
+    if (!m_fxaaIntermediate->blit_color_to_default(m_sceneViewport.framebuffer.x, m_sceneViewport.framebuffer.y)) {
+        opengl::report_error("Error: present_scene failed to blit FXAA framebuffer to default framebuffer");
+        return;
+    }
 }
 
 // --- Post-processing setters ---

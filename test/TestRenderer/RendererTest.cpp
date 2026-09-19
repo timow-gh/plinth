@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <span>
+#include <vector>
 
 namespace {
 
@@ -1589,6 +1590,107 @@ TEST_F(RendererTest, FrameBoundaryRestoresRendererContext) {
 
     EXPECT_EQ(m_renderer->window().get_native_handle(), glfwGetCurrentContext());
     glfwDestroyWindow(other);
+}
+
+TEST_F(RendererTest, ReadScenePixelsRequiresPresentedFrame) {
+    std::vector<std::uint8_t> pixels;
+    int width = 0;
+    int height = 0;
+
+    EXPECT_FALSE(m_renderer->read_scene_pixels(pixels, width, height));
+}
+
+TEST_F(RendererTest, ReadScenePixelsPreservesReadbackState) {
+    m_renderer->begin_frame();
+    m_renderer->draw();
+    m_renderer->end_frame();
+
+    GLuint readFramebuffer = 0;
+    GLuint drawFramebuffer = 0;
+    glGenFramebuffers(1, &readFramebuffer);
+    glGenFramebuffers(1, &drawFramebuffer);
+    ASSERT_NE(0U, readFramebuffer);
+    ASSERT_NE(0U, drawFramebuffer);
+
+    GLuint pixelPackBuffer = 0;
+    glGenBuffers(1, &pixelPackBuffer);
+    ASSERT_NE(0U, pixelPackBuffer);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelPackBuffer);
+    glBufferData(GL_PIXEL_PACK_BUFFER, 16, nullptr, GL_STREAM_READ);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, readFramebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFramebuffer);
+    glPixelStorei(GL_PACK_ALIGNMENT, 8);
+    glPixelStorei(GL_PACK_ROW_LENGTH, 23);
+    glPixelStorei(GL_PACK_SKIP_PIXELS, 2);
+    glPixelStorei(GL_PACK_SKIP_ROWS, 3);
+
+    std::vector<std::uint8_t> pixels;
+    int width = 0;
+    int height = 0;
+    ASSERT_TRUE(m_renderer->read_scene_pixels(pixels, width, height));
+
+    GLint readBinding = 0;
+    GLint drawBinding = 0;
+    GLint packBufferBinding = 0;
+    GLint packAlignment = 0;
+    GLint packRowLength = 0;
+    GLint packSkipPixels = 0;
+    GLint packSkipRows = 0;
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readBinding);
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawBinding);
+    glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &packBufferBinding);
+    glGetIntegerv(GL_PACK_ALIGNMENT, &packAlignment);
+    glGetIntegerv(GL_PACK_ROW_LENGTH, &packRowLength);
+    glGetIntegerv(GL_PACK_SKIP_PIXELS, &packSkipPixels);
+    glGetIntegerv(GL_PACK_SKIP_ROWS, &packSkipRows);
+
+    EXPECT_EQ(static_cast<GLint>(readFramebuffer), readBinding);
+    EXPECT_EQ(static_cast<GLint>(drawFramebuffer), drawBinding);
+    EXPECT_EQ(static_cast<GLint>(pixelPackBuffer), packBufferBinding);
+    EXPECT_EQ(8, packAlignment);
+    EXPECT_EQ(23, packRowLength);
+    EXPECT_EQ(2, packSkipPixels);
+    EXPECT_EQ(3, packSkipRows);
+    EXPECT_EQ(m_renderer->scene_viewport().framebuffer.width, width);
+    EXPECT_EQ(m_renderer->scene_viewport().framebuffer.height, height);
+    EXPECT_EQ(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 3U, pixels.size());
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    glPixelStorei(GL_PACK_ALIGNMENT, 4);
+    glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+    glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+    glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+    glDeleteBuffers(1, &pixelPackBuffer);
+    glDeleteFramebuffers(1, &readFramebuffer);
+    glDeleteFramebuffers(1, &drawFramebuffer);
+    EXPECT_EQ(GL_NO_ERROR, glGetError());
+}
+
+TEST_F(RendererTest, ReadScenePixelsIncludesFxaa) {
+    m_renderer->set_overlay(nullptr);
+    m_renderer->set_msaa_samples(1);
+    constexpr std::array<float, 3> vertex{0.0F, 0.0F, 0.0F};
+    constexpr std::array<float, 4> color{1.0F, 1.0F, 1.0F, 1.0F};
+    ASSERT_TRUE(m_renderer->add_point_drawable(vertex, color, 32.0F).is_valid());
+
+    const auto renderAndRead = [this](bool fxaaEnabled) {
+        m_renderer->set_fxaa_enabled(fxaaEnabled);
+        m_renderer->begin_frame();
+        m_renderer->draw();
+        m_renderer->end_frame();
+        std::vector<std::uint8_t> pixels;
+        int width = 0;
+        int height = 0;
+        EXPECT_TRUE(m_renderer->read_scene_pixels(pixels, width, height));
+        return pixels;
+    };
+
+    const auto withoutFxaa = renderAndRead(false);
+    const auto withFxaa = renderAndRead(true);
+
+    EXPECT_EQ(withoutFxaa.size(), withFxaa.size());
+    EXPECT_NE(withoutFxaa, withFxaa);
 }
 
 TEST_F(RendererTest, IsSrgbCapableLeavesNoGlfwErrorAndMatchesDriverReport) {

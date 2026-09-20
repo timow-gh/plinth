@@ -82,37 +82,14 @@ void MeshDrawable::update_color_buffer(std::span<const float> colors, BufferAcce
     m_transparencyInfo.isTranslucent = contains_translucent_alpha(colors, m_colorDimension);
 }
 
-void MeshDrawable::draw(const linal::hmatf& modelMatrix,
-                        const linal::hmatf& viewMatrix,
-                        const linal::hmatf& projectionMatrix,
-                        const linal::hmatf& normalMatrix,
-                        const linal::float3& lightPosition,
-                        const linal::float3& viewPos,
-                        const linal::float3& lightColor,
-                        const linal::float3& fillLightDirection,
-                        const linal::float3& fillLightColor,
-                        const linal::float3& ambientColor,
-                        float shininess,
-                        const linal::float3& lightAttenuation,
-                        const linal::float3& materialAmbient,
-                        const linal::float3& materialDiffuse,
-                        const linal::float3& materialSpecular) const {
+void MeshDrawable::draw(const linal::hmatf& modelMatrix, const linal::hmatf& normalMatrix) const {
     RENDERER_ASSERT(m_program != nullptr);
     const auto& prog = *m_program;
     prog.use();
 
     glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
-    glUniformMatrix4fv(prog.get_view_matrix_location().get_value(), 1, GL_TRUE, viewMatrix.data());
-    glUniformMatrix4fv(prog.get_projection_matrix_location().get_value(), 1, GL_TRUE, projectionMatrix.data());
     glUniformMatrix4fv(prog.get_normal_matrix_location().get_value(), 1, GL_TRUE, normalMatrix.data());
 
-    glUniform3fv(prog.get_light_pos_location().get_value(), 1, lightPosition.data());
-    glUniform3fv(prog.get_view_pos_location().get_value(), 1, viewPos.data());
-    glUniform3fv(prog.get_light_color_location().get_value(), 1, lightColor.data());
-    glUniform3fv(prog.get_fill_light_direction_location().get_value(), 1, fillLightDirection.data());
-    glUniform3fv(prog.get_fill_light_color_location().get_value(), 1, fillLightColor.data());
-    glUniform3fv(prog.get_ambient_color_location().get_value(), 1, ambientColor.data());
-    glUniform1f(prog.get_shininess_location().get_value(), shininess);
     glUniform1i(prog.get_has_albedo_texture_location().get_value(), m_texture ? GL_TRUE : GL_FALSE);
     glActiveTexture(GL_TEXTURE0);
     if (m_texture) {
@@ -121,10 +98,6 @@ void MeshDrawable::draw(const linal::hmatf& modelMatrix,
         glBindTexture(GL_TEXTURE_2D, 0);
     }
     glUniform1i(prog.get_albedo_texture_location().get_value(), 0);
-    glUniform3fv(prog.get_light_attenuation_location().get_value(), 1, lightAttenuation.data());
-    glUniform3fv(prog.get_material_ambient_location().get_value(), 1, materialAmbient.data());
-    glUniform3fv(prog.get_material_diffuse_location().get_value(), 1, materialDiffuse.data());
-    glUniform3fv(prog.get_material_specular_location().get_value(), 1, materialSpecular.data());
 
     m_vertexArray.bind();
     m_triangleIndicesBuffer.bind();
@@ -132,17 +105,12 @@ void MeshDrawable::draw(const linal::hmatf& modelMatrix,
     glDrawElements(GL_TRIANGLES, m_triangleIndicesBuffer.get_index_count(), GL_UNSIGNED_INT, nullptr);
 }
 
-void MeshDrawable::draw_pick(const linal::hmatf& modelMatrix,
-                             const linal::hmatf& viewMatrix,
-                             const linal::hmatf& projectionMatrix,
-                             const std::array<float, 3>& pickColor) const {
+void MeshDrawable::draw_pick(const linal::hmatf& modelMatrix, const std::array<float, 3>& pickColor) const {
     RENDERER_ASSERT(m_program != nullptr);
     const auto& prog = *m_program;
     prog.use();
 
     glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
-    glUniformMatrix4fv(prog.get_view_matrix_location().get_value(), 1, GL_TRUE, viewMatrix.data());
-    glUniformMatrix4fv(prog.get_projection_matrix_location().get_value(), 1, GL_TRUE, projectionMatrix.data());
     glUniform1i(prog.get_pick_mode_location().get_value(), GL_TRUE);
     glUniform3fv(prog.get_pick_color_location().get_value(), 1, pickColor.data());
 

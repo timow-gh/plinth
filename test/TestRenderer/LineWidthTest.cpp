@@ -6,8 +6,10 @@
 #include "CaptureFixture.hpp"
 #include "OpenGL/Drawable/LineDrawable.hpp"
 #include "OpenGL/FrameState.hpp"
+#include "OpenGL/FrameUniforms.hpp"
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/Programs/LineProgram.hpp"
+#include "OpenGL/UniformBuffer.hpp"
 
 #include <linal/hmat.hpp>
 #include <linal/vec.hpp>
@@ -80,7 +82,19 @@ std::size_t render_vertical_line_width(opengl::LineProgram& program, float lineW
 
     const linal::hmatf identity = linal::hmatf::identity();
     const linal::float2 viewportSize{static_cast<float>(captureWidth), static_cast<float>(captureHeight)};
-    drawable->draw_opaque(identity, identity, viewportSize);
+
+    const opengl::FrameUniforms frame = opengl::make_frame_uniforms(identity,
+                                                                    identity,
+                                                                    identity,
+                                                                    identity,
+                                                                    linal::float3{0.0F, 0.0F, 0.0F},
+                                                                    linal::float3{0.0F, 0.0F, 0.0F},
+                                                                    renderer::LightingConfig{},
+                                                                    viewportSize,
+                                                                    false);
+    auto ubo = opengl::UniformBuffer::create(opengl::frame_uniforms_data(frame), opengl::kFrameUniformBinding);
+    EXPECT_TRUE(ubo.has_value());
+    drawable->draw_opaque(identity);
 
     const plinth_test::CapturedImage image = plinth_test::read_back_rgba(captureWidth, captureHeight);
     return count_lit_columns_in_middle_row(image);

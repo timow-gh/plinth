@@ -155,77 +155,22 @@ bool SphereImpostorDrawable::update_colors(std::span<const float> colors, Buffer
     return true;
 }
 
-void SphereImpostorDrawable::set_common_uniforms(const linal::hmatf& viewMatrix,
-                                                 const linal::hmatf& projectionMatrix,
-                                                 const linal::hmatf& inverseProjectionMatrix,
-                                                 const linal::hmatf& modelMatrix,
-                                                 const linal::float2& viewportSize,
-                                                 bool zeroToOneDepth,
-                                                 const LightingConfig& lighting) const {
+void SphereImpostorDrawable::set_common_uniforms(const linal::hmatf& viewMatrix, const linal::hmatf& modelMatrix) const {
     // The fragment shader has two deliberate working spaces: intersection in local space and
-    // lighting in view space. These matrices and transformed lights are the bridge between them.
-    // A position uses w=1 so camera translation affects it; a direction uses w=0 so it does not.
+    // lighting in view space. The inverse model-view and its inverse-transpose (normal matrix)
+    // bridge them; view/projection/inverse-projection and the lights live in the FrameBlock UBO.
     const linal::hmatf modelViewMatrix = viewMatrix * modelMatrix;
     const linal::hmatf inverseModelViewMatrix = inverse_matrix(modelViewMatrix);
     const linal::hmatf normalMatrix = inverseModelViewMatrix.transpose();
-    const linal::float3 lightPositionView = linal::to_vec(viewMatrix * linal::to_hvec(lighting.lightPosition));
-    const linal::float3 fillLightDirectionView =
-        linal::to_vec(viewMatrix * linal::to_hvec(lighting.fillLightDir, 0.0F));
 
     // Matrices: linal is row-major; GL expects column-major → GL_TRUE transposes on upload.
     glUniformMatrix4fv(m_program->get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
-    glUniformMatrix4fv(m_program->get_view_matrix_location().get_value(), 1, GL_TRUE, viewMatrix.data());
-    glUniformMatrix4fv(m_program->get_projection_matrix_location().get_value(), 1, GL_TRUE, projectionMatrix.data());
     glUniformMatrix4fv(m_program->get_inverse_model_view_matrix_location().get_value(),
                        1,
                        GL_TRUE,
                        inverseModelViewMatrix.data());
     glUniformMatrix4fv(m_program->get_normal_matrix_location().get_value(), 1, GL_TRUE, normalMatrix.data());
-    glUniformMatrix4fv(m_program->get_inv_projection_location().get_value(),
-                       1,
-                       GL_TRUE,
-                       inverseProjectionMatrix.data());
-    glUniform2f(m_program->get_viewport_size_location().get_value(), viewportSize[0], viewportSize[1]);
-    glUniform1i(m_program->get_zero_to_one_depth_location().get_value(), zeroToOneDepth ? 1 : 0);
     glUniform1i(m_program->get_size_space_location().get_value(), static_cast<GLint>(m_sizeSpace));
-
-    glUniform3f(m_program->get_light_pos_location().get_value(),
-                lightPositionView[0],
-                lightPositionView[1],
-                lightPositionView[2]);
-    glUniform3f(m_program->get_light_color_location().get_value(),
-                lighting.lightColor[0],
-                lighting.lightColor[1],
-                lighting.lightColor[2]);
-    glUniform3f(m_program->get_fill_light_direction_location().get_value(),
-                fillLightDirectionView[0],
-                fillLightDirectionView[1],
-                fillLightDirectionView[2]);
-    glUniform3f(m_program->get_fill_light_color_location().get_value(),
-                lighting.fillLightColor[0],
-                lighting.fillLightColor[1],
-                lighting.fillLightColor[2]);
-    glUniform3f(m_program->get_ambient_color_location().get_value(),
-                lighting.ambientColor[0],
-                lighting.ambientColor[1],
-                lighting.ambientColor[2]);
-    glUniform1f(m_program->get_shininess_location().get_value(), lighting.shininess);
-    glUniform3f(m_program->get_light_attenuation_location().get_value(),
-                lighting.lightAttenuation[0],
-                lighting.lightAttenuation[1],
-                lighting.lightAttenuation[2]);
-    glUniform3f(m_program->get_material_ambient_location().get_value(),
-                lighting.materialAmbient[0],
-                lighting.materialAmbient[1],
-                lighting.materialAmbient[2]);
-    glUniform3f(m_program->get_material_diffuse_location().get_value(),
-                lighting.materialDiffuse[0],
-                lighting.materialDiffuse[1],
-                lighting.materialDiffuse[2]);
-    glUniform3f(m_program->get_material_specular_location().get_value(),
-                lighting.materialSpecular[0],
-                lighting.materialSpecular[1],
-                lighting.materialSpecular[2]);
 
     glUniform1i(m_program->get_pick_mode_location().get_value(), 0);
 }
@@ -242,53 +187,17 @@ void SphereImpostorDrawable::draw_instances(const InstanceBuffer& instanceBuffer
     m_vertexArray.unbind();
 }
 
-void SphereImpostorDrawable::draw(const linal::hmatf& viewMatrix,
-                                  const linal::hmatf& projectionMatrix,
-                                  const linal::hmatf& inverseProjectionMatrix,
-                                  const linal::hmatf& modelMatrix,
-                                  const linal::float2& viewportSize,
-                                  bool zeroToOneDepth,
-                                  const LightingConfig& lighting) const {
-    m_program->use();
-    set_common_uniforms(viewMatrix,
-                        projectionMatrix,
-                        inverseProjectionMatrix,
-                        modelMatrix,
-                        viewportSize,
-                        zeroToOneDepth,
-                        lighting);
-    draw_instances(m_opaqueInstanceBuffer);
-    draw_instances(m_translucentInstanceBuffer);
-}
-
-void SphereImpostorDrawable::draw_opaque(const linal::hmatf& viewMatrix,
-                                         const linal::hmatf& projectionMatrix,
-                                         const linal::hmatf& inverseProjectionMatrix,
-                                         const linal::hmatf& modelMatrix,
-                                         const linal::float2& viewportSize,
-                                         bool zeroToOneDepth,
-                                         const LightingConfig& lighting) const {
+void SphereImpostorDrawable::draw_opaque(const linal::hmatf& viewMatrix, const linal::hmatf& modelMatrix) const {
     if (!has_opaque_primitives()) {
         return;
     }
     m_program->use();
-    set_common_uniforms(viewMatrix,
-                        projectionMatrix,
-                        inverseProjectionMatrix,
-                        modelMatrix,
-                        viewportSize,
-                        zeroToOneDepth,
-                        lighting);
+    set_common_uniforms(viewMatrix, modelMatrix);
     draw_instances(m_opaqueInstanceBuffer);
 }
 
 void SphereImpostorDrawable::draw_translucent(const linal::hmatf& viewMatrix,
-                                              const linal::hmatf& projectionMatrix,
-                                              const linal::hmatf& inverseProjectionMatrix,
                                               const linal::hmatf& modelMatrix,
-                                              const linal::float2& viewportSize,
-                                              bool zeroToOneDepth,
-                                              const LightingConfig& lighting,
                                               const linal::double3& viewPosition) {
     if (!has_translucent_primitives()) {
         return;
@@ -321,22 +230,12 @@ void SphereImpostorDrawable::draw_translucent(const linal::hmatf& viewMatrix,
     m_translucentInstanceBuffer.update(sortedData, BufferAccessPattern::Stream);
 
     m_program->use();
-    set_common_uniforms(viewMatrix,
-                        projectionMatrix,
-                        inverseProjectionMatrix,
-                        modelMatrix,
-                        viewportSize,
-                        zeroToOneDepth,
-                        lighting);
+    set_common_uniforms(viewMatrix, modelMatrix);
     draw_instances(m_translucentInstanceBuffer);
 }
 
 void SphereImpostorDrawable::draw_pick(const linal::hmatf& viewMatrix,
-                                       const linal::hmatf& projectionMatrix,
-                                       const linal::hmatf& inverseProjectionMatrix,
                                        const linal::hmatf& modelMatrix,
-                                       const linal::float2& viewportSize,
-                                       bool zeroToOneDepth,
                                        const std::array<float, 3>& pickColor) const {
     const GLsizei opaqueCount = m_opaqueInstanceBuffer.get_instance_count();
     const GLsizei translucentCount = m_translucentInstanceBuffer.get_instance_count();
@@ -345,44 +244,18 @@ void SphereImpostorDrawable::draw_pick(const linal::hmatf& viewMatrix,
     }
 
     m_program->use();
-
-    const LightingConfig defaultLighting{};
+    set_common_uniforms(viewMatrix, modelMatrix);
 
     // Picking must use the same model-aware intersection and projected surface depth as the color
-    // pass. Otherwise the rectangular proxy, rather than the transformed sphere, would be picked.
-    glUniformMatrix4fv(m_program->get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
-    glUniformMatrix4fv(m_program->get_view_matrix_location().get_value(), 1, GL_TRUE, viewMatrix.data());
-    glUniformMatrix4fv(m_program->get_projection_matrix_location().get_value(), 1, GL_TRUE, projectionMatrix.data());
-    const linal::hmatf inverseModelViewMatrix = inverse_matrix(viewMatrix * modelMatrix);
-    glUniformMatrix4fv(m_program->get_inverse_model_view_matrix_location().get_value(),
-                       1,
-                       GL_TRUE,
-                       inverseModelViewMatrix.data());
-    glUniformMatrix4fv(m_program->get_inv_projection_location().get_value(),
-                       1,
-                       GL_TRUE,
-                       inverseProjectionMatrix.data());
-    glUniform2f(m_program->get_viewport_size_location().get_value(), viewportSize[0], viewportSize[1]);
-    glUniform1i(m_program->get_zero_to_one_depth_location().get_value(), zeroToOneDepth ? 1 : 0);
-    glUniform1i(m_program->get_size_space_location().get_value(), static_cast<GLint>(m_sizeSpace));
-
-    // Lighting uniforms must be set even in pick mode (they're queried by location at compile time).
-    glUniform3f(m_program->get_light_pos_location().get_value(), 0.0F, 0.0F, 0.0F);
-    glUniform3f(m_program->get_light_color_location().get_value(), 1.0F, 1.0F, 1.0F);
-    glUniform3f(m_program->get_fill_light_direction_location().get_value(), 0.0F, 0.0F, 0.0F);
-    glUniform3f(m_program->get_fill_light_color_location().get_value(), 0.0F, 0.0F, 0.0F);
-    glUniform3f(m_program->get_ambient_color_location().get_value(), 0.0F, 0.0F, 0.0F);
-    glUniform1f(m_program->get_shininess_location().get_value(), defaultLighting.shininess);
-    glUniform3f(m_program->get_light_attenuation_location().get_value(), 1.0F, 0.0F, 0.0F);
-    glUniform3f(m_program->get_material_ambient_location().get_value(), 0.0F, 0.0F, 0.0F);
-    glUniform3f(m_program->get_material_diffuse_location().get_value(), 0.0F, 0.0F, 0.0F);
-    glUniform3f(m_program->get_material_specular_location().get_value(), 0.0F, 0.0F, 0.0F);
-
+    // pass. Override the visible-color state with the flat pick color.
     glUniform1i(m_program->get_pick_mode_location().get_value(), 1);
     glUniform3f(m_program->get_pick_color_location().get_value(), pickColor[0], pickColor[1], pickColor[2]);
 
     draw_instances(m_opaqueInstanceBuffer);
     draw_instances(m_translucentInstanceBuffer);
+
+    // Leave pick mode disabled so a subsequent normal draw is unaffected.
+    glUniform1i(m_program->get_pick_mode_location().get_value(), 0);
 }
 
 std::optional<SphereImpostorDrawable> make_sphere_impostor_drawable(SphereImpostorProgram& program,

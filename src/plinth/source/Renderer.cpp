@@ -4,6 +4,7 @@
 #include "OpenGL/ErrorReporting.hpp"
 #include "OpenGL/FXAAPass.hpp"
 #include "OpenGL/FrameState.hpp"
+#include "OpenGL/FrameUniforms.hpp"
 #include "OpenGL/Framebuffer.hpp"
 #include "OpenGL/GpuCapabilities.hpp"
 #include "OpenGL/OpenGL.hpp"
@@ -1183,13 +1184,29 @@ std::vector<Renderer::PickResult> Renderer::pick_drawables(double xpos, double y
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     const linal::float2 pickViewportSize{static_cast<float>(width), static_cast<float>(height)};
+
+    // Bind the frame UBO (camera matrices/viewport) for the pick pass; the pick shaders read it the
+    // same way the visible pass does. Lighting content is irrelevant because pick mode outputs the
+    // encoded ID color.
+    const linal::float3 viewPosF{static_cast<float>(m_camera->get_position()[0]),
+                                 static_cast<float>(m_camera->get_position()[1]),
+                                 static_cast<float>(m_camera->get_position()[2])};
+    renderer::LightingConfig effectiveLighting;
+    effectiveLighting.lightPosition = viewPosF;
+    const opengl::FrameUniforms frameUniforms =
+        opengl::make_frame_uniforms(m_camera->get_current_MVP(),
+                                    m_camera->get_view_matrix(),
+                                    m_camera->get_projection_matrix(),
+                                    m_camera->get_inverse_projection_matrix(),
+                                    viewPosF,
+                                    viewPosF,
+                                    effectiveLighting,
+                                    pickViewportSize,
+                                    m_reversedDepth);
+    m_drawablesManager->update_frame_uniforms(frameUniforms);
+
     const std::vector<opengl::DrawablesManager::PickEntry> entries =
-        m_drawablesManager->draw_pick_pass(m_camera->get_current_MVP(),
-                                           m_camera->get_view_matrix(),
-                                           m_camera->get_projection_matrix(),
-                                           m_camera->get_inverse_projection_matrix(),
-                                           pickViewportSize,
-                                           m_reversedDepth);
+        m_drawablesManager->draw_pick_pass(m_camera->get_view_matrix());
 
     // Read back the axis-aligned pixel box that bounds the circular pick region, clamped to the
     // target. Coordinates flip on Y because glReadPixels uses a bottom-left origin.
@@ -1336,6 +1353,20 @@ void Renderer::draw(const renderer::LightingConfig& lighting) {
     renderer::LightingConfig effectiveLighting = lighting;
     effectiveLighting.lightPosition = viewPosF;
 
+    // Upload the once-per-frame camera/lighting block before any draw; the drawable draw paths read
+    // it instead of re-uploading matrices and lighting per drawable.
+    const opengl::FrameUniforms frameUniforms =
+        opengl::make_frame_uniforms(m_camera->get_current_MVP(),
+                                    m_camera->get_view_matrix(),
+                                    m_camera->get_projection_matrix(),
+                                    m_camera->get_inverse_projection_matrix(),
+                                    viewPosF,
+                                    effectiveLighting.lightPosition,
+                                    effectiveLighting,
+                                    sceneViewportSize,
+                                    m_reversedDepth);
+    m_drawablesManager->update_frame_uniforms(frameUniforms);
+
     // Draw meshes (faces) before lines/points so that opted-in lines and points, which carry a
     // small camera-ward depth bias (StrokeStyle::depthLayer > 0), reliably render on top of coplanar
     // faces (e.g. crease lines on paper) without z-fighting. Spheres stay last since they write
@@ -1348,27 +1379,17 @@ void Renderer::draw(const renderer::LightingConfig& lighting) {
     // Acceptable for the current opaque-line use cases; revisit with a unified transparency sort if
     // mixed translucent meshes + lines become common.
     if (m_drawablesManager->has_mesh_drawables()) {
-        m_drawablesManager->draw_meshes(m_camera->get_view_matrix(),
-                                        m_camera->get_projection_matrix(),
-                                        viewPosF,
-                                        effectiveLighting);
+        m_drawablesManager->draw_meshes(m_camera->get_position());
     }
 
     {
         const ScopedFullSampleShading sampleShading{m_sceneSamples > 1};
-        m_drawablesManager->draw_lines_and_points(
-            m_camera->get_current_MVP(), sceneViewportSize, m_camera->get_position());
+        m_drawablesManager->draw_lines_and_points(m_camera->get_position());
     }
 
     if (m_drawablesManager->has_sphere_drawables()) {
         const ScopedFullSampleShading sampleShading{m_sceneSamples > 1};
-        m_drawablesManager->draw_spheres(m_camera->get_view_matrix(),
-                                         m_camera->get_projection_matrix(),
-                                         m_camera->get_inverse_projection_matrix(),
-                                         sceneViewportSize,
-                                         m_reversedDepth,
-                                         m_camera->get_position(),
-                                         effectiveLighting);
+        m_drawablesManager->draw_spheres(m_camera->get_view_matrix(), m_camera->get_position());
     }
 }
 

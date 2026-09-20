@@ -128,27 +128,23 @@ void PointDrawable::update_point_drawable(std::span<const float> vertices,
     rebuild_index_buffers(accessPattern);
 }
 
-void PointDrawable::draw(const linal::hmatf& mvp, const linal::hmatf& modelMatrix) const {
-    draw_opaque(mvp, modelMatrix);
-    draw_index_buffer(mvp, modelMatrix, m_translucentPointIndicesBuffer);
+void PointDrawable::draw(const linal::hmatf& modelMatrix) const {
+    draw_opaque(modelMatrix);
+    draw_index_buffer(modelMatrix, m_translucentPointIndicesBuffer);
 }
 
-void PointDrawable::draw_opaque(const linal::hmatf& mvp, const linal::hmatf& modelMatrix) const {
-    draw_index_buffer(mvp, modelMatrix, m_opaquePointIndicesBuffer);
+void PointDrawable::draw_opaque(const linal::hmatf& modelMatrix) const {
+    draw_index_buffer(modelMatrix, m_opaquePointIndicesBuffer);
 }
 
-void PointDrawable::draw_translucent(const linal::hmatf& mvp,
-                                     const linal::hmatf& modelMatrix,
-                                     const linal::double3& viewPosition) {
+void PointDrawable::draw_translucent(const linal::hmatf& modelMatrix, const linal::double3& viewPosition) {
     const std::vector<std::uint32_t> sortedIndices =
         sort_translucent_point_indices_back_to_front(m_translucentPointIndices, viewPosition);
     m_translucentPointIndicesBuffer.update_indices_buffer(sortedIndices, BufferAccessPattern::Stream);
-    draw_index_buffer(mvp, modelMatrix, m_translucentPointIndicesBuffer);
+    draw_index_buffer(modelMatrix, m_translucentPointIndicesBuffer);
 }
 
-void PointDrawable::draw_index_buffer(const linal::hmatf& mvp,
-                                      const linal::hmatf& modelMatrix,
-                                      const IndexBuffer& indexBuffer) const {
+void PointDrawable::draw_index_buffer(const linal::hmatf& modelMatrix, const IndexBuffer& indexBuffer) const {
     if (indexBuffer.get_index_count() == 0) {
         return;
     }
@@ -156,7 +152,6 @@ void PointDrawable::draw_index_buffer(const linal::hmatf& mvp,
     RENDERER_ASSERT(m_program != nullptr);
     auto& prog = *m_program;
     prog.use();
-    glUniformMatrix4fv(prog.get_view_projection_location().get_value(), 1, GL_TRUE, mvp.data());
     glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
     glUniform1f(prog.get_depth_bias_location().get_value(), signed_point_depth_bias(m_depthLayer, prog.get_reversed_depth()));
     glPointSize(m_pointSize);
@@ -166,9 +161,7 @@ void PointDrawable::draw_index_buffer(const linal::hmatf& mvp,
     glDrawElements(GL_POINTS, indexBuffer.get_index_count(), GL_UNSIGNED_INT, nullptr);
 }
 
-void PointDrawable::draw_pick(const linal::hmatf& mvp,
-                              const linal::hmatf& modelMatrix,
-                              const std::array<float, 3>& pickColor) const {
+void PointDrawable::draw_pick(const linal::hmatf& modelMatrix, const std::array<float, 3>& pickColor) const {
     RENDERER_ASSERT(m_program != nullptr);
     auto& prog = *m_program;
     const auto draw_buffer = [&](const IndexBuffer& indexBuffer) {
@@ -176,7 +169,6 @@ void PointDrawable::draw_pick(const linal::hmatf& mvp,
             return;
         }
         prog.use();
-        glUniformMatrix4fv(prog.get_view_projection_location().get_value(), 1, GL_TRUE, mvp.data());
         glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
         glUniform1f(prog.get_depth_bias_location().get_value(),
                     signed_point_depth_bias(m_depthLayer, prog.get_reversed_depth()));

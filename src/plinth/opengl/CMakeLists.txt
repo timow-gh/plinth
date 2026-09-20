@@ -16,6 +16,8 @@ set(opengl_HEADER_FILES
         include/OpenGL/Drawable/LineInstanceData.hpp
         include/OpenGL/VertexBuffer.hpp
         include/OpenGL/InstanceBuffer.hpp
+        include/OpenGL/UniformBuffer.hpp
+        include/OpenGL/FrameUniforms.hpp
         include/OpenGL/BufferId.hpp
         include/OpenGL/Framebuffer.hpp
         include/OpenGL/Texture2D.hpp
@@ -59,6 +61,7 @@ set(opengl_SOURCE_FILES
         source/VertexArray.cpp
         source/VertexBuffer.cpp
         source/InstanceBuffer.cpp
+        source/UniformBuffer.cpp
         source/Drawable/LineDrawable.cpp
         source/Drawable/MeshDrawable.cpp
         source/Drawable/PointDrawable.cpp

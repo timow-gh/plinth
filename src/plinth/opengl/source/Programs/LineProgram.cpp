@@ -1,6 +1,7 @@
 #include "OpenGL/Programs/LineProgram.hpp"
 
 #include "OpenGL/ErrorReporting.hpp"
+#include "OpenGL/FrameUniforms.hpp"
 #include "OpenGL/Programs/CreateProgram.hpp"
 #include "OpenGL/ShaderSources.hpp"
 #include "plinth/Assert.hpp"
@@ -12,9 +13,7 @@
 namespace opengl {
 
 LineProgram::LineProgram(ProgramHandle program,
-                         Uniform viewProjectionLocation,
                          Uniform modelMatrixLocation,
-                         Uniform viewportSizeLocation,
                          Uniform lineWidthLocation,
                          Uniform dashSpaceLocation,
                          Uniform dashPhaseLocation,
@@ -33,9 +32,7 @@ LineProgram::LineProgram(ProgramHandle program,
                          Attribute pPrevLocation,
                          Attribute pNextLocation) noexcept
     : m_program{std::move(program)}
-    , m_viewProjectionLocation{viewProjectionLocation}
     , m_modelMatrixLocation{modelMatrixLocation}
-    , m_viewportSizeLocation{viewportSizeLocation}
     , m_lineWidthLocation{lineWidthLocation}
     , m_dashSpaceLocation{dashSpaceLocation}
     , m_dashPhaseLocation{dashPhaseLocation}
@@ -54,9 +51,7 @@ LineProgram::LineProgram(ProgramHandle program,
     , m_pPrevLocation{pPrevLocation}
     , m_pNextLocation{pNextLocation} {
     RENDERER_ASSERT(m_program.is_valid());
-    RENDERER_ASSERT(viewProjectionLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(modelMatrixLocation.get_location().get_value() != -1);
-    RENDERER_ASSERT(viewportSizeLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(lineWidthLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(dashSpaceLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(dashPhaseLocation.get_location().get_value() != -1);
@@ -95,9 +90,7 @@ opengl::LineProgram make_line_program() {
 
     ProgramId id = program->get_id();
     RENDERER_ASSERT(id.get_value() != 0);
-    Uniform viewProjectionLocation = make_uniform("u_viewProjection", id);
     Uniform modelMatrixLocation = make_uniform("u_model", id);
-    Uniform viewportSizeLocation = make_uniform("u_viewportSize", id);
     Uniform lineWidthLocation = make_uniform("u_lineWidth", id);
     Uniform dashSpaceLocation = make_uniform("u_dashSpace", id);
     Uniform dashPhaseLocation = make_uniform("u_dashPhase", id);
@@ -115,12 +108,14 @@ opengl::LineProgram make_line_program() {
     Attribute color1Location = make_attribute("a_color1", id);
     Attribute pPrevLocation = make_attribute("a_pPrev", id);
     Attribute pNextLocation = make_attribute("a_pNext", id);
-    return LineProgram{std::move(*program), viewProjectionLocation, modelMatrixLocation, viewportSizeLocation,
-                       lineWidthLocation,   dashSpaceLocation,      dashPhaseLocation,   pickModeLocation,
-                       pickColorLocation,   capStyleLocation,       joinStyleLocation,   dashPatternCountLocation,
-                       dashPatternLocation, depthBiasLocation,      cornerLocation,      p0Location,
-                       p1Location,          color0Location,         color1Location,      pPrevLocation,
-                       pNextLocation};
+
+    bind_uniform_block(id, "FrameBlock", kFrameUniformBinding);
+
+    return LineProgram{std::move(*program), modelMatrixLocation,  lineWidthLocation,      dashSpaceLocation,
+                       dashPhaseLocation,   pickModeLocation,      pickColorLocation,      capStyleLocation,
+                       joinStyleLocation,   dashPatternCountLocation, dashPatternLocation, depthBiasLocation,
+                       cornerLocation,      p0Location,             p1Location,             color0Location,
+                       color1Location,      pPrevLocation,          pNextLocation};
 }
 
 } // namespace opengl

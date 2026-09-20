@@ -59,32 +59,13 @@ class OPENGL_EXPORT MeshDrawable {
 
     void update_color_buffer(std::span<const float> colors, BufferAccessPattern accessPattern);
 
-    /** Draw the mesh Drawable.
-     * @param mvp Model-View-Projection matrix.
-     * @param viewPos View position (camera position) in world space.
-     */
-    void draw(const linal::hmatf& modelMatrix,
-              const linal::hmatf& viewMatrix,
-              const linal::hmatf& projectionMatrix,
-              const linal::hmatf& normalMatrix,
-              const linal::float3& lightPosition,
-              const linal::float3& viewPos,
-              const linal::float3& lightColor,
-              const linal::float3& fillLightDirection,
-              const linal::float3& fillLightColor,
-              const linal::float3& ambientColor,
-              float shininess,
-              const linal::float3& lightAttenuation,
-              const linal::float3& materialAmbient,
-              const linal::float3& materialDiffuse,
-              const linal::float3& materialSpecular) const;
+    /** Draw the mesh. Frame-constant matrices and lighting come from the FrameBlock UBO; only the
+     * per-drawable model transform and its inverse-transpose are uploaded here. */
+    void draw(const linal::hmatf& modelMatrix, const linal::hmatf& normalMatrix) const;
 
     /** Draw the mesh into a color-ID pick pass using a flat pickColor. Uses the same program,
      * VAO, and index buffer as the visible draw so the pick footprint matches the rendered mesh. */
-    void draw_pick(const linal::hmatf& modelMatrix,
-                   const linal::hmatf& viewMatrix,
-                   const linal::hmatf& projectionMatrix,
-                   const std::array<float, 3>& pickColor) const;
+    void draw_pick(const linal::hmatf& modelMatrix, const std::array<float, 3>& pickColor) const;
 
     [[nodiscard]] bool is_translucent() const noexcept { return m_transparencyInfo.isTranslucent; }
 

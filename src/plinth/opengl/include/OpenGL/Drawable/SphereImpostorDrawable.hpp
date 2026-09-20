@@ -81,37 +81,14 @@ class OPENGL_EXPORT SphereImpostorDrawable {
     SphereImpostorDrawable& operator=(SphereImpostorDrawable&& other) noexcept;
     ~SphereImpostorDrawable() = default;
 
-    void draw(const linal::hmatf& viewMatrix,
-              const linal::hmatf& projectionMatrix,
-              const linal::hmatf& inverseProjectionMatrix,
-              const linal::hmatf& modelMatrix,
-              const linal::float2& viewportSize,
-              bool zeroToOneDepth,
-              const LightingConfig& lighting) const;
-
-    void draw_opaque(const linal::hmatf& viewMatrix,
-                     const linal::hmatf& projectionMatrix,
-                     const linal::hmatf& inverseProjectionMatrix,
-                     const linal::hmatf& modelMatrix,
-                     const linal::float2& viewportSize,
-                     bool zeroToOneDepth,
-                     const LightingConfig& lighting) const;
+    void draw_opaque(const linal::hmatf& viewMatrix, const linal::hmatf& modelMatrix) const;
 
     void draw_translucent(const linal::hmatf& viewMatrix,
-                          const linal::hmatf& projectionMatrix,
-                          const linal::hmatf& inverseProjectionMatrix,
                           const linal::hmatf& modelMatrix,
-                          const linal::float2& viewportSize,
-                          bool zeroToOneDepth,
-                          const LightingConfig& lighting,
                           const linal::double3& viewPosition);
 
     void draw_pick(const linal::hmatf& viewMatrix,
-                   const linal::hmatf& projectionMatrix,
-                   const linal::hmatf& inverseProjectionMatrix,
                    const linal::hmatf& modelMatrix,
-                   const linal::float2& viewportSize,
-                   bool zeroToOneDepth,
                    const std::array<float, 3>& pickColor) const;
 
     [[nodiscard]] bool has_opaque_primitives() const noexcept {
@@ -157,13 +134,7 @@ class OPENGL_EXPORT SphereImpostorDrawable {
     }
 
   private:
-    void set_common_uniforms(const linal::hmatf& viewMatrix,
-                             const linal::hmatf& projectionMatrix,
-                             const linal::hmatf& inverseProjectionMatrix,
-                             const linal::hmatf& modelMatrix,
-                             const linal::float2& viewportSize,
-                             bool zeroToOneDepth,
-                             const LightingConfig& lighting) const;
+    void set_common_uniforms(const linal::hmatf& viewMatrix, const linal::hmatf& modelMatrix) const;
 
     void draw_instances(const InstanceBuffer& instanceBuffer) const;
 };

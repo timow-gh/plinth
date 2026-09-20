@@ -6,6 +6,11 @@
 
 namespace opengl {
 
+// Declaration of the shared std140 `FrameBlock` uniform block (no instance name, so members are
+// addressed directly). Prepend it after the `#version` line of any shader stage that reads
+// frame-constant camera/lighting data. See FrameUniforms.hpp for the matching C++ layout.
+std::string frame_uniform_block_glsl();
+
 std::string line_vertex_shader_source();
 std::string line_fragment_shader_source();
 std::string point_color_vertex_shader_source();

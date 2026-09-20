@@ -5,10 +5,12 @@
 #include "OpenGL/Drawable/MeshDrawable.hpp"
 #include "OpenGL/Drawable/PointDrawable.hpp"
 #include "OpenGL/Drawable/SphereImpostorDrawable.hpp"
+#include "OpenGL/FrameUniforms.hpp"
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/PickId.hpp"
 #include "OpenGL/Programs/ProgramManager.hpp"
 #include "OpenGL/Texture2D.hpp"
+#include "OpenGL/UniformBuffer.hpp"
 #include "plinth/DashSpace.hpp"
 #include "plinth/LightingConfig.hpp"
 #include "plinth/MeshCullFaceMode.hpp"
@@ -30,7 +32,6 @@
 
 namespace opengl {
 
-using renderer::LightingConfig;
 using renderer::MeshCullFaceMode;
 
 // Drawable category reported by the pick pass. Kept independent of renderer::DrawableKind so the
@@ -103,6 +104,8 @@ class DrawablesManager {
     mutable bool m_transformedPositionBuffersDirty{true};
 
     std::unordered_map<DrawableId, MeshCullFaceMode> m_meshCullModes;
+
+    UniformBuffer m_frameUniformBuffer;
 
   public:
     DrawablesManager(const DrawablesManager&) = delete;
@@ -640,21 +643,33 @@ class DrawablesManager {
         return pointsChanged || linesChanged || meshesChanged || spheresChanged;
     }
 
-    void draw_points(const linal::hmatf& mvp) const {
+    // Uploads and binds the once-per-frame FrameBlock UBO. The renderer calls this before issuing
+    // any draw so per-drawable uploads no longer repeat the frame-constant camera/lighting data.
+    void update_frame_uniforms(const FrameUniforms& uniforms) {
+        if (!m_frameUniformBuffer.is_valid()) {
+            auto buffer = UniformBuffer::create(frame_uniforms_data(uniforms), kFrameUniformBinding);
+            if (!buffer.has_value()) {
+                return;
+            }
+            m_frameUniformBuffer = std::move(buffer.value());
+        } else {
+            m_frameUniformBuffer.update(frame_uniforms_data(uniforms));
+        }
+    }
+
+    void draw_points() const {
         for (const auto& entry: m_pointDrawables) {
-            entry.drawable.draw(mvp, entry.transform);
+            entry.drawable.draw(entry.transform);
         }
     }
 
-    void draw_lines(const linal::hmatf& mvp, const linal::float2& viewportSize) const {
+    void draw_lines() const {
         for (const auto& entry: m_lineDrawables) {
-            entry.drawable.draw(mvp, entry.transform, viewportSize);
+            entry.drawable.draw(entry.transform);
         }
     }
 
-    void draw_lines_and_points(const linal::hmatf& mvp,
-                               const linal::float2& viewportSize,
-                               const linal::double3& viewPosition) {
+    void draw_lines_and_points(const linal::double3& viewPosition) {
         struct RenderCommand {
             enum class Type {
                 line,
@@ -708,14 +723,9 @@ class DrawablesManager {
 
         for (const auto& opaqueCommand: renderQueue.opaqueCommands) {
             if (opaqueCommand.type == RenderCommand::Type::line) {
-                m_lineDrawables[opaqueCommand.index].drawable.draw_opaque(
-                    mvp,
-                    m_lineDrawables[opaqueCommand.index].transform,
-                    viewportSize);
+                m_lineDrawables[opaqueCommand.index].drawable.draw_opaque(m_lineDrawables[opaqueCommand.index].transform);
             } else {
-                m_pointDrawables[opaqueCommand.index].drawable.draw_opaque(
-                    mvp,
-                    m_pointDrawables[opaqueCommand.index].transform);
+                m_pointDrawables[opaqueCommand.index].drawable.draw_opaque(m_pointDrawables[opaqueCommand.index].transform);
             }
         }
 
@@ -733,31 +743,22 @@ class DrawablesManager {
         for (const auto& transparentCommand: renderQueue.transparentCommands) {
             if (transparentCommand.type == RenderCommand::Type::line) {
                 m_lineDrawables[transparentCommand.index].drawable.draw_translucent(
-                    mvp,
                     m_lineDrawables[transparentCommand.index].transform,
-                    viewportSize,
                     viewPosition);
             } else {
                 m_pointDrawables[transparentCommand.index].drawable.draw_translucent(
-                    mvp,
                     m_pointDrawables[transparentCommand.index].transform,
                     viewPosition);
             }
         }
     }
 
-    void draw_meshes(const linal::hmatf& viewMatrix,
-                     const linal::hmatf& projectionMatrix,
-                     const linal::float3& viewPos,
-                     const LightingConfig& lighting = LightingConfig{}) const {
+    void draw_meshes(const linal::double3& viewPosition) const {
         struct TransparentMesh {
             std::size_t index{};
             double distanceSquared{};
         };
 
-        const linal::double3 viewPositionDouble{static_cast<double>(viewPos[0]),
-                                                static_cast<double>(viewPos[1]),
-                                                static_cast<double>(viewPos[2])};
         std::vector<TransparentMesh> transparentMeshes;
         transparentMeshes.reserve(m_meshDrawables.size());
 
@@ -783,24 +784,10 @@ class DrawablesManager {
             }
 
             if (drawable.is_translucent()) {
-                transparentMeshes.push_back({i, drawable.distance_squared_to(viewPositionDouble, entry.transform)});
+                transparentMeshes.push_back({i, drawable.distance_squared_to(viewPosition, entry.transform)});
             } else {
                 const linal::hmatf normalMatrix = linal::hmatf::inverse(entry.transform).transpose();
-                drawable.draw(entry.transform,
-                              viewMatrix,
-                              projectionMatrix,
-                              normalMatrix,
-                              lighting.lightPosition,
-                              viewPos,
-                              lighting.lightColor,
-                              lighting.fillLightDir,
-                              lighting.fillLightColor,
-                              lighting.ambientColor,
-                              lighting.shininess,
-                              lighting.lightAttenuation,
-                              lighting.materialAmbient,
-                              lighting.materialDiffuse,
-                              lighting.materialSpecular);
+                drawable.draw(entry.transform, normalMatrix);
             }
 
             // Restore default cull state after a per-mesh override.
@@ -825,31 +812,11 @@ class DrawablesManager {
         for (const auto& transparentMesh: transparentMeshes) {
             const DrawableEntry<opengl::MeshDrawable>& entry = m_meshDrawables[transparentMesh.index];
             const linal::hmatf normalMatrix = linal::hmatf::inverse(entry.transform).transpose();
-            entry.drawable.draw(entry.transform,
-                                viewMatrix,
-                                projectionMatrix,
-                                normalMatrix,
-                                lighting.lightPosition,
-                                viewPos,
-                                lighting.lightColor,
-                                lighting.fillLightDir,
-                                lighting.fillLightColor,
-                                lighting.ambientColor,
-                                lighting.shininess,
-                                lighting.lightAttenuation,
-                                lighting.materialAmbient,
-                                lighting.materialDiffuse,
-                                lighting.materialSpecular);
+            entry.drawable.draw(entry.transform, normalMatrix);
         }
     }
 
-    void draw_spheres(const linal::hmatf& viewMatrix,
-                      const linal::hmatf& projectionMatrix,
-                      const linal::hmatf& inverseProjectionMatrix,
-                      const linal::float2& viewportSize,
-                      bool zeroToOneDepth,
-                      const linal::double3& viewPositionDouble,
-                      const LightingConfig& lighting) {
+    void draw_spheres(const linal::hmatf& viewMatrix, const linal::double3& viewPosition) {
         struct TransparentSphere {
             std::size_t index{};
             double distanceSquared{};
@@ -861,17 +828,11 @@ class DrawablesManager {
         for (std::size_t i = 0; i < m_sphereDrawables.size(); ++i) {
             const DrawableEntry<opengl::SphereImpostorDrawable>& entry = m_sphereDrawables[i];
             if (entry.drawable.has_opaque_primitives()) {
-                entry.drawable.draw_opaque(viewMatrix,
-                                           projectionMatrix,
-                                           inverseProjectionMatrix,
-                                           entry.transform,
-                                           viewportSize,
-                                           zeroToOneDepth,
-                                           lighting);
+                entry.drawable.draw_opaque(viewMatrix, entry.transform);
             }
             if (entry.drawable.has_translucent_primitives()) {
                 transparentSpheres.push_back(
-                    {i, entry.drawable.distance_squared_to(viewPositionDouble, entry.transform)});
+                    {i, entry.drawable.distance_squared_to(viewPosition, entry.transform)});
             }
         }
 
@@ -888,14 +849,7 @@ class DrawablesManager {
         const ScopedDepthMask depthMask(GL_FALSE);
         for (const auto& ts: transparentSpheres) {
             DrawableEntry<opengl::SphereImpostorDrawable>& entry = m_sphereDrawables[ts.index];
-            entry.drawable.draw_translucent(viewMatrix,
-                                            projectionMatrix,
-                                            inverseProjectionMatrix,
-                                            entry.transform,
-                                            viewportSize,
-                                            zeroToOneDepth,
-                                            lighting,
-                                            viewPositionDouble);
+            entry.drawable.draw_translucent(viewMatrix, entry.transform, viewPosition);
         }
     }
 
@@ -904,12 +858,7 @@ class DrawablesManager {
     // read back from the framebuffer can be resolved to a drawable. Depth testing (which the caller
     // must enable) resolves occlusion. The caller owns framebuffer binding, viewport, clear, and
     // depth/blend state.
-    [[nodiscard]] std::vector<PickEntry> draw_pick_pass(const linal::hmatf& mvp,
-                                                        const linal::hmatf& viewMatrix,
-                                                        const linal::hmatf& projectionMatrix,
-                                                        const linal::hmatf& inverseProjectionMatrix,
-                                                        const linal::float2& viewportSize,
-                                                        bool zeroToOneDepth) const {
+    [[nodiscard]] std::vector<PickEntry> draw_pick_pass(const linal::hmatf& viewMatrix) const {
         std::vector<PickEntry> entries;
         entries.reserve(m_pointDrawables.size() + m_lineDrawables.size() + m_meshDrawables.size() +
                         m_sphereDrawables.size());
@@ -922,25 +871,19 @@ class DrawablesManager {
 
         for (const auto& entry: m_meshDrawables) {
             const std::array<float, 3> color = next_color(PickDrawableKind::mesh, entry.id);
-            entry.drawable.draw_pick(entry.transform, viewMatrix, projectionMatrix, color);
+            entry.drawable.draw_pick(entry.transform, color);
         }
         for (const auto& entry: m_lineDrawables) {
             const std::array<float, 3> color = next_color(PickDrawableKind::line, entry.id);
-            entry.drawable.draw_pick(mvp, entry.transform, viewportSize, color);
+            entry.drawable.draw_pick(entry.transform, color);
         }
         for (const auto& entry: m_pointDrawables) {
             const std::array<float, 3> color = next_color(PickDrawableKind::point, entry.id);
-            entry.drawable.draw_pick(mvp, entry.transform, color);
+            entry.drawable.draw_pick(entry.transform, color);
         }
         for (const auto& entry: m_sphereDrawables) {
             const std::array<float, 3> color = next_color(PickDrawableKind::sphere, entry.id);
-            entry.drawable.draw_pick(viewMatrix,
-                                     projectionMatrix,
-                                     inverseProjectionMatrix,
-                                     entry.transform,
-                                     viewportSize,
-                                     zeroToOneDepth,
-                                     color);
+            entry.drawable.draw_pick(viewMatrix, entry.transform, color);
         }
 
         return entries;

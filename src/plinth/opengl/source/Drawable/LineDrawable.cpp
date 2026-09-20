@@ -182,13 +182,9 @@ void LineDrawable::set_dash_flags(std::span<const std::uint8_t> dashFlags, Buffe
     rebuild_instance_buffers(accessPattern);
 }
 
-void LineDrawable::set_common_uniforms(const linal::hmatf& mvp,
-                                       const linal::hmatf& modelMatrix,
-                                       const linal::float2& viewportSize) const {
+void LineDrawable::set_common_uniforms(const linal::hmatf& modelMatrix) const {
     auto& prog = *m_program;
-    glUniformMatrix4fv(prog.get_view_projection_location().get_value(), 1, GL_TRUE, mvp.data());
     glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
-    glUniform2f(prog.get_viewport_size_location().get_value(), viewportSize[0], viewportSize[1]);
     glUniform1f(prog.get_line_width_location().get_value(), m_lineThickness);
     glUniform1i(prog.get_dash_space_location().get_value(), static_cast<GLint>(m_dashSpace));
     glUniform1f(prog.get_dash_phase_location().get_value(), m_dashPhase);
@@ -214,40 +210,30 @@ void LineDrawable::set_common_uniforms(const linal::hmatf& mvp,
     }
 }
 
-void LineDrawable::draw_instances(const linal::hmatf& mvp,
-                                  const linal::hmatf& modelMatrix,
-                                  const linal::float2& viewportSize,
-                                  const InstanceBuffer& instanceBuffer) const {
+void LineDrawable::draw_instances(const linal::hmatf& modelMatrix, const InstanceBuffer& instanceBuffer) const {
     if (instanceBuffer.get_instance_count() == 0) {
         return;
     }
     RENDERER_ASSERT(m_program != nullptr);
     auto& prog = *m_program;
     prog.use();
-    set_common_uniforms(mvp, modelMatrix, viewportSize);
+    set_common_uniforms(modelMatrix);
     m_vertexArray.bind();
     m_quadCornerBuffer.bind();
     instanceBuffer.bind();
     glDrawArraysInstanced(GL_TRIANGLES, 0, 6, instanceBuffer.get_instance_count());
 }
 
-void LineDrawable::draw(const linal::hmatf& mvp,
-                        const linal::hmatf& modelMatrix,
-                        const linal::float2& viewportSize) const {
-    draw_opaque(mvp, modelMatrix, viewportSize);
-    draw_instances(mvp, modelMatrix, viewportSize, m_translucentInstanceBuffer);
+void LineDrawable::draw(const linal::hmatf& modelMatrix) const {
+    draw_opaque(modelMatrix);
+    draw_instances(modelMatrix, m_translucentInstanceBuffer);
 }
 
-void LineDrawable::draw_opaque(const linal::hmatf& mvp,
-                               const linal::hmatf& modelMatrix,
-                               const linal::float2& viewportSize) const {
-    draw_instances(mvp, modelMatrix, viewportSize, m_opaqueInstanceBuffer);
+void LineDrawable::draw_opaque(const linal::hmatf& modelMatrix) const {
+    draw_instances(modelMatrix, m_opaqueInstanceBuffer);
 }
 
-void LineDrawable::draw_translucent(const linal::hmatf& mvp,
-                                    const linal::hmatf& modelMatrix,
-                                    const linal::float2& viewportSize,
-                                    const linal::double3& viewPosition) {
+void LineDrawable::draw_translucent(const linal::hmatf& modelMatrix, const linal::double3& viewPosition) {
     // Reorder translucent segments back-to-front (reusing the shared sort), then rebuild the
     // instance blob in that order so translucent segments blend correctly.
     const std::vector<std::uint32_t> sortedPairs =
@@ -262,13 +248,10 @@ void LineDrawable::draw_translucent(const linal::hmatf& mvp,
                                                                     m_lineType.is_lines(),
                                                                     &neighbours);
     m_translucentInstanceBuffer.update(instanceData, BufferAccessPattern::Stream);
-    draw_instances(mvp, modelMatrix, viewportSize, m_translucentInstanceBuffer);
+    draw_instances(modelMatrix, m_translucentInstanceBuffer);
 }
 
-void LineDrawable::draw_pick(const linal::hmatf& mvp,
-                             const linal::hmatf& modelMatrix,
-                             const linal::float2& viewportSize,
-                             const std::array<float, 3>& pickColor) const {
+void LineDrawable::draw_pick(const linal::hmatf& modelMatrix, const std::array<float, 3>& pickColor) const {
     RENDERER_ASSERT(m_program != nullptr);
     auto& prog = *m_program;
     const auto draw_buffer = [&](const InstanceBuffer& instanceBuffer) {
@@ -276,7 +259,7 @@ void LineDrawable::draw_pick(const linal::hmatf& mvp,
             return;
         }
         prog.use();
-        set_common_uniforms(mvp, modelMatrix, viewportSize);
+        set_common_uniforms(modelMatrix);
         glUniform1i(prog.get_pick_mode_location().get_value(), GL_TRUE);
         glUniform3fv(prog.get_pick_color_location().get_value(), 1, pickColor.data());
         m_vertexArray.bind();

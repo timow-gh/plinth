@@ -172,9 +172,7 @@ TEST_F(SphereImpostorDrawableTest, DrawOpaqueDoesNotCrash) {
     ASSERT_TRUE(drawable.has_value());
 
     const linal::hmatf identity = linal::hmatf::identity();
-    const linal::float2 viewport{64.0F, 64.0F};
-    const renderer::LightingConfig lighting;
-    drawable->draw_opaque(identity, identity, identity, identity, viewport, false, lighting);
+    drawable->draw_opaque(identity, identity);
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 
@@ -187,8 +185,7 @@ TEST_F(SphereImpostorDrawableTest, DrawPickDoesNotCrash) {
     ASSERT_TRUE(drawable.has_value());
 
     const linal::hmatf identity = linal::hmatf::identity();
-    const linal::float2 viewport{64.0F, 64.0F};
-    drawable->draw_pick(identity, identity, identity, identity, viewport, false, {1.0F, 0.0F, 0.0F});
+    drawable->draw_pick(identity, identity, {1.0F, 0.0F, 0.0F});
     EXPECT_EQ(GL_NO_ERROR, glGetError());
 }
 

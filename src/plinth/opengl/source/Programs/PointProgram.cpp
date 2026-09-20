@@ -1,6 +1,7 @@
 #include "OpenGL/Programs/PointProgram.hpp"
 
 #include "OpenGL/ErrorReporting.hpp"
+#include "OpenGL/FrameUniforms.hpp"
 #include "OpenGL/Programs/CreateProgram.hpp"
 #include "OpenGL/ShaderSources.hpp"
 #include "plinth/Assert.hpp"
@@ -12,7 +13,6 @@
 namespace opengl {
 
 PointProgram::PointProgram(ProgramHandle program,
-                           Uniform viewProjectionLocation,
                            Uniform modelMatrixLocation,
                            Attribute vertexLocation,
                            Attribute colorLocation,
@@ -20,7 +20,6 @@ PointProgram::PointProgram(ProgramHandle program,
                            Uniform pickColorLocation,
                            Uniform depthBiasLocation) noexcept
     : m_program{std::move(program)}
-    , m_viewProjectionLocation{viewProjectionLocation}
     , m_modelMatrixLocation{modelMatrixLocation}
     , m_vertexLocation{vertexLocation}
     , m_colorLocation{colorLocation}
@@ -28,7 +27,6 @@ PointProgram::PointProgram(ProgramHandle program,
     , m_pickColorLocation{pickColorLocation}
     , m_depthBiasLocation{depthBiasLocation} {
     RENDERER_ASSERT(m_program.is_valid());
-    RENDERER_ASSERT(viewProjectionLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(modelMatrixLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(vertexLocation.get_location().get_value() != -1);
     RENDERER_ASSERT(colorLocation.get_location().get_value() != -1);
@@ -55,7 +53,6 @@ PointProgram make_point_program() {
         return {};
     }
     ProgramId programId = program->get_id();
-    Uniform viewProjectionLocation = make_uniform("u_viewProjection", programId);
     Uniform modelMatrixLocation = make_uniform("u_model", programId);
     Attribute vertexLocation = make_attribute("a_vertex", programId);
     Attribute colorLocation = make_attribute("a_color", programId);
@@ -63,8 +60,9 @@ PointProgram make_point_program() {
     Uniform pickColorLocation = make_uniform("u_pickColor", programId);
     Uniform depthBiasLocation = make_uniform("u_depthBias", programId);
 
+    bind_uniform_block(programId, "FrameBlock", kFrameUniformBinding);
+
     return PointProgram{std::move(*program),
-                        viewProjectionLocation,
                         modelMatrixLocation,
                         vertexLocation,
                         colorLocation,

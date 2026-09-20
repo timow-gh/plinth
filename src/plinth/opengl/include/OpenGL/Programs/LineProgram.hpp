@@ -20,9 +20,7 @@ namespace opengl {
  */
 class OPENGL_EXPORT LineProgram {
     ProgramHandle m_program;
-    Uniform m_viewProjectionLocation;
     Uniform m_modelMatrixLocation;
-    Uniform m_viewportSizeLocation;
     Uniform m_lineWidthLocation;
     Uniform m_dashSpaceLocation;
     Uniform m_dashPhaseLocation;
@@ -45,9 +43,7 @@ class OPENGL_EXPORT LineProgram {
   public:
     LineProgram() noexcept = default;
     LineProgram(ProgramHandle program,
-                Uniform viewProjectionLocation,
                 Uniform modelMatrixLocation,
-                Uniform viewportSizeLocation,
                 Uniform lineWidthLocation,
                 Uniform dashSpaceLocation,
                 Uniform dashPhaseLocation,
@@ -79,13 +75,7 @@ class OPENGL_EXPORT LineProgram {
 
     [[nodiscard]] bool is_valid() const noexcept { return m_program.is_valid(); }
 
-    [[nodiscard]] constexpr Location get_view_projection_location() const {
-        return m_viewProjectionLocation.get_location();
-    }
     [[nodiscard]] constexpr Location get_model_matrix_location() const { return m_modelMatrixLocation.get_location(); }
-    [[nodiscard]] constexpr Location get_viewport_size_location() const {
-        return m_viewportSizeLocation.get_location();
-    }
     [[nodiscard]] constexpr Location get_line_width_location() const { return m_lineWidthLocation.get_location(); }
     [[nodiscard]] constexpr Location get_dash_space_location() const { return m_dashSpaceLocation.get_location(); }
     [[nodiscard]] constexpr Location get_dash_phase_location() const { return m_dashPhaseLocation.get_location(); }
@@ -117,9 +107,7 @@ class OPENGL_EXPORT LineProgram {
   private:
     void move_from(LineProgram&& other) noexcept {
         m_program = std::move(other.m_program);
-        m_viewProjectionLocation = std::move(other.m_viewProjectionLocation);
         m_modelMatrixLocation = std::move(other.m_modelMatrixLocation);
-        m_viewportSizeLocation = std::move(other.m_viewportSizeLocation);
         m_lineWidthLocation = std::move(other.m_lineWidthLocation);
         m_dashSpaceLocation = std::move(other.m_dashSpaceLocation);
         m_dashPhaseLocation = std::move(other.m_dashPhaseLocation);

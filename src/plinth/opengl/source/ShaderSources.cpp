@@ -1,13 +1,34 @@
 #include "OpenGL/ShaderSources.hpp"
 
 namespace opengl {
+std::string frame_uniform_block_glsl() {
+    return R"(layout(std140) uniform FrameBlock {
+    mat4 u_viewProjection;     // projection * view (world -> clip)
+    mat4 u_view;               // world -> view
+    mat4 u_projection;         // view -> clip
+    mat4 u_invProjection;      // clip -> view
+    vec4 u_viewPos;            // .xyz = camera world position
+    vec4 u_lightPos;           // .xyz = light world position
+    vec4 u_lightColor;         // .rgb
+    vec4 u_fillLightDirection; // .xyz world-space direction
+    vec4 u_fillLightColor;     // .rgb
+    vec4 u_ambientColor;       // .rgb
+    vec4 u_materialAmbient;    // .rgb
+    vec4 u_materialDiffuse;    // .rgb
+    vec4 u_materialSpecular;   // .rgb
+    vec4 u_lightAttenuation;   // .xyz
+    vec4 u_viewportSize;       // .xy
+    vec4 u_parameters;         // .x = shininess, .y = zeroToOneDepth (0/1)
+};
+)";
+}
+
 std::string line_vertex_shader_source() {
     return
         R"(#version 330 core
 
-uniform mat4  u_viewProjection;
+)" + frame_uniform_block_glsl() + R"(
 uniform mat4  u_model;
-uniform vec2  u_viewportSize;
 uniform float u_lineWidth;
 uniform int   u_dashSpace;    // 0 = World, 1 = Screen
 uniform int   u_capStyle;     // 0 = Butt, 1 = Square, 2 = Round
@@ -45,10 +66,10 @@ void main() {
     vec4 clipPrev = u_viewProjection * u_model * vec4(a_pPrev.xyz, 1.0);
     vec4 clipNext = u_viewProjection * u_model * vec4(a_pNext.xyz, 1.0);
 
-    vec2 s0    = (clip0.xy    / clip0.w)    * 0.5 * u_viewportSize;
-    vec2 s1    = (clip1.xy    / clip1.w)    * 0.5 * u_viewportSize;
-    vec2 sPrev = (clipPrev.xy / clipPrev.w) * 0.5 * u_viewportSize;
-    vec2 sNext = (clipNext.xy / clipNext.w) * 0.5 * u_viewportSize;
+    vec2 s0    = (clip0.xy    / clip0.w)    * 0.5 * u_viewportSize.xy;
+    vec2 s1    = (clip1.xy    / clip1.w)    * 0.5 * u_viewportSize.xy;
+    vec2 sPrev = (clipPrev.xy / clipPrev.w) * 0.5 * u_viewportSize.xy;
+    vec2 sNext = (clipNext.xy / clipNext.w) * 0.5 * u_viewportSize.xy;
 
     vec2  dir       = s1 - s0;
     float screenLen = length(dir);
@@ -75,7 +96,7 @@ void main() {
     vec2 alongDir    = (t < 0.5) ? -dir * extendStart : dir * extendEnd;
     vec2 sideNrm     = nrm * (a_corner.y * u_lineWidth);
     vec2 totalOffset = alongDir + sideNrm;
-    vec2 ndcOffset   = totalOffset / (0.5 * u_viewportSize);
+    vec2 ndcOffset   = totalOffset / (0.5 * u_viewportSize.xy);
     clip.xy += ndcOffset * clip.w;
 
     // Nudge the line toward the camera in clip space so coplanar lines beat faces (and stack
@@ -218,7 +239,7 @@ std::string point_color_vertex_shader_source() {
     return
         R"(#version 330
 
-uniform mat4 u_viewProjection;
+)" + frame_uniform_block_glsl() + R"(
 uniform mat4 u_model;
 uniform float u_pointSize;
 uniform float u_depthBias; // signed camera-ward clip-depth nudge; keeps coplanar points above faces
@@ -263,9 +284,8 @@ std::string mesh_vertex_shader_source() {
     return
         R"(#version 330
 
+)" + frame_uniform_block_glsl() + R"(
     uniform mat4 u_model;
-    uniform mat4 u_view;
-    uniform mat4 u_projection;
     uniform mat4 u_normalMatrix;
 
     in vec3 a_vertex;
@@ -291,6 +311,7 @@ std::string mesh_fragment_shader_source() {
     return
         R"(#version 330
 
+)" + frame_uniform_block_glsl() + R"(
     in vec4 v_color;
     in vec3 v_normal;
     in vec3 v_position;
@@ -298,21 +319,8 @@ std::string mesh_fragment_shader_source() {
 
     out vec4 FragColor;
 
-    uniform vec3 u_lightPos;
-    // The view position is the position of the camera in world space.
-    // It is used to calculate the view direction in the fragment shader.
-    uniform vec3 u_viewPos;
-    uniform vec3 u_lightColor;
-    uniform vec3 u_fillLightDirection;
-    uniform vec3 u_fillLightColor;
-    uniform vec3 u_ambientColor;
-    uniform float u_shininess;
     uniform bool u_hasAlbedoTexture;
     uniform sampler2D u_albedoTexture;
-    uniform vec3 u_lightAttenuation;
-    uniform vec3 u_materialAmbient;
-    uniform vec3 u_materialDiffuse;
-    uniform vec3 u_materialSpecular;
 
     uniform bool u_pickMode;
     uniform vec3 u_pickColor;
@@ -325,8 +333,8 @@ std::string mesh_fragment_shader_source() {
 
         // Normalize input vectors
         vec3 norm = normalize(v_normal);
-        vec3 lightDir = normalize(u_lightPos - v_position);
-        vec3 viewDir = normalize(u_viewPos - v_position);
+        vec3 lightDir = normalize(u_lightPos.xyz - v_position);
+        vec3 viewDir = normalize(u_viewPos.xyz - v_position);
 
         vec3 albedo = v_color.rgb;
         if (u_hasAlbedoTexture) {
@@ -334,32 +342,32 @@ std::string mesh_fragment_shader_source() {
         }
 
         // Point light attenuation (constant, linear, quadratic)
-        float lightDist = length(u_lightPos - v_position);
+        float lightDist = length(u_lightPos.xyz - v_position);
         float attenuation = 1.0 / (u_lightAttenuation.x +
                                    u_lightAttenuation.y * lightDist +
                                    u_lightAttenuation.z * lightDist * lightDist);
 
         // Ambient lighting
-        vec3 ambient = u_materialAmbient * u_ambientColor * albedo;
+        vec3 ambient = u_materialAmbient.rgb * u_ambientColor.rgb * albedo;
 
         // Diffuse lighting
         float diff = max(dot(norm, lightDir), 0.0);
-        vec3 diffuse = u_materialDiffuse * u_lightColor * diff * albedo * attenuation;
+        vec3 diffuse = u_materialDiffuse.rgb * u_lightColor.rgb * diff * albedo * attenuation;
 
         // Directional fill lighting
-        float fillDirLength = length(u_fillLightDirection);
-        vec3 fillDir = fillDirLength > 0.0 ? u_fillLightDirection / fillDirLength : vec3(0.0);
+        float fillDirLength = length(u_fillLightDirection.xyz);
+        vec3 fillDir = fillDirLength > 0.0 ? u_fillLightDirection.xyz / fillDirLength : vec3(0.0);
         float fillDiff = max(dot(norm, fillDir), 0.0);
-        vec3 fillDiffuse = u_fillLightColor * fillDiff * albedo;
+        vec3 fillDiffuse = u_fillLightColor.rgb * fillDiff * albedo;
 
         // Specular lighting (Blinn-Phong)
         vec3 halfwayDir = normalize(lightDir + viewDir);
-        float spec = pow(max(dot(norm, halfwayDir), 0.0), u_shininess);
+        float spec = pow(max(dot(norm, halfwayDir), 0.0), u_parameters.x);
         // Mask by N.L so specular only appears on faces turned toward the light,
         // and normalize energy so high-shininess highlights don't stack full
         // intensity on top of an already-saturated diffuse term.
-        float specNorm = (u_shininess + 8.0) / 8.0;
-        vec3 specular = u_materialSpecular * u_lightColor * spec * specNorm * diff * attenuation;
+        float specNorm = (u_parameters.x + 8.0) / 8.0;
+        vec3 specular = u_materialSpecular.rgb * u_lightColor.rgb * spec * specNorm * diff * attenuation;
 
         // Combine results
         vec3 result = ambient + diffuse + fillDiffuse + specular;
@@ -373,14 +381,12 @@ std::string sphere_impostor_vertex_shader_source() {
     return
         R"(#version 330 core
 
+)" + frame_uniform_block_glsl() + R"(
 // Per-instance data (divisor 1)
 in vec4 a_sphere; // (center.xyz, radius)
 in vec4 a_color;  // (r, g, b, a)
 
 uniform mat4 u_model;
-uniform mat4 u_view;
-uniform mat4 u_projection;
-uniform vec2 u_viewportSize;
 uniform int  u_sizeSpace; // 0 = World (radius in world units), 1 = Screen (diameter in pixels)
 
 out vec4  v_color;
@@ -474,7 +480,7 @@ void main() {
     }
 
     // Cover edge pixels despite floating-point/rasterization rounding.
-    vec2 pixelMargin = 2.0 / u_viewportSize;
+    vec2 pixelMargin = 2.0 / u_viewportSize.xy;
     boundsMin -= pixelMargin;
     boundsMax += pixelMargin;
 
@@ -496,29 +502,14 @@ std::string sphere_impostor_fragment_shader_source() {
     return
         R"(#version 330 core
 
+)" + frame_uniform_block_glsl() + R"(
 in vec4  v_color;
 in vec3  v_sphereCenterLocal;
 in float v_radius;
 
 uniform mat4  u_model;
-uniform mat4  u_view;
-uniform mat4  u_projection;
 uniform mat4  u_inverseModelView;
 uniform mat4  u_normalMatrix;
-uniform mat4  u_invProjection;
-uniform vec2  u_viewportSize;
-uniform bool  u_zeroToOneDepth;
-
-uniform vec3  u_lightPos;
-uniform vec3  u_lightColor;
-uniform vec3  u_fillLightDirection;
-uniform vec3  u_fillLightColor;
-uniform vec3  u_ambientColor;
-uniform float u_shininess;
-uniform vec3  u_lightAttenuation;
-uniform vec3  u_materialAmbient;
-uniform vec3  u_materialDiffuse;
-uniform vec3  u_materialSpecular;
 
 uniform bool u_pickMode;
 uniform vec3 u_pickColor;
@@ -529,9 +520,9 @@ void main() {
     // Unproject two points on the fragment's view-space ray. In this renderer the
     // zero-to-one convention is paired with reversed Z; the legacy convention uses
     // OpenGL's usual negative-one-to-one clip depths.
-    vec2  ndcXY     = (gl_FragCoord.xy / u_viewportSize) * 2.0 - 1.0;
-    float nearDepth = u_zeroToOneDepth ? 1.0 : -1.0;
-    float farDepth  = u_zeroToOneDepth ? 0.0 :  1.0;
+    vec2  ndcXY     = (gl_FragCoord.xy / u_viewportSize.xy) * 2.0 - 1.0;
+    float nearDepth = u_parameters.y > 0.5 ? 1.0 : -1.0;
+    float farDepth  = u_parameters.y > 0.5 ? 0.0 :  1.0;
     vec4  nearViewH = u_invProjection * vec4(ndcXY, nearDepth, 1.0);
     vec4  farViewH  = u_invProjection * vec4(ndcXY, farDepth, 1.0);
     vec3  rayOrigin = nearViewH.xyz / nearViewH.w;
@@ -566,7 +557,7 @@ void main() {
     // convention needs the NDC-to-window remap; GL_ZERO_TO_ONE is already window depth.
     vec4  hitClip  = u_projection * vec4(hitView, 1.0);
     float hitDepth = hitClip.z / hitClip.w;
-    gl_FragDepth   = u_zeroToOneDepth ? hitDepth : hitDepth * 0.5 + 0.5;
+    gl_FragDepth   = u_parameters.y > 0.5 ? hitDepth : hitDepth * 0.5 + 0.5;
 
     if (u_pickMode) {
         FragColor = vec4(u_pickColor, 1.0);
@@ -574,37 +565,40 @@ void main() {
     }
 
     // Perform lighting in view space. The inverse-transpose model-view matrix keeps normals
-    // correct under non-uniform scaling, and the CPU uploads both lights in this same space.
+    // correct under non-uniform scaling. The frame block stores the lights in world space, so
+    // transform them into view space here (matching the mesh path's world-space convention).
     vec3 normal   = normalize(mat3(u_normalMatrix) * (hitLocal - v_sphereCenterLocal));
     vec3 viewDir  = normalize(-hitView); // direction toward camera from hit point
 
-    vec3 albedo = v_color.rgb;
-    vec3 lightDir = normalize(u_lightPos - hitView);
+    vec3 albedo      = v_color.rgb;
+    vec3 lightPosView = vec3(u_view * vec4(u_lightPos.xyz, 1.0));
+    vec3 lightDir    = normalize(lightPosView - hitView);
 
     // Point light attenuation based on the exact surface hit.
-    float lightDist    = length(u_lightPos - hitView);
+    float lightDist    = length(lightPosView - hitView);
     float attenuation  = 1.0 / (u_lightAttenuation.x +
                                 u_lightAttenuation.y * lightDist +
                                 u_lightAttenuation.z * lightDist * lightDist);
 
     // Ambient
-    vec3 ambient = u_materialAmbient * u_ambientColor * albedo;
+    vec3 ambient = u_materialAmbient.rgb * u_ambientColor.rgb * albedo;
 
     // Diffuse (point light)
     float diff   = max(dot(normal, lightDir), 0.0);
-    vec3 diffuse = u_materialDiffuse * u_lightColor * diff * albedo * attenuation;
+    vec3 diffuse = u_materialDiffuse.rgb * u_lightColor.rgb * diff * albedo * attenuation;
 
-    // Fill light (directional)
-    float fillDirLength = length(u_fillLightDirection);
-    vec3  fillDir       = fillDirLength > 0.0 ? u_fillLightDirection / fillDirLength : vec3(0.0);
+    // Fill light (directional, world-space direction transformed to view space)
+    vec3 fillDirView  = mat3(u_view) * u_fillLightDirection.xyz;
+    float fillDirLength = length(fillDirView);
+    vec3  fillDir       = fillDirLength > 0.0 ? fillDirView / fillDirLength : vec3(0.0);
     float fillDiff      = max(dot(normal, fillDir), 0.0);
-    vec3  fillDiffuse   = u_fillLightColor * fillDiff * albedo;
+    vec3  fillDiffuse   = u_fillLightColor.rgb * fillDiff * albedo;
 
     // Specular (Blinn-Phong)
     vec3  halfwayDir = normalize(lightDir + viewDir);
-    float spec       = pow(max(dot(normal, halfwayDir), 0.0), u_shininess);
-    float specNorm   = (u_shininess + 8.0) / 8.0;
-    vec3  specular   = u_materialSpecular * u_lightColor * spec * specNorm * diff * attenuation;
+    float spec       = pow(max(dot(normal, halfwayDir), 0.0), u_parameters.x);
+    float specNorm   = (u_parameters.x + 8.0) / 8.0;
+    vec3  specular   = u_materialSpecular.rgb * u_lightColor.rgb * spec * specNorm * diff * attenuation;
 
     vec3 result = ambient + diffuse + fillDiffuse + specular;
     FragColor   = vec4(result, v_color.a);

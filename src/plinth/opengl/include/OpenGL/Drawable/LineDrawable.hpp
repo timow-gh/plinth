@@ -127,21 +127,15 @@ class OPENGL_EXPORT LineDrawable {
                               std::span<const std::uint32_t> indices,
                               BufferAccessPattern accessPattern);
 
-    void draw(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const linal::float2& viewportSize) const;
+    void draw(const linal::hmatf& modelMatrix) const;
 
-    void draw_opaque(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const linal::float2& viewportSize) const;
+    void draw_opaque(const linal::hmatf& modelMatrix) const;
 
-    void draw_translucent(const linal::hmatf& mvp,
-                          const linal::hmatf& modelMatrix,
-                          const linal::float2& viewportSize,
-                          const linal::double3& viewPosition);
+    void draw_translucent(const linal::hmatf& modelMatrix, const linal::double3& viewPosition);
 
     /** Draw all line segments (opaque and translucent) into a color-ID pick pass using a flat
      * pickColor. The thick-quad footprint is used so the visible line is selectable. */
-    void draw_pick(const linal::hmatf& mvp,
-                   const linal::hmatf& modelMatrix,
-                   const linal::float2& viewportSize,
-                   const std::array<float, 3>& pickColor) const;
+    void draw_pick(const linal::hmatf& modelMatrix, const std::array<float, 3>& pickColor) const;
 
     [[nodiscard]] bool has_opaque_primitives() const noexcept {
         return m_opaqueInstanceBuffer.get_instance_count() > 0;
@@ -178,14 +172,9 @@ class OPENGL_EXPORT LineDrawable {
     }
 
   private:
-    void draw_instances(const linal::hmatf& mvp,
-                        const linal::hmatf& modelMatrix,
-                        const linal::float2& viewportSize,
-                        const InstanceBuffer& instanceBuffer) const;
+    void draw_instances(const linal::hmatf& modelMatrix, const InstanceBuffer& instanceBuffer) const;
 
-    void set_common_uniforms(const linal::hmatf& mvp,
-                             const linal::hmatf& modelMatrix,
-                             const linal::float2& viewportSize) const;
+    void set_common_uniforms(const linal::hmatf& modelMatrix) const;
 
     void rebuild_instance_buffers(BufferAccessPattern accessPattern);
 

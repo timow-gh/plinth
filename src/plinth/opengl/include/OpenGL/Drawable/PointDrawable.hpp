@@ -82,15 +82,14 @@ class OPENGL_EXPORT PointDrawable {
                                std::span<const std::uint32_t> indices,
                                BufferAccessPattern accessPattern);
 
-    void draw(const linal::hmatf& mvp, const linal::hmatf& modelMatrix) const;
+    void draw(const linal::hmatf& modelMatrix) const;
 
-    void draw_opaque(const linal::hmatf& mvp, const linal::hmatf& modelMatrix) const;
+    void draw_opaque(const linal::hmatf& modelMatrix) const;
 
-    void draw_translucent(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const linal::double3& viewPosition);
+    void draw_translucent(const linal::hmatf& modelMatrix, const linal::double3& viewPosition);
 
     /** Draw all points (opaque and translucent) into a color-ID pick pass using a flat pickColor. */
-    void
-    draw_pick(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const std::array<float, 3>& pickColor) const;
+    void draw_pick(const linal::hmatf& modelMatrix, const std::array<float, 3>& pickColor) const;
 
     [[nodiscard]] bool has_opaque_primitives() const noexcept {
         return m_opaquePointIndicesBuffer.get_index_count() > 0;
@@ -127,8 +126,7 @@ class OPENGL_EXPORT PointDrawable {
     }
 
   private:
-    void
-    draw_index_buffer(const linal::hmatf& mvp, const linal::hmatf& modelMatrix, const IndexBuffer& indexBuffer) const;
+    void draw_index_buffer(const linal::hmatf& modelMatrix, const IndexBuffer& indexBuffer) const;
 
     void rebuild_index_buffers(BufferAccessPattern accessPattern);
 };

@@ -6,7 +6,9 @@
 #include "CaptureFixture.hpp"
 #include "OpenGL/Drawable/PointDrawable.hpp"
 #include "OpenGL/FrameState.hpp"
+#include "OpenGL/FrameUniforms.hpp"
 #include "OpenGL/OpenGL.hpp"
+#include "OpenGL/UniformBuffer.hpp"
 
 #include <linal/hmat.hpp>
 
@@ -68,7 +70,20 @@ TEST_F(GoldenImageTest, PointSceneMatchesGolden) {
     ASSERT_TRUE(drawable.has_value());
 
     linal::hmatf identity = linal::hmatf::identity();
-    drawable->draw_opaque(identity, identity);
+
+    const opengl::FrameUniforms frame = opengl::make_frame_uniforms(identity,
+                                                                    identity,
+                                                                    identity,
+                                                                    identity,
+                                                                    linal::float3{0.0F, 0.0F, 0.0F},
+                                                                    linal::float3{0.0F, 0.0F, 0.0F},
+                                                                    renderer::LightingConfig{},
+                                                                    linal::float2{static_cast<float>(captureWidth),
+                                                                                  static_cast<float>(captureHeight)},
+                                                                    false);
+    auto ubo = opengl::UniformBuffer::create(opengl::frame_uniforms_data(frame), opengl::kFrameUniformBinding);
+    ASSERT_TRUE(ubo.has_value());
+    drawable->draw_opaque(identity);
 
     // Read-back happens after draw(), before any swap.
     const plinth_test::CapturedImage image = plinth_test::read_back_rgba(captureWidth, captureHeight);

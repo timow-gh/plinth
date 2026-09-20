@@ -1,4 +1,5 @@
 #include "OpenGL/Drawable/DrawablesManager.hpp"
+#include "OpenGL/FrameUniforms.hpp"
 #include "OpenGL/Framebuffer.hpp"
 #include "OpenGL/OpenGL.hpp"
 #include "plinth/LightingConfig.hpp"
@@ -88,7 +89,18 @@ TEST_F(TexturedMeshTest, SamplesTextureRgbAndPreservesVertexAlpha) {
     lighting.ambientColor = linal::float3{1.0F, 1.0F, 1.0F};
     lighting.lightColor = linal::float3{0.0F, 0.0F, 0.0F};
     lighting.fillLightColor = linal::float3{0.0F, 0.0F, 0.0F};
-    manager->draw_meshes(linal::hmatf::identity(), linal::hmatf::identity(), linal::float3{0.0F, 0.0F, 1.0F}, lighting);
+    const linal::hmatf identity = linal::hmatf::identity();
+    const opengl::FrameUniforms frame = opengl::make_frame_uniforms(identity,
+                                                                    identity,
+                                                                    identity,
+                                                                    identity,
+                                                                    linal::float3{0.0F, 0.0F, 1.0F},
+                                                                    lighting.lightPosition,
+                                                                    lighting,
+                                                                    linal::float2{64.0F, 64.0F},
+                                                                    false);
+    manager->update_frame_uniforms(frame);
+    manager->draw_meshes(linal::double3{0.0, 0.0, 1.0});
     std::array<std::uint8_t, 4> pixel{};
     glReadPixels(16, 16, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
     opengl::Framebuffer::unbind();

@@ -54,10 +54,6 @@ linal::hmatf matrix() {
     return result;
 }
 
-linal::float2 viewport() {
-    return linal::float2{800.0F, 600.0F};
-}
-
 linal::hmatf make_translation(float x, float y, float z) {
     linal::hmatf result = linal::hmatf::identity();
     result.set_translation(linal::vec3<float>{x, y, z});
@@ -235,7 +231,7 @@ TEST_F(OpenGLDrawableTest, PointDrawableUpdatesDrawsAndMoveAssigns) {
     drawable.update_point_drawable(updatedVertices, opaqueColors, emptyIndices, opengl::BufferAccessPattern::Dynamic);
     EXPECT_FALSE(drawable.has_opaque_primitives());
     EXPECT_FALSE(drawable.has_translucent_primitives());
-    drawable.draw_opaque(matrix(), linal::hmatf::identity());
+    drawable.draw_opaque(linal::hmatf::identity());
 
     const std::vector<std::uint32_t> translucentIndices = {1U};
     drawable.update_point_drawable(updatedVertices,
@@ -244,8 +240,8 @@ TEST_F(OpenGLDrawableTest, PointDrawableUpdatesDrawsAndMoveAssigns) {
                                    opengl::BufferAccessPattern::Dynamic);
     EXPECT_FALSE(drawable.has_opaque_primitives());
     EXPECT_TRUE(drawable.has_translucent_primitives());
-    drawable.draw(matrix(), linal::hmatf::identity());
-    drawable.draw_translucent(matrix(), linal::hmatf::identity(), linal::double3{0.0, 0.0, 2.0});
+    drawable.draw(linal::hmatf::identity());
+    drawable.draw_translucent(linal::hmatf::identity(), linal::double3{0.0, 0.0, 2.0});
 
     opengl::PointDrawable destination = make_point_drawable_with_alpha(program, opaqueColors);
     destination = std::move(drawable);
@@ -312,7 +308,7 @@ TEST_F(OpenGLDrawableTest, LineDrawableUpdatesDrawsWithoutPointPassAndMoveAssign
     drawable.update_line_drawable(updatedVertices, opaqueColors, emptyIndices, opengl::BufferAccessPattern::Dynamic);
     EXPECT_FALSE(drawable.has_opaque_primitives());
     EXPECT_FALSE(drawable.has_translucent_primitives());
-    drawable.draw_opaque(matrix(), linal::hmatf::identity(), viewport());
+    drawable.draw_opaque(linal::hmatf::identity());
 
     const std::vector<std::uint32_t> translucentIndices = {2U, 3U};
     drawable.update_line_drawable(updatedVertices,
@@ -321,8 +317,8 @@ TEST_F(OpenGLDrawableTest, LineDrawableUpdatesDrawsWithoutPointPassAndMoveAssign
                                   opengl::BufferAccessPattern::Dynamic);
     EXPECT_FALSE(drawable.has_opaque_primitives());
     EXPECT_TRUE(drawable.has_translucent_primitives());
-    drawable.draw(matrix(), linal::hmatf::identity(), viewport());
-    drawable.draw_translucent(matrix(), linal::hmatf::identity(), viewport(), linal::double3{0.0, 0.0, 2.0});
+    drawable.draw(linal::hmatf::identity());
+    drawable.draw_translucent(linal::hmatf::identity(), linal::double3{0.0, 0.0, 2.0});
 
     opengl::LineDrawable destination = make_line_drawable_with_alpha(program, opaqueColors);
     destination = std::move(drawable);
@@ -364,21 +360,7 @@ TEST_F(OpenGLDrawableTest, MeshDrawableUpdatesDrawsAndMoveAssigns) {
     EXPECT_FALSE(drawable.is_translucent());
     drawable.update_color_buffer(translucentColors, opengl::BufferAccessPattern::Dynamic);
     EXPECT_TRUE(drawable.is_translucent());
-    drawable.draw(matrix(),
-                  matrix(),
-                  matrix(),
-                  matrix(),
-                  linal::float3{0.0F, 0.0F, 1.0F},
-                  linal::float3{0.0F, 0.0F, 2.0F},
-                  linal::float3{1.0F, 1.0F, 1.0F},
-                  linal::float3{-0.45F, 0.60F, 0.35F},
-                  linal::float3{0.2F, 0.2F, 0.3F},
-                  linal::float3{0.1F, 0.1F, 0.1F},
-                  8.0F,
-                  linal::float3{1.0F, 0.0F, 0.0F},
-                  linal::float3{1.0F, 1.0F, 1.0F},
-                  linal::float3{1.0F, 1.0F, 1.0F},
-                  linal::float3{1.0F, 1.0F, 1.0F});
+    drawable.draw(matrix(), matrix());
 
     opengl::MeshDrawable destination = make_mesh_drawable_with_alpha(program, opaqueColors);
     destination = std::move(drawable);
@@ -513,11 +495,11 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerUpdatesClearsAndDrawsTransparentPoint
     EXPECT_TRUE(manager->has_line_drawables());
     EXPECT_FALSE(manager->has_mesh_drawables());
 
-    manager->draw_points(matrix());
-    manager->draw_lines(matrix(), viewport());
+    manager->draw_points();
+    manager->draw_lines();
 
     glDepthMask(GL_TRUE);
-    manager->draw_lines_and_points(matrix(), viewport(), linal::double3{0.0, 0.0, 0.0});
+    manager->draw_lines_and_points(linal::double3{0.0, 0.0, 0.0});
     GLboolean depthMask = GL_FALSE;
     glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
     EXPECT_EQ(GL_TRUE, depthMask);
@@ -579,14 +561,7 @@ TEST_F(OpenGLDrawableTest, DrawablesManagerDrawsTransparentMeshesAndRestoresCull
 
     glEnable(GL_CULL_FACE);
     glDepthMask(GL_TRUE);
-    opengl::LightingConfig lighting;
-    lighting.lightPosition = linal::float3{0.0F, 0.0F, 1.0F};
-    lighting.lightColor = linal::float3{1.0F, 1.0F, 1.0F};
-    lighting.fillLightDir = linal::float3{-0.45F, 0.60F, 0.35F};
-    lighting.fillLightColor = linal::float3{0.2F, 0.2F, 0.3F};
-    lighting.ambientColor = linal::float3{0.1F, 0.1F, 0.1F};
-    lighting.shininess = 8.0F;
-    manager->draw_meshes(matrix(), matrix(), linal::float3{0.0F, 0.0F, 0.0F}, lighting);
+    manager->draw_meshes(linal::double3{0.0, 0.0, 0.0});
 
     GLboolean depthMask = GL_FALSE;
     glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMask);
@@ -808,13 +783,13 @@ TEST_F(OpenGLDrawableTest, PointAndLineDrawableDrawWithNonIdentityModelMatrix) {
 
     // Smoke test only: confirm passing a real, non-identity model matrix through the whole
     // draw path doesn't crash/assert.
-    pointDrawable.draw(matrix(), translation);
-    pointDrawable.draw_opaque(matrix(), translation);
-    pointDrawable.draw_translucent(matrix(), translation, linal::double3{0.0, 0.0, 5.0});
+    pointDrawable.draw(translation);
+    pointDrawable.draw_opaque(translation);
+    pointDrawable.draw_translucent(translation, linal::double3{0.0, 0.0, 5.0});
 
-    lineDrawable.draw(matrix(), translation, viewport());
-    lineDrawable.draw_opaque(matrix(), translation, viewport());
-    lineDrawable.draw_translucent(matrix(), translation, viewport(), linal::double3{0.0, 0.0, 5.0});
+    lineDrawable.draw(translation);
+    lineDrawable.draw_opaque(translation);
+    lineDrawable.draw_translucent(translation, linal::double3{0.0, 0.0, 5.0});
 }
 
 TEST_F(OpenGLDrawableTest, MeshDrawableDrawsWithNonIdentityModelMatrix) {
@@ -836,21 +811,7 @@ TEST_F(OpenGLDrawableTest, MeshDrawableDrawsWithNonIdentityModelMatrix) {
     opengl::MeshDrawable drawable = make_mesh_drawable_with_alpha(program, colors);
 
     const linal::hmatf translation = make_translation(1.0F, 2.0F, 3.0F);
-    drawable.draw(translation,
-                  matrix(),
-                  matrix(),
-                  translation,
-                  linal::float3{0.0F, 0.0F, 1.0F},
-                  linal::float3{0.0F, 0.0F, 2.0F},
-                  linal::float3{1.0F, 1.0F, 1.0F},
-                  linal::float3{-0.45F, 0.60F, 0.35F},
-                  linal::float3{0.2F, 0.2F, 0.3F},
-                  linal::float3{0.1F, 0.1F, 0.1F},
-                  8.0F,
-                  linal::float3{1.0F, 0.0F, 0.0F},
-                  linal::float3{1.0F, 1.0F, 1.0F},
-                  linal::float3{1.0F, 1.0F, 1.0F},
-                  linal::float3{1.0F, 1.0F, 1.0F});
+    drawable.draw(translation, translation);
 }
 
 TEST_F(OpenGLDrawableTest, DrawablesManagerTransformAccessorsRoundTripAndRejectUnknownIds) {

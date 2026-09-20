@@ -3,6 +3,7 @@
 
 #include "OpenGL/OpenGL.hpp"
 #include "OpenGL/Programs/ProgramId.hpp"
+#include "plinth/Assert.hpp"
 
 #include <string>
 #include <system_error>
@@ -11,6 +12,14 @@
 #include <variant>
 
 namespace opengl {
+
+// Binds the named std140 uniform block to \p bindingPoint. Asserts when the block is not found
+// (the shader contract requires the block to be present and active).
+inline void bind_uniform_block(const ProgramId& program, const char* blockName, GLuint bindingPoint) {
+    const GLuint blockIndex = glGetUniformBlockIndex(program.get_value(), blockName);
+    RENDERER_ASSERT(blockIndex != GL_INVALID_INDEX);
+    glUniformBlockBinding(program.get_value(), blockIndex, bindingPoint);
+}
 
 enum class ProgramCreationFailureStage {
     Success = 0,

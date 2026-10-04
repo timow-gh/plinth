@@ -40,6 +40,10 @@ inputs:
     description: 'When true, install xvfb and execute ctest through xvfb-run'
     required: false
     default: 'false'
+  cache_key:
+    description: 'Distinguishes vcpkg binary caches of jobs whose compiler or flags differ'
+    required: false
+    default: 'default'
 
 runs:
   using: "composite"
@@ -83,6 +87,19 @@ runs:
         echo "build=build-${BASE_NAME}" >> $GITHUB_OUTPUT
         echo "test=test-${BASE_NAME}" >> $GITHUB_OUTPUT
       shell: bash
+
+    # vcpkg's default binary cache lives in ~/.cache/vcpkg/archives. Persisting it
+    # avoids rebuilding every port from source in each job, including the nested
+    # configures run by the install and FetchContent consumer tests.
+    # ImageVersion is part of the key because a runner image update changes the
+    # compiler and therefore vcpkg's ABI hashes; an exact hit is never re-saved.
+    - name: Cache vcpkg binaries
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/vcpkg/archives
+        key: vcpkg-${{ runner.os }}-${{ inputs.cache_key }}-${{ env.ImageVersion }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-${{ runner.os }}-${{ inputs.cache_key }}-
 
     - name: Configure
       run: |

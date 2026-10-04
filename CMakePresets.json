@@ -365,6 +365,23 @@
       }
     },
     {
+      "name": "conf-asan-ubsan-common",
+      "description": "Common combined AddressSanitizer + UndefinedBehaviorSanitizer settings for Unix-like OS",
+      "hidden": true,
+      "inherits": [
+        "conf-unix-common",
+        "conf-no-install-smoke-test"
+      ],
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g",
+        "CMAKE_C_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_MODULE_LINKER_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_STATIC_LINKER_FLAGS": ""
+      }
+    },
+    {
       "name": "conf-coverage-common",
       "description": "Common code coverage settings for Unix-like OS with GCC",
       "hidden": true,
@@ -475,6 +492,27 @@
         "CMAKE_SHARED_LINKER_FLAGS": "-stdlib=libstdc++ -fsanitize=undefined",
         "CMAKE_MODULE_LINKER_FLAGS": "-stdlib=libstdc++ -fsanitize=undefined"
       }
+    },
+    {
+      "name": "conf-clang-asan-ubsan-runtime-common",
+      "description": "Common Clang combined AddressSanitizer + UndefinedBehaviorSanitizer runtime settings",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-stdlib=libstdc++ -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g",
+        "CMAKE_EXE_LINKER_FLAGS": "-stdlib=libstdc++ -fsanitize=address,undefined",
+        "CMAKE_SHARED_LINKER_FLAGS": "-stdlib=libstdc++ -fsanitize=address,undefined",
+        "CMAKE_MODULE_LINKER_FLAGS": "-stdlib=libstdc++ -fsanitize=address,undefined"
+      }
+    },
+    {
+      "name": "conf-clang-debug-asan-ubsan",
+      "displayName": "clang Debug + AddressSanitizer + UndefinedBehaviorSanitizer",
+      "description": "Debug build with ASan and UBSan; UBSan findings abort instead of only printing",
+      "inherits": [
+        "conf-clang-asan-ubsan-runtime-common",
+        "conf-clang-debug",
+        "conf-asan-ubsan-common"
+      ]
     },
     {
       "name": "conf-clang-debug-asan",
@@ -698,6 +736,12 @@
       "inherits": "build-debug",
       "configurePreset": "conf-clang-debug-asan",
       "displayName": "clang Debug + ASAN Build"
+    },
+    {
+      "name": "build-clang-debug-asan-ubsan",
+      "inherits": "build-debug",
+      "configurePreset": "conf-clang-debug-asan-ubsan",
+      "displayName": "clang Debug + ASAN + UBSAN Build"
     },
     {
       "name": "build-clang-debug-tsan",
@@ -1076,6 +1120,17 @@
         "test-debug"
       ],
       "configurePreset": "conf-clang-debug-asan"
+    },
+    {
+      "name": "test-clang-debug-asan-ubsan",
+      "displayName": "clang Debug + ASAN + UBSAN Tests",
+      "description": "Tests with AddressSanitizer and UndefinedBehaviorSanitizer enabled",
+      "inherits": [
+        "test-unix-common",
+        "test-asan-common",
+        "test-debug"
+      ],
+      "configurePreset": "conf-clang-debug-asan-ubsan"
     },
     {
       "name": "test-clang-debug-tsan",
@@ -1758,6 +1813,25 @@
         {
           "type": "test",
           "name": "test-clang-debug-asan"
+        }
+      ]
+    },
+    {
+      "name": "workflow-test-clang-debug-asan-ubsan",
+      "displayName": "Clang Debug + ASAN + UBSAN Workflow",
+      "description": "Configure, build and test with Clang, AddressSanitizer and UndefinedBehaviorSanitizer",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "conf-clang-debug-asan-ubsan"
+        },
+        {
+          "type": "build",
+          "name": "build-clang-debug-asan-ubsan"
+        },
+        {
+          "type": "test",
+          "name": "test-clang-debug-asan-ubsan"
         }
       ]
     },

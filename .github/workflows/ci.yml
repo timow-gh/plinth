@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A new push to a PR supersedes the previous run; runs on main always complete.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # Release rather than debug: GCC's flow-sensitive warnings (e.g.
+  # -Wnull-dereference, -Wmaybe-uninitialized) only fire with optimization,
+  # and NDEBUG exposes variables used only in asserts. Static libs cover the
+  # static consumer path; clang and MSVC cover shared.
+  linux-gcc:
+    runs-on: ubuntu-24.04
+    name: Linux - gcc - release - static
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ubuntu-build-steps
+        with:
+          cmake_workflow: workflow-test-gcc-release
+          build_shared_libs: 'OFF'
+          install_tools: doxygen
+          configure_args: -Dplinth_STATIC_ANALYSIS=OFF -Dplinth_BUILD_DOCUMENTATION=ON
+          test_label_regex: unit|consumer|graphics
+          use_xvfb: 'true'
+          cache_key: gcc-release
+
+      - name: Build documentation
+        run: cmake --build --preset build-gcc-release --target docs
+        shell: bash
+
+  # One clang job checks compiler warnings, clang-tidy, asserts, and ASan/UBSan.
+  # Consumer tests are left to the gcc and msvc jobs because the sanitizer
+  # presets disable the install smoke test.
+  linux-clang:
+    runs-on: ubuntu-24.04
+    name: Linux - clang - debug - tidy + asan/ubsan
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/ubuntu-build-steps
+        with:
+          cmake_workflow: workflow-test-clang-debug-asan-ubsan
+          install_tools: clang-tidy-20
+          # Ninja -k 0 keeps building independent targets after failures, so
+          # clang-tidy reports as many compile and analysis issues as possible.
+          build_native_args: "-k 0"
+          test_label_regex: unit|graphics
+          use_xvfb: 'true'
+          cache_key: clang-debug-asan-ubsan
+
+  windows-msvc:
+    runs-on: windows-latest
+    name: Windows - msvc - debug
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set VCPKG_ROOT
+        run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Setup MSVC
+        uses: microsoft/setup-msbuild@v2
+
+      # See ubuntu-build-steps for why the image version is part of the key.
+      - name: Cache vcpkg binaries
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\vcpkg\archives
+          key: vcpkg-${{ runner.os }}-msvc-${{ env.ImageVersion }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-msvc-
+
+      - name: Configure
+        run: |
+          cmake --preset conf-msvc-debug -DBUILD_SHARED_LIBS=ON
+        shell: pwsh
+
+      - name: Build
+        run: |
+          # vcpkg's z-applocal deploys every target into the same bin/Debug
+          # directory. Parallel MSBuild targets can race while copying DLLs.
+          cmake --build --preset build-msvc-debug --parallel 1
+        shell: pwsh
+
+      - name: Install Mesa3D (software OpenGL for headless tests)
+        # windows-latest runners have no GPU. The system opengl32.dll in
+        # System32 only implements OpenGL 1.1, so glfwCreateWindow fails when
+        # asked for a 3.3 Core Profile context.
+        #
+        # Mesa3D ships a drop-in opengl32.dll backed by LLVMpipe (a CPU
+        # software renderer that supports OpenGL 4.5).  opengl32.dll is NOT a
+        # Windows KnownDLL, so it is resolved via the normal DLL search order:
+        # the executable's own directory is searched before System32.  Copying
+        # Mesa's opengl32.dll alongside each test .exe is therefore enough to
+        # make Windows load Mesa instead of the system stub, giving GLFW a
+        # working OpenGL 3.3 Core Profile context on the CPU.
+        run: |
+          $MesaVersion = "24.3.4"
+          $MesaAsset = "mesa3d-${MesaVersion}-release-msvc.7z"
+          $MesaUrl = "https://github.com/pal1000/mesa-dist-win/releases/download/${MesaVersion}/${MesaAsset}"
+          Invoke-WebRequest -Uri $MesaUrl -OutFile $MesaAsset
+          7z x $MesaAsset -oMesa -y
+          # Copy ALL Mesa x64 DLLs next to every test executable.
+          # Mesa 21+ splits the driver: opengl32.dll is only an ICD loader;
+          # the actual LLVMpipe implementation lives in libgallium_wgl.dll
+          # (and related DLLs).  All of them must be co-located with the
+          # executable for Mesa to initialise successfully.
+          Get-ChildItem -Path "out/build/conf-msvc-debug" `
+            -Filter "*.exe" -Recurse |
+            Select-Object -ExpandProperty DirectoryName -Unique |
+            ForEach-Object { Copy-Item "Mesa\x64\*.dll" "$_\" -Force }
+        shell: pwsh
+
+      - name: Test
+        run: |
+          ctest --preset test-msvc-debug --label-regex "unit|consumer|graphics"
+        shell: pwsh
+
+  # Single status check to require in branch protection.
+  ci-passed:
+    runs-on: ubuntu-latest
+    name: ci-passed
+    needs: [linux-gcc, linux-clang, windows-msvc]
+    if: always()
+    steps:
+      - name: Check job results
+        run: |
+          if [ "${{ needs.linux-gcc.result }}" != "success" ] || [ "${{ needs.linux-clang.result }}" != "success" ] || [ "${{ needs.windows-msvc.result }}" != "success" ]; then
+            echo "CI failed"
+            exit 1
+          fi
+          echo "All CI jobs passed"

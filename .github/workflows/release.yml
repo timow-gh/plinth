@@ -19,6 +19,7 @@ jobs:
           build_shared_libs: 'ON'
           configure_args: -Dplinth_STATIC_ANALYSIS=OFF
           test_label_regex: consumer
+          cache_key: gcc-release
 
   validate-consumers-static:
     runs-on: ubuntu-24.04
@@ -31,6 +32,7 @@ jobs:
           build_shared_libs: 'OFF'
           configure_args: -Dplinth_STATIC_ANALYSIS=OFF
           test_label_regex: consumer
+          cache_key: gcc-release
 
   create-release:
     needs: [validate-consumers-shared, validate-consumers-static]

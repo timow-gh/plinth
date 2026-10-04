@@ -13,7 +13,7 @@
 // With the fix ON the creases stay crisp on the paper at every angle. Toggle it OFF and the
 // creases z-fight the paper. The bias is opt-in: depthLayer == 0 applies NO nudge (the true
 // no-bias baseline that actually z-fights), and a positive depthLayer pushes the creases a
-// per-layer step toward the camera (LineDrawable.cpp kDepthLayerStep), clearly in front.
+// per-layer step toward the camera (apply_depth_layer in ShaderSources.cpp), clearly in front.
 
 #include "example_preset_views.hpp"
 

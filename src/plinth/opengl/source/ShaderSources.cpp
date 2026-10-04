@@ -23,17 +23,64 @@ std::string frame_uniform_block_glsl() {
 )";
 }
 
+namespace {
+
+// Opt-in camera-ward depth nudge shared by the line and point vertex shaders, so lines and points on
+// the same depthLayer stack consistently. Must follow frame_uniform_block_glsl(). depthLayer == 0
+// applies NO bias, so default lines and points depth-test normally and can be occluded.
+//
+// Perspective moves the vertex toward the eye by a fixed fraction of its view depth. A constant NDC
+// offset would instead grow as depth^2/near in world units: once the per-frame clip-plane fit pulls
+// the near plane in (zooming in close, or geometry behind the camera), lines hidden just behind a
+// face would bleed through it. Scaling the view-space point by s keeps clip.xyw unchanged and adds
+// |P[3][2]| * (1/s - 1) to clip.z, toward the near plane under either depth convention.
+//
+// Orthographic depth is linear in view depth, so a constant NDC step already is a constant world
+// offset and is kept as is.
+//
+// Shader-side rather than glPolygonOffset: its factor*maxSlope + r*units collapses to a
+// driver-dependent r*units for lines facing the camera, so it cannot guarantee that layer N+1 is
+// always in front of layer N.
+std::string depth_layer_glsl() {
+    return R"(
+const float kRelativeDepthLayerStep = 1.0e-4; // perspective: fraction of view depth per layer
+const float kOrthoDepthLayerStep    = 5.0e-5; // orthographic: NDC depth per layer
+
+vec4 apply_depth_layer(vec4 clip, int depthLayer) {
+    if (depthLayer <= 0) {
+        return clip;
+    }
+    // zeroToOneDepth is paired with reversed Z: the near plane is at z = +w, otherwise at z = -w.
+    float nearSign   = u_parameters.y > 0.5 ? 1.0 : -1.0;
+    bool  insideNear = nearSign * clip.z <= clip.w;
+    if (abs(u_projection[3][3]) > 0.5) {
+        clip.z += nearSign * float(depthLayer) * kOrthoDepthLayerStep * clip.w;
+    } else {
+        float scale = max(1.0 - float(depthLayer) * kRelativeDepthLayerStep, 0.5);
+        clip.z += nearSign * abs(u_projection[3][2]) * (1.0 / scale - 1.0);
+    }
+    // Never push a visible vertex past the near plane; leave one already beyond it to be clipped.
+    if (insideNear) {
+        clip.z = nearSign * min(nearSign * clip.z, clip.w);
+    }
+    return clip;
+}
+)";
+}
+
+} // namespace
+
 std::string line_vertex_shader_source() {
     return
         R"(#version 330 core
 
-)" + frame_uniform_block_glsl() + R"(
+)" + frame_uniform_block_glsl() + depth_layer_glsl() + R"(
 uniform mat4  u_model;
 uniform float u_lineWidth;
 uniform int   u_dashSpace;    // 0 = World, 1 = Screen
 uniform int   u_capStyle;     // 0 = Butt, 1 = Square, 2 = Round
 uniform int   u_joinStyle;    // 0 = Miter, 1 = Bevel, 2 = Round
-uniform float u_depthBias;    // signed camera-ward clip-depth nudge; keeps coplanar lines above faces
+uniform int   u_depthLayer;   // camera-ward nudge so coplanar lines beat faces (see apply_depth_layer)
 
 // Shared unit quad (divisor 0): x in {0,1} selects endpoint, y in {-0.5,0.5} selects side.
 in vec2 a_corner;
@@ -99,14 +146,8 @@ void main() {
     vec2 ndcOffset   = totalOffset / (0.5 * u_viewportSize.xy);
     clip.xy += ndcOffset * clip.w;
 
-    // Nudge the line toward the camera in clip space so coplanar lines beat faces (and stack
-    // deterministically by layer). u_depthBias is already signed for the active depth convention
-    // on the CPU (reversed-Z near = +Z, legacy near = -Z). Bias is applied in NDC then
-    // re-multiplied by w so it survives the perspective divide. Clamp into the clip range so a
-    // near-plane vertex is not pushed past the near plane and clipped away under either convention.
-    clip.z = clamp(clip.z + u_depthBias * clip.w, -clip.w, clip.w);
-
-    gl_Position = clip;
+    // Nudge the line toward the camera so coplanar lines beat faces and stack by layer.
+    gl_Position = apply_depth_layer(clip, u_depthLayer);
 
     float worldArc1 = arc0 + distance(p0, p1);
     float worldArc  = mix(arc0, worldArc1, t);
@@ -239,10 +280,10 @@ std::string point_color_vertex_shader_source() {
     return
         R"(#version 330
 
-)" + frame_uniform_block_glsl() + R"(
+)" + frame_uniform_block_glsl() + depth_layer_glsl() + R"(
 uniform mat4 u_model;
 uniform float u_pointSize;
-uniform float u_depthBias; // signed camera-ward clip-depth nudge; keeps coplanar points above faces
+uniform int u_depthLayer; // camera-ward nudge so coplanar points beat faces (see apply_depth_layer)
 
 in vec3 a_vertex;
 in vec4 a_color;
@@ -251,11 +292,7 @@ out vec4 v_color;
 
 void main() {
     vec4 clip = u_viewProjection * u_model * vec4(a_vertex, 1.0);
-    // Opt-in nudge toward the camera so a point coplanar with a face beats it (see u_depthBias).
-    // Sign is baked in on the CPU for the active depth convention; clamp so a near-plane point is
-    // not pushed past the near plane and clipped away.
-    clip.z = clamp(clip.z + u_depthBias * clip.w, -clip.w, clip.w);
-    gl_Position = clip;
+    gl_Position = apply_depth_layer(clip, u_depthLayer);
     gl_PointSize = u_pointSize;
     v_color = a_color;
 })";

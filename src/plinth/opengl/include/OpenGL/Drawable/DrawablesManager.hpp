@@ -427,12 +427,6 @@ class DrawablesManager {
     bool set_line_depth_layer(DrawableId id, std::int32_t depthLayer) {
         return mutate_line_drawable_by_id(id, [depthLayer](opengl::LineDrawable& d) { d.set_depth_layer(depthLayer); });
     }
-    // Reversed-Z is a lifetime-constant GPU property; forwarded to the shared line/point programs so
-    // their depth-bias nudge (lines/points-on-faces / layering) picks the correct camera-ward sign.
-    void set_line_reversed_depth(bool reversedDepth) {
-        get_line_program().set_reversed_depth(reversedDepth);
-        get_point_program().set_reversed_depth(reversedDepth);
-    }
     bool set_line_dash_pattern(DrawableId id, std::span<const float> pattern) {
         return mutate_line_drawable_by_id(id, [pattern](opengl::LineDrawable& d) { d.set_line_dash_pattern(pattern); });
     }

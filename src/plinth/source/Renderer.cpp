@@ -464,10 +464,6 @@ Renderer::Renderer(GlfwWindow window,
     // Preserve the historical Renderer default. CameraAutoFitSettings itself
     // remains enabled by default for direct calculate_camera_auto_fit callers.
     m_cameraAutoFitSettings.enabled = false;
-
-    // Reversed-Z is a lifetime-constant GPU property; hand it to the line program once so its
-    // depth-bias nudge (lines-on-faces / layering) picks the correct camera-ward direction.
-    m_drawablesManager->set_line_reversed_depth(m_reversedDepth);
 }
 
 void Renderer::on_cursor_pos(double xpos, double ypos) {

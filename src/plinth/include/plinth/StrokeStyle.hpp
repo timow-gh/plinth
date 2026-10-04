@@ -49,11 +49,13 @@ struct StrokeStyle {
     DashSpace dashSpace{DashSpace::Screen};
 
     /// Render priority for coplanar / overlapping lines; higher = closer to the camera.
-    /// The renderer nudges lines toward the camera in clip space to beat coplanar faces
-    /// (e.g. crease lines drawn on paper) and stacks them by this value so overlapping
-    /// lines resolve in a stable, flicker-free order instead of by sub-pixel depth noise.
+    /// The renderer nudges lines toward the camera to beat coplanar faces (e.g. crease lines
+    /// drawn on paper) and stacks them by this value so overlapping lines resolve in a stable,
+    /// flicker-free order instead of by sub-pixel depth noise.
     /// 0 = default surface layer with NO bias (depth-tests normally, can be occluded);
-    /// each integer step adds a guaranteed depth gap between layers.
+    /// each integer step adds a guaranteed depth gap between layers. In perspective the nudge is
+    /// a small fraction of the line's distance from the camera (1e-4 per layer), so it stays
+    /// equally small at any zoom and lines hidden just behind a face stay hidden.
     std::int32_t depthLayer{0};
 };
 

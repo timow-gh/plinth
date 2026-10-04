@@ -30,7 +30,7 @@ class OPENGL_EXPORT LineProgram {
     Uniform m_joinStyleLocation;
     Uniform m_dashPatternCountLocation;
     Uniform m_dashPatternLocation;
-    Uniform m_depthBiasLocation;
+    Uniform m_depthLayerLocation;
     Attribute m_cornerLocation;
     Attribute m_p0Location;
     Attribute m_p1Location;
@@ -38,7 +38,6 @@ class OPENGL_EXPORT LineProgram {
     Attribute m_color1Location;
     Attribute m_pPrevLocation;
     Attribute m_pNextLocation;
-    bool m_reversedDepth{false};
 
   public:
     LineProgram() noexcept = default;
@@ -53,7 +52,7 @@ class OPENGL_EXPORT LineProgram {
                 Uniform joinStyleLocation,
                 Uniform dashPatternCountLocation,
                 Uniform dashPatternLocation,
-                Uniform depthBiasLocation,
+                Uniform depthLayerLocation,
                 Attribute cornerLocation,
                 Attribute p0Location,
                 Attribute p1Location,
@@ -94,13 +93,7 @@ class OPENGL_EXPORT LineProgram {
         return m_dashPatternCountLocation.get_location();
     }
     [[nodiscard]] constexpr Location get_dash_pattern_location() const { return m_dashPatternLocation.get_location(); }
-    [[nodiscard]] constexpr Location get_depth_bias_location() const { return m_depthBiasLocation.get_location(); }
-
-    /// Reversed-Z is a lifetime-constant GPU property (see GpuCapabilities::supportsClipControl),
-    /// set once after program creation. It selects the sign of the depth-bias baked into
-    /// u_depthBias on the CPU so coplanar lines are pushed toward the camera under both conventions.
-    void set_reversed_depth(bool reversedDepth) noexcept { m_reversedDepth = reversedDepth; }
-    [[nodiscard]] bool get_reversed_depth() const noexcept { return m_reversedDepth; }
+    [[nodiscard]] constexpr Location get_depth_layer_location() const { return m_depthLayerLocation.get_location(); }
 
     void use() const;
 
@@ -117,8 +110,7 @@ class OPENGL_EXPORT LineProgram {
         m_joinStyleLocation = std::move(other.m_joinStyleLocation);
         m_dashPatternCountLocation = std::move(other.m_dashPatternCountLocation);
         m_dashPatternLocation = std::move(other.m_dashPatternLocation);
-        m_depthBiasLocation = std::move(other.m_depthBiasLocation);
-        m_reversedDepth = other.m_reversedDepth;
+        m_depthLayerLocation = std::move(other.m_depthLayerLocation);
         m_cornerLocation = std::move(other.m_cornerLocation);
         m_p0Location = std::move(other.m_p0Location);
         m_p1Location = std::move(other.m_p1Location);

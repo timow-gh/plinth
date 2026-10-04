@@ -46,18 +46,6 @@ PointDrawable::PointDrawable(PointProgram& program,
     , m_transparencyInfo(transparencyInfo) {
 }
 
-namespace {
-// Opt-in signed camera-ward clip-depth bias for points, mirroring LineDrawable. depthLayer == 0
-// yields 0 so default points depth-test normally. Keep the per-layer step identical to the line
-// path's kDepthLayerStep so points and lines on the same layer stack consistently.
-constexpr float kPointDepthLayerStep = 5.0e-5F;
-
-float signed_point_depth_bias(std::int32_t depthLayer, bool reversedDepth) {
-    const float bias = static_cast<float>(depthLayer) * kPointDepthLayerStep;
-    return reversedDepth ? bias : -bias;
-}
-} // namespace
-
 PointDrawable::PointDrawable(PointDrawable&& other) noexcept
     : m_program(std::exchange(other.m_program, nullptr))
     , m_vertexArray(std::move(other.m_vertexArray))
@@ -153,7 +141,7 @@ void PointDrawable::draw_index_buffer(const linal::hmatf& modelMatrix, const Ind
     auto& prog = *m_program;
     prog.use();
     glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
-    glUniform1f(prog.get_depth_bias_location().get_value(), signed_point_depth_bias(m_depthLayer, prog.get_reversed_depth()));
+    glUniform1i(prog.get_depth_layer_location().get_value(), static_cast<GLint>(m_depthLayer));
     glPointSize(m_pointSize);
     m_vertexArray.bind();
     indexBuffer.bind();
@@ -170,8 +158,7 @@ void PointDrawable::draw_pick(const linal::hmatf& modelMatrix, const std::array<
         }
         prog.use();
         glUniformMatrix4fv(prog.get_model_matrix_location().get_value(), 1, GL_TRUE, modelMatrix.data());
-        glUniform1f(prog.get_depth_bias_location().get_value(),
-                    signed_point_depth_bias(m_depthLayer, prog.get_reversed_depth()));
+        glUniform1i(prog.get_depth_layer_location().get_value(), static_cast<GLint>(m_depthLayer));
         glUniform1i(prog.get_pick_mode_location().get_value(), GL_TRUE);
         glUniform3fv(prog.get_pick_color_location().get_value(), 1, pickColor.data());
         glPointSize(m_pointSize);
